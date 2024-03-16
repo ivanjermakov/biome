@@ -227,6 +227,14 @@ enum Reference {
     /// a += 1;
     /// ```
     Write(TextRange),
+    /// TS_QUALIFIED_NAME
+    /// ```ts
+    /// namespace A {
+    ///   type B = number;
+    /// }
+    /// let a: A.B = 1;
+    /// ```
+    Qualified(TextRange),
 }
 
 impl Reference {
@@ -241,7 +249,8 @@ impl Reference {
             | Self::ExportType(range)
             | Self::Read(range)
             | Self::Typeof(range)
-            | Self::Write(range) => range,
+            | Self::Write(range)
+            | Self::Qualified(range) => range,
         }
     }
 }
@@ -379,16 +388,24 @@ impl SemanticEventExtractor {
             if let Some(declaration) = node.declaration() {
                 let is_exported = declaration.export().is_some();
                 match declaration {
+                    AnyJsBindingDeclaration::JsArrayBindingPatternElement(_)
+                    | AnyJsBindingDeclaration::JsArrayBindingPatternRestElement(_)
+                    | AnyJsBindingDeclaration::JsObjectBindingPatternProperty(_)
+                    | AnyJsBindingDeclaration::JsObjectBindingPatternRest(_)
+                    | AnyJsBindingDeclaration::JsObjectBindingPatternShorthandProperty(_) => {
+                        if let Some(AnyJsBindingDeclaration::JsVariableDeclarator(declarator)) =
+                            declaration.parent_binding_pattern_declaration()
+                        {
+                            if declarator.declaration().map_or(false, |x| x.is_var()) {
+                                hoisted_scope_id = self.scope_index_to_hoist_declarations(0)
+                            }
+                        }
+                        self.push_binding(hoisted_scope_id, BindingName::Value(name), info);
+                    }
                     AnyJsBindingDeclaration::JsVariableDeclarator(declarator) => {
-                        let is_var = declarator
-                            .declaration()
-                            .map(|x| x.is_var())
-                            .unwrap_or(false);
-                        hoisted_scope_id = if is_var {
-                            self.scope_index_to_hoist_declarations(0)
-                        } else {
-                            None
-                        };
+                        if declarator.declaration().map_or(false, |x| x.is_var()) {
+                            hoisted_scope_id = self.scope_index_to_hoist_declarations(0)
+                        }
                         self.push_binding(hoisted_scope_id, BindingName::Value(name), info);
                     }
                     AnyJsBindingDeclaration::TsDeclareFunctionDeclaration(_)
@@ -548,7 +565,17 @@ impl SemanticEventExtractor {
                         .kind()
                     {
                         Some(TS_REFERENCE_TYPE | TS_NAME_WITH_TYPE_ARGUMENTS) => {
-                            self.push_reference(BindingName::Type(name), Reference::Read(range));
+                            if matches!(node.syntax().parent().kind(), Some(TS_QUALIFIED_NAME)) {
+                                self.push_reference(
+                                    BindingName::Value(name),
+                                    Reference::Qualified(range),
+                                )
+                            } else {
+                                self.push_reference(
+                                    BindingName::Type(name),
+                                    Reference::Read(range),
+                                );
+                            }
                         }
                         // ignore binding `<X>` from `import().<X>`
                         Some(TS_IMPORT_TYPE_QUALIFIER) => return,
@@ -726,7 +753,9 @@ impl SemanticEventExtractor {
                                 }
                             }
                         }
-                        Reference::Read(range) | Reference::Typeof(range) => {
+                        Reference::Read(range)
+                        | Reference::Typeof(range)
+                        | Reference::Qualified(range) => {
                             if declaration_before_reference {
                                 SemanticEvent::Read {
                                     range,
@@ -773,7 +802,7 @@ impl SemanticEventExtractor {
                             // If a dual binding exists, then it exports to the dual binding.
                             continue;
                         }
-                        Reference::Typeof(range) => {
+                        Reference::Typeof(range) | Reference::Qualified(range) => {
                             // A typeof can only use a value,
                             // but also an imported type (with `type` modifier)
                             if let Some(info) = &dual_binding {

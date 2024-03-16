@@ -4,15 +4,21 @@ use biome_console::{markup, BufferConsole, Markup};
 use biome_diagnostics::termcolor::NoColor;
 use biome_diagnostics::{print_diagnostic_to_string, Error};
 use biome_formatter::IndentStyle;
-use biome_fs::{FileSystemExt, MemoryFileSystem};
+use biome_fs::{ConfigName, FileSystemExt, MemoryFileSystem};
 use biome_json_formatter::context::JsonFormatOptions;
 use biome_json_formatter::format_node;
 use biome_json_parser::{parse_json, JsonParserOptions};
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env::{current_exe, temp_dir};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
+
+lazy_static! {
+    static ref TIME_REGEX: Regex = Regex::new("\\s[0-9]+[mµn]?s\\.").unwrap();
+}
 
 #[derive(Default)]
 struct InMessages {
@@ -23,7 +29,9 @@ pub(crate) struct CliSnapshot {
     /// input messages, coming from different sources
     in_messages: InMessages,
     /// the configuration, if set
-    pub configuration: Option<String>,
+    /// First string is the content
+    /// Second string is the name
+    pub configuration: Option<(String, &'static str)>,
     /// file name -> content
     pub files: BTreeMap<String, String>,
     /// messages written in console
@@ -48,7 +56,7 @@ impl CliSnapshot {
     pub fn emit_content_snapshot(&self) -> String {
         let mut content = String::new();
 
-        if let Some(configuration) = &self.configuration {
+        if let Some((configuration, file_name)) = &self.configuration {
             let redacted = redact_snapshot(configuration).unwrap_or(String::new().into());
 
             let parsed = parse_json(&redacted, JsonParserOptions::default());
@@ -62,7 +70,7 @@ impl CliSnapshot {
             .print()
             .expect("printed JSON");
 
-            content.push_str("## `biome.json`\n\n");
+            content.push_str(&format!("## `{file_name}`\n\n"));
             content.push_str("```json");
             content.push('\n');
             content.push_str(formatted.as_code());
@@ -140,11 +148,9 @@ fn redact_snapshot(input: &str) -> Option<Cow<'_, str>> {
     // otherwise at each run we invalid the previous snapshot.
     //
     // This is a workaround, and it might not work for all cases.
-    const PATTERN: &str = "file(s) in ";
-    if let Some(start) = output.find(PATTERN) {
-        output
-            .to_mut()
-            .replace_range(start + PATTERN.len().., "<TIME>");
+    let the_match = TIME_REGEX.find(output.as_ref()).map(|f| f.start()..f.end());
+    if let Some(found) = the_match {
+        output.to_mut().replace_range(found, " <TIME>.");
     }
 
     // Normalize the name of the current executable to "biome"
@@ -162,8 +168,7 @@ fn redact_snapshot(input: &str) -> Option<Cow<'_, str>> {
     // Ref: https://docs.github.com/actions/learn-github-actions/variables#default-environment-variables
     let is_github = std::env::var("GITHUB_ACTIONS")
         .ok()
-        .map(|value| value == "true")
-        .unwrap_or(false);
+        .map_or(false, |value| value == "true");
 
     if is_github {
         // GitHub actions sets the env var GITHUB_ACTIONS=true in CI
@@ -336,12 +341,15 @@ impl From<SnapshotPayload<'_>> for CliSnapshot {
             module_path: _,
         } = payload;
         let mut cli_snapshot = CliSnapshot::from_result(result);
-        let config_path = PathBuf::from("biome.json");
-        let configuration = fs.open(&config_path).ok();
-        if let Some(mut configuration) = configuration {
-            let mut buffer = String::new();
-            if configuration.read_to_string(&mut buffer).is_ok() {
-                cli_snapshot.configuration = Some(buffer);
+
+        for file_name in ConfigName::file_names() {
+            let config_path = PathBuf::from(file_name);
+            let configuration = fs.open(&config_path).ok();
+            if let Some(mut configuration) = configuration {
+                let mut buffer = String::new();
+                if configuration.read_to_string(&mut buffer).is_ok() {
+                    cli_snapshot.configuration = Some((buffer, file_name));
+                }
             }
         }
 

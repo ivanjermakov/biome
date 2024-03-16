@@ -54,14 +54,6 @@ check.js:1:1 lint/correctness/noInvalidNewBuiltin  FIXABLE  ━━━━━━�
 ```
 
 ```block
-check.js lint ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × The file contains diagnostics that needs to be addressed.
-  
-
-```
-
-```block
 check.js format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   i Formatter would have printed the following content:
@@ -74,15 +66,8 @@ check.js format ━━━━━━━━━━━━━━━━━━━━━�
 ```
 
 ```block
-check.js check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × The file contains diagnostics that needs to be addressed.
-  
-
-```
-
-```block
-Checked 1 file(s) in <TIME>
+Checked 1 file in <TIME>. No fixes needed.
+Found 4 errors.
 ```
 
 

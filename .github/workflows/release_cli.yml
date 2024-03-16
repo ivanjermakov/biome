@@ -114,6 +114,11 @@ jobs:
         if: matrix.code-target == 'linux-x64'
         run: cargo audit
 
+      - name: Set jemalloc page size for linux-arm64
+        if: matrix.code-target == 'linux-arm64'
+        run: |
+          echo "JEMALLOC_SYS_WITH_LG_PAGE=16" >> $GITHUB_ENV
+
       # Build the CLI binary
       - name: Build binaries
         run: cargo build -p biome_cli --release --target ${{ matrix.target }}
@@ -154,7 +159,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM module for bundlers
         run: wasm-pack build --out-dir ../../packages/@biomejs/wasm-bundler --target bundler --release --scope biomedev crates/biome_wasm

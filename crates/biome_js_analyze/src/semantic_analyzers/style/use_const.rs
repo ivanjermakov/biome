@@ -56,7 +56,7 @@ declare_rule! {
     /// let a = 1, b = 2;
     /// b = 3;
     /// ```
-    pub(crate) UseConst {
+    pub UseConst {
         version: "1.0.0",
         name: "useConst",
         source: RuleSource::Eslint("prefer-const"),
@@ -85,7 +85,7 @@ impl Rule for UseConst {
 
     fn diagnostic(ctx: &RuleContext<Self>, state: &Self::State) -> Option<RuleDiagnostic> {
         let declaration = ctx.query();
-        let kind = declaration.kind_token()?;
+        let kind = declaration.kind_token().ok()?;
         let title_end = if state.can_be_const.len() == 1 {
             "a variable which is never re-assigned."
         } else {
@@ -117,7 +117,7 @@ impl Rule for UseConst {
         if state.can_fix {
             let mut batch = ctx.root().begin();
             batch.replace_token(
-                declaration.kind_token()?,
+                declaration.kind_token().ok()?,
                 make::token(JsSyntaxKind::CONST_KW),
             );
             Some(JsRuleAction {
@@ -132,7 +132,7 @@ impl Rule for UseConst {
     }
 }
 
-pub(crate) struct ConstBindings {
+pub struct ConstBindings {
     pub can_be_const: Vec<JsIdentifierBinding>,
     pub can_fix: bool,
 }
@@ -280,12 +280,11 @@ fn with_array_binding_pat_identifiers(
     pat.elements().into_iter().filter_map(Result::ok).any(|it| {
         use AnyJsArrayBindingPatternElement as P;
         match it {
-            P::AnyJsBindingPattern(p) => with_binding_pat_identifiers(p, f),
             P::JsArrayBindingPatternRestElement(p) => p
                 .pattern()
                 .map_or(false, |it| with_binding_pat_identifiers(it, f)),
             P::JsArrayHole(_) => false,
-            P::JsBindingPatternWithDefault(p) => p
+            P::JsArrayBindingPatternElement(p) => p
                 .pattern()
                 .map_or(false, |it| with_binding_pat_identifiers(it, f)),
         }
@@ -303,7 +302,7 @@ fn with_binding_identifier(
 }
 
 declare_node_union! {
-    pub(crate) DestructuringHost = JsVariableDeclarator | JsAssignmentExpression
+    pub DestructuringHost = JsVariableDeclarator | JsAssignmentExpression
 }
 
 impl DestructuringHost {

@@ -12,7 +12,7 @@ use quote::quote;
 use xtask::project_root;
 
 use crate::ast::load_ast;
-use crate::{LanguageKind, ALL_LANGUAGE_KIND};
+use crate::language_kind::{LanguageKind, ALL_LANGUAGE_KIND};
 
 struct GitRepo {
     repo: Repository,
@@ -154,9 +154,7 @@ impl ModuleIndex {
                     continue;
                 }
 
-                if file_type.is_file() {
-                    unused_files.insert(path);
-                }
+                unused_files.insert(path);
             }
         }
 
@@ -781,6 +779,9 @@ fn get_node_concept(
                 _ => NodeConcept::Auxiliary,
             },
 
+            // TODO: I will handle formatting in a follow-up PR.
+            LanguageKind::Grit => NodeConcept::Auxiliary,
+
             LanguageKind::Html => match name {
                 _ if name.ends_with("Value") => NodeConcept::Value,
                 _ => NodeConcept::Auxiliary,
@@ -846,6 +847,7 @@ impl LanguageKind {
             LanguageKind::Js => "JsFormatter",
             LanguageKind::Css => "CssFormatter",
             LanguageKind::Json => "JsonFormatter",
+            LanguageKind::Grit => "GritFormatter",
             LanguageKind::Html => "HtmlFormatter",
         };
 
@@ -857,6 +859,7 @@ impl LanguageKind {
             LanguageKind::Js => "JsFormatContext",
             LanguageKind::Css => "CssFormatContext",
             LanguageKind::Json => "JsonFormatContext",
+            LanguageKind::Grit => "GritFormatContext",
             LanguageKind::Html => "HtmlFormatContext",
         };
 

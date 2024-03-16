@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::{io, iter};
 
 use biome_console::{fmt, markup, HorizontalLine, Markup, MarkupBuf, MarkupElement, MarkupNode};
@@ -22,7 +23,7 @@ pub use self::message::MessageAndDescription;
 /// formatter implementing [std::fmt::Write].
 pub struct PrintDescription<'fmt, D: ?Sized>(pub &'fmt D);
 
-impl<'fmt, D: AsDiagnostic + ?Sized> std::fmt::Display for PrintDescription<'fmt, D> {
+impl<D: AsDiagnostic + ?Sized> std::fmt::Display for PrintDescription<'_, D> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0
             .as_diagnostic()
@@ -54,7 +55,7 @@ impl<'fmt, D: AsDiagnostic + ?Sized> PrintDiagnostic<'fmt, D> {
     }
 }
 
-impl<'fmt, D: AsDiagnostic + ?Sized> fmt::Display for PrintDiagnostic<'fmt, D> {
+impl<D: AsDiagnostic + ?Sized> fmt::Display for PrintDiagnostic<'_, D> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> io::Result<()> {
         let diagnostic = self.diag.as_diagnostic();
 
@@ -75,7 +76,7 @@ impl<'fmt, D: AsDiagnostic + ?Sized> fmt::Display for PrintDiagnostic<'fmt, D> {
 /// Display struct implementing the formatting of a diagnostic header.
 struct PrintHeader<'fmt, D: ?Sized>(&'fmt D);
 
-impl<'fmt, D: Diagnostic + ?Sized> fmt::Display for PrintHeader<'fmt, D> {
+impl<D: Diagnostic + ?Sized> fmt::Display for PrintHeader<'_, D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> io::Result<()> {
         let Self(diagnostic) = *self;
 
@@ -91,7 +92,15 @@ impl<'fmt, D: Diagnostic + ?Sized> fmt::Display for PrintHeader<'fmt, D> {
         };
 
         if let Some(name) = file_name {
-            fmt.write_str(name)?;
+            let path_name = Path::new(name);
+            if path_name.is_absolute() {
+                let link = format!("file://{}", name);
+                fmt.write_markup(markup! {
+                    <Hyperlink href={link}>{name}</Hyperlink>
+                })?;
+            } else {
+                fmt.write_str(name)?;
+            }
 
             // Print the line and column position if the location has a span and source code
             // (the source code is necessary to convert a byte offset into a line + column)
@@ -313,7 +322,7 @@ where
 /// message of this diagnostic and all of its sources.
 struct PrintCauseChain<'fmt, D: ?Sized>(&'fmt D);
 
-impl<'fmt, D: Diagnostic + ?Sized> fmt::Display for PrintCauseChain<'fmt, D> {
+impl<D: Diagnostic + ?Sized> fmt::Display for PrintCauseChain<'_, D> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> io::Result<()> {
         let Self(diagnostic) = *self;
 

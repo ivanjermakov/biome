@@ -14,7 +14,7 @@ use biome_deserialize::{
 use biome_js_semantic::{CallsExtensions, SemanticModel};
 use biome_js_syntax::{
     AnyFunctionLike, AnyJsBinding, AnyJsExpression, AnyJsFunction, AnyJsObjectMemberName,
-    JsAssignmentWithDefault, JsBindingPatternWithDefault, JsCallExpression,
+    JsArrayAssignmentPatternElement, JsArrayBindingPatternElement, JsCallExpression,
     JsConditionalExpression, JsIfStatement, JsLanguage, JsLogicalExpression, JsMethodObjectMember,
     JsObjectBindingPatternShorthandProperty, JsReturnStatement, JsSyntaxKind,
     JsTryFinallyStatement, TextRange,
@@ -62,7 +62,7 @@ declare_rule! {
     /// }
     /// ```
     ///
-    pub(crate) UseHookAtTopLevel {
+    pub UseHookAtTopLevel {
         version: "1.0.0",
         name: "useHookAtTopLevel",
         source: RuleSource::EslintReactHooks("rules-of-hooks"),
@@ -151,16 +151,17 @@ fn is_conditional_expression(
     parent_node: &SyntaxNode<JsLanguage>,
     node: &SyntaxNode<JsLanguage>,
 ) -> bool {
-    if let Some(assignment_with_default) = JsAssignmentWithDefault::cast_ref(parent_node) {
+    if let Some(assignment_with_default) = JsArrayAssignmentPatternElement::cast_ref(parent_node) {
         return assignment_with_default
-            .default()
-            .is_ok_and(|default| default.syntax() == node);
+            .init()
+            .is_some_and(|default| default.syntax() == node);
     }
 
-    if let Some(binding_pattern_with_default) = JsBindingPatternWithDefault::cast_ref(parent_node) {
+    if let Some(binding_pattern_with_default) = JsArrayBindingPatternElement::cast_ref(parent_node)
+    {
         return binding_pattern_with_default
-            .default()
-            .is_ok_and(|default| default.syntax() == node);
+            .init()
+            .is_some_and(|default| default.syntax() == node);
     }
 
     if let Some(conditional_expression) = JsConditionalExpression::cast_ref(parent_node) {
@@ -363,7 +364,7 @@ impl Phase for FunctionCallServices {
 }
 
 #[derive(Clone)]
-pub(crate) struct FunctionCall(JsCallExpression);
+pub struct FunctionCall(JsCallExpression);
 
 impl QueryMatch for FunctionCall {
     fn text_range(&self) -> TextRange {

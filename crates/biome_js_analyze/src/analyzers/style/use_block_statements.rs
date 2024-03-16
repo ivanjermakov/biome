@@ -65,7 +65,7 @@ declare_rule! {
     /// ```js,expect_diagnostic
     ///   with (x);
     /// ```
-    pub(crate) UseBlockStatements {
+    pub UseBlockStatements {
         version: "1.0.0",
         name: "useBlockStatements",
         source: RuleSource::Eslint("curly"),
@@ -75,7 +75,7 @@ declare_rule! {
 }
 
 declare_node_union! {
-    pub(crate) AnyJsBlockStatement = JsIfStatement | JsElseClause | JsDoWhileStatement | JsForInStatement | JsForOfStatement | JsForStatement | JsWhileStatement | JsWithStatement
+    pub AnyJsBlockStatement = JsIfStatement | JsElseClause | JsDoWhileStatement | JsForInStatement | JsForOfStatement | JsForStatement | JsWhileStatement | JsWithStatement
 }
 
 impl Rule for UseBlockStatements {
@@ -153,15 +153,14 @@ impl Rule for UseBlockStatements {
                     .syntax()
                     .first_token()
                     .and_then(|token| token.prev_token())
-                    .map(|token| {
+                    .map_or(false, |token| {
                         token
                             .trailing_trivia()
                             .pieces()
                             .rev()
                             .take_while(|piece| !piece.is_newline())
                             .any(|piece| piece.is_whitespace())
-                    })
-                    .unwrap_or(false);
+                    });
 
                 if !has_previous_space {
                     l_curly_token =
@@ -222,12 +221,11 @@ impl Rule for UseBlockStatements {
                     let has_trailing_single_line_comments = stmt
                         .syntax()
                         .last_trailing_trivia()
-                        .map(|trivia| {
+                        .map_or(false, |trivia| {
                             trivia
                                 .pieces()
                                 .any(|trivia| trivia.kind() == TriviaPieceKind::SingleLineComment)
-                        })
-                        .unwrap_or(false);
+                        });
                     // if the node we have to enclose has some trailing comments, then we add a new line
                     // to the leading trivia of the right curly brace
                     if !has_trailing_single_line_comments {

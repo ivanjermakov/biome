@@ -41,7 +41,7 @@ declare_rule! {
     /// import { Popup } from '@ui/Popup';
     /// import { createConnection } from '@server/database';
     /// ```
-    pub(crate) OrganizeImports {
+    pub OrganizeImports {
         version: "1.0.0",
         name: "organizeImports",
         recommended: false,
@@ -245,7 +245,7 @@ impl Rule for OrganizeImports {
 }
 
 #[derive(Debug)]
-pub(crate) struct ImportGroups {
+pub struct ImportGroups {
     /// The list of all the import groups in the file
     groups: Vec<ImportGroup>,
 }
@@ -417,8 +417,7 @@ impl ImportNode {
                     let will_need_newline = sep
                         .trailing_trivia()
                         .last()
-                        .map(|piece| piece.kind().is_single_line_comment())
-                        .unwrap_or(false);
+                        .map_or(false, |piece| piece.kind().is_single_line_comment());
 
                     (sep.clone(), will_need_newline)
                 } else {
@@ -493,8 +492,7 @@ fn prepend_leading_newline(
     let leading_trivia = prev_token.leading_trivia();
     let has_leading_newline = leading_trivia
         .first()
-        .map(|piece| piece.is_newline())
-        .unwrap_or(false);
+        .map_or(false, |piece| piece.is_newline());
 
     if has_leading_newline {
         return None;
@@ -588,6 +586,10 @@ enum ImportCategory {
     /// NPM dependencies with an explicit `npm:` prefix, such as supported by
     /// Deno.
     Npm,
+    /// Modules that contains the column `:` are usually considered "virtual modules". E.g. `astro:middleware`
+    ///
+    /// This modules are usually injected by the environment of the application, and usually present before any relative module.
+    VirtualModule,
     /// Imports from an absolute URL such as supported by browsers.
     Url,
     /// Anything without explicit protocol specifier is assumed to be a library
@@ -602,9 +604,6 @@ enum ImportCategory {
     SharpImport,
     /// Relative file imports `./<path>`.
     Relative,
-    /// Any unrecognized protocols are grouped here. These may include custom
-    /// protocols such as supported by bundlers.
-    Other,
 }
 
 impl From<&str> for ImportCategory {
@@ -617,7 +616,7 @@ impl From<&str> for ImportCategory {
                 "http" | "https" => Self::Url,
                 "node" => Self::NodeBuiltin,
                 "npm" => Self::Npm,
-                _ => Self::Other,
+                _ => Self::VirtualModule,
             }
         } else if value.starts_with('#') {
             Self::SharpImport

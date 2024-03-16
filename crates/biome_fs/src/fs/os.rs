@@ -3,12 +3,14 @@ use super::{BoxedTraversal, ErrorKind, File, FileSystemDiagnostic};
 use crate::fs::OpenOptions;
 use crate::{
     fs::{TraversalContext, TraversalScope},
-    FileSystem, RomePath,
+    BiomePath, FileSystem,
 };
 use biome_diagnostics::{adapters::IoError, DiagnosticExt, Error, Severity};
+use oxc_resolver::{Resolution, ResolveError, ResolveOptions, Resolver};
 use rayon::{scope, Scope};
 use std::ffi::OsStr;
 use std::fs::{DirEntry, FileType};
+use std::panic::AssertUnwindSafe;
 use std::process::Command;
 use std::{
     env, fs,
@@ -20,11 +22,34 @@ use std::{
 const MAX_SYMLINK_DEPTH: u8 = 3;
 
 /// Implementation of [FileSystem] that directly calls through to the underlying OS
-pub struct OsFileSystem(pub Option<PathBuf>);
+pub struct OsFileSystem {
+    pub working_directory: Option<PathBuf>,
+    pub configuration_resolver: AssertUnwindSafe<Resolver>,
+}
+
+impl OsFileSystem {
+    pub fn new(working_directory: PathBuf) -> Self {
+        Self {
+            working_directory: Some(working_directory),
+            configuration_resolver: AssertUnwindSafe(Resolver::new(ResolveOptions {
+                condition_names: vec!["node".to_string(), "import".to_string()],
+                extensions: vec!["*.json".to_string()],
+                ..ResolveOptions::default()
+            })),
+        }
+    }
+}
 
 impl Default for OsFileSystem {
     fn default() -> Self {
-        Self(env::current_dir().ok())
+        Self {
+            working_directory: env::current_dir().ok(),
+            configuration_resolver: AssertUnwindSafe(Resolver::new(ResolveOptions {
+                condition_names: vec!["node".to_string(), "import".to_string()],
+                extensions: vec!["*.json".to_string(), "*.jsonc".to_string()],
+                ..ResolveOptions::default()
+            })),
+        }
     }
 }
 
@@ -47,7 +72,7 @@ impl FileSystem for OsFileSystem {
     }
 
     fn working_directory(&self) -> Option<PathBuf> {
-        self.0.clone()
+        self.working_directory.clone()
     }
 
     fn path_exists(&self, path: &Path) -> bool {
@@ -56,6 +81,11 @@ impl FileSystem for OsFileSystem {
 
     fn path_is_file(&self, path: &Path) -> bool {
         path.is_file()
+    }
+
+    fn resolve_configuration(&self, specifier: &str) -> Result<Resolution, ResolveError> {
+        self.configuration_resolver
+            .resolve(self.working_directory().unwrap(), specifier)
     }
 
     fn get_changed_files(&self, base: &str) -> io::Result<Vec<String>> {
@@ -95,7 +125,7 @@ impl File for OsFile {
     }
 
     fn set_content(&mut self, content: &[u8]) -> io::Result<()> {
-        tracing::debug_span!("OsFile::set_content").in_scope(move || {
+        tracing::trace_span!("OsFile::set_content").in_scope(move || {
             // Truncate the file
             self.inner.set_len(0)?;
             // Reset the cursor to the starting position
@@ -215,36 +245,45 @@ fn handle_any_file<'scope>(
     // The unresolved origin path in case the directory is behind a symbolic link
     mut origin_path: Option<PathBuf>,
 ) {
+    if !ctx.interner().intern_path(path.clone()) {
+        // If the path was already inserted, it could have been pointed at by
+        // multiple symlinks. No need to traverse again.
+        return;
+    }
+
     if file_type.is_symlink() {
-        if !ctx.can_handle(&RomePath::new(path.clone())) {
+        if !ctx.can_handle(&BiomePath::new(path.clone())) {
             return;
         }
         let Ok((target_path, target_file_type)) = expand_symbolic_link(path.clone(), ctx) else {
             return;
         };
 
+        if !ctx.interner().intern_path(target_path.clone()) {
+            // If the path was already inserted, it could have been pointed at by
+            // multiple symlinks. No need to traverse again.
+            return;
+        }
+
         if target_file_type.is_dir() {
-            // Override the origin path of the symbolic link
-            origin_path = Some(path);
+            scope.spawn(move |scope| {
+                handle_dir(scope, ctx, &target_path, Some(path));
+            });
+            return;
         }
 
         path = target_path;
         file_type = target_file_type;
     }
 
-    let inserted = ctx.interner().intern_path(path.clone());
-    if !inserted {
-        // If the path was already inserted, it could have been pointed at by
-        // multiple symlinks. No need to traverse again.
-        return;
-    }
-
     // In case the file is inside a directory that is behind a symbolic link,
     // the unresolved origin path is used to construct a new path.
     // This is required to support ignore patterns to symbolic links.
-    let rome_path = if let Some(origin_path) = &origin_path {
+    let biome_path = if let Some(old_origin_path) = &origin_path {
         if let Some(file_name) = path.file_name() {
-            RomePath::new(origin_path.join(file_name))
+            let new_origin_path = old_origin_path.join(file_name);
+            origin_path = Some(new_origin_path.clone());
+            BiomePath::new(new_origin_path)
         } else {
             ctx.push_diagnostic(Error::from(FileSystemDiagnostic {
                 path: path.to_string_lossy().to_string(),
@@ -254,7 +293,7 @@ fn handle_any_file<'scope>(
             return;
         }
     } else {
-        RomePath::new(&path)
+        BiomePath::new(&path)
     };
 
     // Performing this check here let's us skip unsupported
@@ -262,7 +301,7 @@ fn handle_any_file<'scope>(
     // doing a directory traversal, but printing an error message if the
     // user explicitly requests an unsupported file to be handled.
     // This check also works for symbolic links.
-    if !ctx.can_handle(&rome_path) {
+    if !ctx.can_handle(&biome_path) {
         return;
     }
 
@@ -367,8 +406,8 @@ fn follow_symlink(
     Ok((target_path, target_file_type))
 }
 
-impl From<fs::FileType> for ErrorKind {
-    fn from(_: fs::FileType) -> Self {
+impl From<FileType> for ErrorKind {
+    fn from(_: FileType) -> Self {
         Self::UnknownFileType
     }
 }

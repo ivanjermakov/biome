@@ -1,6 +1,5 @@
 use biome_analyze::{
     context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource, RuleSourceKind,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
@@ -49,12 +48,11 @@ declare_rule! {
     /// let valid: Array<keyof Bar>;
     /// let valid: Array<foo | bar>;
     /// ```
-    pub(crate) UseShorthandArrayType  {
+    pub UseShorthandArrayType  {
         version: "1.0.0",
         name: "useShorthandArrayType",
-        source: RuleSource::EslintTypeScript("array-type"),
-        source_kind: RuleSourceKind::Inspired,
         recommended: false,
+        deprecated: "Use `useConsistentArrayType` instead.",
         fix_kind: FixKind::Unsafe,
     }
 }

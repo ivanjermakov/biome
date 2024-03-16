@@ -1,8 +1,3 @@
-import * as prettier from "prettier";
-// @ts-expect-error
-import parserBabel from "prettier/esm/parser-babel.mjs";
-// @ts-expect-error
-import pluginEstree from "prettier/plugins/estree.mjs";
 import {
 	ArrowParentheses,
 	AttributePosition,
@@ -15,8 +10,19 @@ import {
 	Semicolons,
 	type TrailingComma,
 	defaultPlaygroundState,
-} from "../types";
-import { isJsonFilename, isTypeScriptFilename } from "../utils";
+} from "@/playground/types";
+import {
+	isCssFilename,
+	isJsonFilename,
+	isTypeScriptFilename,
+} from "@/playground/utils";
+import * as prettier from "prettier";
+// @ts-expect-error
+import parserBabel from "prettier/esm/parser-babel.mjs";
+// @ts-expect-error
+import pluginEstree from "prettier/plugins/estree.mjs";
+// @ts-expect-error
+import pluginCss from "prettier/plugins/postcss.mjs";
 
 let settings = defaultPlaygroundState.settings;
 
@@ -100,7 +106,7 @@ async function formatWithPrettier(
 			tabWidth: options.indentWidth,
 			printWidth: options.lineWidth,
 			filepath: options.filepath,
-			plugins: [parserBabel, pluginEstree],
+			plugins: [parserBabel, pluginEstree, pluginCss],
 			parser: getPrettierParser(options.filepath),
 			singleQuote: options.quoteStyle === QuoteStyle.Single,
 			jsxSingleQuote: options.jsxQuoteStyle === QuoteStyle.Single,
@@ -153,6 +159,9 @@ function getPrettierParser(filename: string): string {
 	}
 	if (isJsonFilename(filename)) {
 		return "json5";
+	}
+	if (isCssFilename(filename)) {
+		return "css";
 	}
 	return "babel";
 }

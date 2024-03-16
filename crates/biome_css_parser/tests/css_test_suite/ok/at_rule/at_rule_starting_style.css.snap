@@ -2,7 +2,6 @@
 source: crates/biome_css_parser/tests/spec_test.rs
 expression: snapshot
 ---
-
 ## Input
 
 ```css
@@ -35,7 +34,7 @@ CssRoot {
             at_token: AT@0..1 "@" [] [],
             rule: CssStartingStyleAtRule {
                 starting_style_token: STARTING_STYLE_KW@1..16 "starting-style" [] [Whitespace(" ")],
-                block: CssRuleListBlock {
+                block: CssRuleBlock {
                     l_curly_token: L_CURLY@16..17 "{" [] [],
                     rules: CssRuleList [
                         CssQualifiedRule {
@@ -87,31 +86,33 @@ CssRoot {
                                             },
                                         ],
                                     ],
-                                    block: CssRuleListBlock {
+                                    block: CssRuleBlock {
                                         l_curly_token: L_CURLY@73..74 "{" [] [],
                                         rules: CssRuleList [
                                             CssAtRule {
                                                 at_token: AT@74..78 "@" [Newline("\n"), Whitespace("\t\t")] [],
                                                 rule: CssStartingStyleAtRule {
                                                     starting_style_token: STARTING_STYLE_KW@78..93 "starting-style" [] [Whitespace(" ")],
-                                                    block: CssDeclarationListBlock {
+                                                    block: CssDeclarationBlock {
                                                         l_curly_token: L_CURLY@93..94 "{" [] [],
                                                         declarations: CssDeclarationList [
-                                                            CssDeclaration {
-                                                                property: CssGenericProperty {
-                                                                    name: CssIdentifier {
-                                                                        value_token: IDENT@94..114 "background-color" [Newline("\n"), Whitespace("\t\t\t")] [],
-                                                                    },
-                                                                    colon_token: COLON@114..116 ":" [] [Whitespace(" ")],
-                                                                    value: CssGenericComponentValueList [
-                                                                        CssIdentifier {
-                                                                            value_token: IDENT@116..127 "transparent" [] [],
+                                                            CssDeclarationWithSemicolon {
+                                                                declaration: CssDeclaration {
+                                                                    property: CssGenericProperty {
+                                                                        name: CssIdentifier {
+                                                                            value_token: IDENT@94..114 "background-color" [Newline("\n"), Whitespace("\t\t\t")] [],
                                                                         },
-                                                                    ],
+                                                                        colon_token: COLON@114..116 ":" [] [Whitespace(" ")],
+                                                                        value: CssGenericComponentValueList [
+                                                                            CssIdentifier {
+                                                                                value_token: IDENT@116..127 "transparent" [] [],
+                                                                            },
+                                                                        ],
+                                                                    },
+                                                                    important: missing (optional),
                                                                 },
-                                                                important: missing (optional),
+                                                                semicolon_token: SEMICOLON@127..128 ";" [] [],
                                                             },
-                                                            SEMICOLON@127..128 ";" [] [],
                                                         ],
                                                         r_curly_token: R_CURLY@128..132 "}" [Newline("\n"), Whitespace("\t\t")] [],
                                                     },
@@ -181,7 +182,7 @@ CssRoot {
       0: AT@0..1 "@" [] []
       1: CSS_STARTING_STYLE_AT_RULE@1..168
         0: STARTING_STYLE_KW@1..16 "starting-style" [] [Whitespace(" ")]
-        1: CSS_RULE_LIST_BLOCK@16..168
+        1: CSS_RULE_BLOCK@16..168
           0: L_CURLY@16..17 "{" [] []
           1: CSS_RULE_LIST@17..166
             0: CSS_QUALIFIED_RULE@17..59
@@ -217,26 +218,27 @@ CssRoot {
                     0: CSS_LAYER_NAME_LIST@69..73
                       0: CSS_IDENTIFIER@69..73
                         0: IDENT@69..73 "foo" [] [Whitespace(" ")]
-                  1: CSS_RULE_LIST_BLOCK@73..166
+                  1: CSS_RULE_BLOCK@73..166
                     0: L_CURLY@73..74 "{" [] []
                     1: CSS_RULE_LIST@74..163
                       0: CSS_AT_RULE@74..132
                         0: AT@74..78 "@" [Newline("\n"), Whitespace("\t\t")] []
                         1: CSS_STARTING_STYLE_AT_RULE@78..132
                           0: STARTING_STYLE_KW@78..93 "starting-style" [] [Whitespace(" ")]
-                          1: CSS_DECLARATION_LIST_BLOCK@93..132
+                          1: CSS_DECLARATION_BLOCK@93..132
                             0: L_CURLY@93..94 "{" [] []
                             1: CSS_DECLARATION_LIST@94..128
-                              0: CSS_DECLARATION@94..127
-                                0: CSS_GENERIC_PROPERTY@94..127
-                                  0: CSS_IDENTIFIER@94..114
-                                    0: IDENT@94..114 "background-color" [Newline("\n"), Whitespace("\t\t\t")] []
-                                  1: COLON@114..116 ":" [] [Whitespace(" ")]
-                                  2: CSS_GENERIC_COMPONENT_VALUE_LIST@116..127
-                                    0: CSS_IDENTIFIER@116..127
-                                      0: IDENT@116..127 "transparent" [] []
-                                1: (empty)
-                              1: SEMICOLON@127..128 ";" [] []
+                              0: CSS_DECLARATION_WITH_SEMICOLON@94..128
+                                0: CSS_DECLARATION@94..127
+                                  0: CSS_GENERIC_PROPERTY@94..127
+                                    0: CSS_IDENTIFIER@94..114
+                                      0: IDENT@94..114 "background-color" [Newline("\n"), Whitespace("\t\t\t")] []
+                                    1: COLON@114..116 ":" [] [Whitespace(" ")]
+                                    2: CSS_GENERIC_COMPONENT_VALUE_LIST@116..127
+                                      0: CSS_IDENTIFIER@116..127
+                                        0: IDENT@116..127 "transparent" [] []
+                                  1: (empty)
+                                1: SEMICOLON@127..128 ";" [] []
                             2: R_CURLY@128..132 "}" [Newline("\n"), Whitespace("\t\t")] []
                       1: CSS_QUALIFIED_RULE@132..163
                         0: CSS_SELECTOR_LIST@132..140
@@ -268,5 +270,3 @@ CssRoot {
   2: EOF@168..169 "" [Newline("\n")] []
 
 ```
-
-

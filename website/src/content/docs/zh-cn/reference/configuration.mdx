@@ -5,7 +5,7 @@ category: 参考
 description: 如何使用biome.json自定义和配置Biome。
 ---
 
-import LintGroups from "@src/components/generated/Groups.astro";
+import LintGroups from "@/components/generated/Groups.astro";
 
 {/* * 当更改配置标题时，请确保更新 `static/_redirects` 中的重定向 * */}
 
@@ -27,7 +27,7 @@ import LintGroups from "@src/components/generated/Groups.astro";
 
 ```json title="biome.json"
 {
-  "$schema": "https://biomejs.dev/schemas/1.5.3/schema.json"
+  "$schema": "https://biomejs.dev/schemas/1.6.1/schema.json"
 }
 ```
 
@@ -37,14 +37,14 @@ import LintGroups from "@src/components/generated/Groups.astro";
 
 ```json title="biome.json"
 {
-  "$schema": "https://biomejs.dev/schemas/1.5.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/1.6.1/schema.json",
   "extends": ["./formatter.json", "./linter.json"]
 }
 ```
 
 ```json title="formatter.json"
 {
-  "$schema": "https://biomejs.dev/schemas/1.5.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/1.6.1/schema.json",
   "formatter": {
     "indentSize": 2
   },
@@ -58,7 +58,7 @@ import LintGroups from "@src/components/generated/Groups.astro";
 
 ```json title="linter.json"
 {
-  "$schema": "https://biomejs.dev/schemas/1.5.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/1.6.1/schema.json",
   "linter": {
     "rules": {
       "complexity": {

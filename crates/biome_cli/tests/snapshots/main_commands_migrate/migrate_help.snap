@@ -7,7 +7,7 @@ expression: content
 ```block
 It updates the configuration when there are breaking changes
 
-Usage: migrate [--write]
+Usage: migrate [--write] [COMMAND ...]
 
 Global options applied to all commands
         --colors=<off|force>  Set the formatting mode for markup: "off" prints everything as plain text,
@@ -15,8 +15,8 @@ Global options applied to all commands
                               output is determined to be incompatible
         --use-server          Connect to a running instance of the Biome daemon server.
         --verbose             Print additional diagnostics, and some diagnostics show more information.
-        --config-path=PATH    Set the filesystem path to the directory of the biome.json configuration
-                              file
+        --config-path=PATH    Set the directory of the biome.json configuration file and disable default
+                              configuration file resolution.
         --max-diagnostics=NUMBER  Cap the amount of diagnostics displayed.
                               [default: 20]
         --skip-errors         Skip over files containing syntax errors instead of emitting an error diagnostic.
@@ -37,6 +37,10 @@ Global options applied to all commands
 Available options:
         --write               Writes the new configuration file to disk
     -h, --help                Prints help information
+
+Available commands:
+    prettier                  It attempts to find the files `.prettierrc`/`prettier.json` and `.prettierignore`,
+                              and map the Prettier's configuration into Biome's configuration file.
 
 ```
 

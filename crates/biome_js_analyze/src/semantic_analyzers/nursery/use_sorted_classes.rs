@@ -5,13 +5,17 @@ mod options;
 mod presets;
 mod sort;
 mod sort_config;
+mod tailwind_preset;
 
 use biome_analyze::{
     context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
-use biome_js_factory::make::{js_string_literal, js_string_literal_expression, jsx_string};
+use biome_js_factory::make::{
+    js_string_literal, js_string_literal_expression, js_string_literal_single_quotes,
+    js_template_chunk, js_template_chunk_element, jsx_string,
+};
 use biome_rowan::{AstNode, BatchMutationExt};
 use lazy_static::lazy_static;
 
@@ -134,8 +138,8 @@ declare_rule! {
     ///
     /// This is a deliberate decision. We're unsure about this behavior, and would appreciate feedback on it. If this is a problem for you, please share a detailed explanation of your use case in [the GitHub issue](https://github.com/biomejs/biome/issues/1274).
     ///
-    pub(crate) UseSortedClasses {
-        version: "next",
+    pub UseSortedClasses {
+        version: "1.6.0",
         name: "useSortedClasses",
         recommended: false,
         fix_kind: FixKind::Unsafe,
@@ -153,7 +157,7 @@ impl Rule for UseSortedClasses {
     type Query = Ast<AnyClassStringLike>;
     type State = String;
     type Signals = Option<Self::State>;
-    type Options = UtilityClassSortingOptions;
+    type Options = Box<UtilityClassSortingOptions>;
 
     fn run(ctx: &RuleContext<Self>) -> Option<Self::State> {
         let options = ctx.options();
@@ -182,14 +186,26 @@ impl Rule for UseSortedClasses {
         let mut mutation = ctx.root().begin();
         match ctx.query() {
             AnyClassStringLike::JsStringLiteralExpression(string_literal) => {
-                let replacement = js_string_literal_expression(js_string_literal(state));
+                let replacement =
+                    js_string_literal_expression(if ctx.as_preferred_quote().is_double() {
+                        js_string_literal(state)
+                    } else {
+                        js_string_literal_single_quotes(state)
+                    });
                 mutation.replace_node(string_literal.clone(), replacement);
             }
             AnyClassStringLike::JsxString(jsx_string_node) => {
-                let replacement = jsx_string(js_string_literal(state));
+                let replacement = jsx_string(if ctx.as_preferred_quote().is_double() {
+                    js_string_literal(state)
+                } else {
+                    js_string_literal_single_quotes(state)
+                });
                 mutation.replace_node(jsx_string_node.clone(), replacement);
             }
-            AnyClassStringLike::JsTemplateChunkElement(_) => return None,
+            AnyClassStringLike::JsTemplateChunkElement(chunk) => {
+                let replacement = js_template_chunk_element(js_template_chunk(state));
+                mutation.replace_node(chunk.clone(), replacement);
+            }
         };
 
         Some(JsRuleAction {

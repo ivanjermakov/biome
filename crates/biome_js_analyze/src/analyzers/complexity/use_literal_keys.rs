@@ -49,7 +49,7 @@ declare_rule! {
     /// a[d.c];
     /// ```
     ///
-    pub(crate) UseLiteralKeys {
+    pub UseLiteralKeys {
         version: "1.0.0",
         name: "useLiteralKeys",
         source: RuleSource::Eslint("dot-notation"),
@@ -155,8 +155,10 @@ impl Rule for UseLiteralKeys {
             AnyJsMember::JsComputedMemberName(member) => {
                 let name_token = if is_js_ident(identifier) {
                     make::ident(identifier)
-                } else {
+                } else if ctx.as_preferred_quote().is_double() {
                     make::js_string_literal(identifier)
+                } else {
+                    make::js_string_literal_single_quotes(identifier)
                 };
                 let literal_member_name = js_literal_member_name(name_token);
                 mutation.replace_node(
@@ -178,5 +180,5 @@ impl Rule for UseLiteralKeys {
 }
 
 declare_node_union! {
-    pub(crate) AnyJsMember = AnyJsComputedMember | JsLiteralMemberName | JsComputedMemberName
+    pub AnyJsMember = AnyJsComputedMember | JsLiteralMemberName | JsComputedMemberName
 }

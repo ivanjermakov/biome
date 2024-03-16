@@ -33,7 +33,7 @@ declare_rule! {
     /// var b =10;
     /// ```
     ///
-    pub(crate) NoImplicitAnyLet {
+    pub NoImplicitAnyLet {
         version: "1.4.0",
         name: "noImplicitAnyLet",
         recommended: true,
@@ -85,7 +85,7 @@ impl Rule for NoImplicitAnyLet {
                 },
             )
             .note(markup! {
-                "Variable declarations without type annotation and initialization have implicitly the "<Emphasis>"any"</Emphasis>" type. Declare type or initialize the variable with some value."
+                "Variable declarations without type annotation and initialization implicitly have the "<Emphasis>"any"</Emphasis>" type. Declare a type or initialize the variable with some value."
             }),
         )
     }

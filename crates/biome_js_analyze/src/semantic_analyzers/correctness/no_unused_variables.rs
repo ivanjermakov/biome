@@ -16,21 +16,20 @@ use biome_js_syntax::{
     JsIdentifierExpression, JsSequenceExpression, JsSyntaxKind, JsSyntaxNode, TsConditionalType,
     TsInferType,
 };
-use biome_rowan::{AstNode, BatchMutationExt, SyntaxResult};
+use biome_rowan::{AstNode, BatchMutationExt, Direction, SyntaxResult};
 
 declare_rule! {
     /// Disallow unused variables.
     ///
-    /// There are two exceptions to this rule:
-    /// 1. variables that starts with underscore, ex: `let _something;`
-    /// 2. the `React` variable;
+    /// There is an exception to this rule:
+    /// variables that starts with underscore, e.g. `let _something;`.
     ///
     /// The pattern of having an underscore as prefix of a name of variable is a very diffuse
     /// pattern among programmers, and Biome decided to follow it.
     ///
-    /// Importing the `React` variable was a mandatory pattern until some time ago:
-    ///
-    /// For the time being this rule will ignore it, but this **might change in the future releases**.
+    /// This rule won't report unused imports.
+    /// If you want to report unused imports,
+    /// enable [noUnusedImports](https://biomejs.dev/linter/rules/no-unused-imports/).
     ///
     /// ## Examples
     ///
@@ -80,14 +79,6 @@ declare_rule! {
     /// export function foo(_unused) {}
     /// ```
     ///
-    /// ```jsx
-    /// import React from 'react';
-    /// function foo() {
-    ///     return <div />;
-    /// };
-    /// foo();
-    /// ```
-    ///
     /// ```ts
     /// function used_overloaded(): number;
     /// function used_overloaded(s: string): string;
@@ -96,7 +87,7 @@ declare_rule! {
     /// }
     /// used_overloaded();
     /// ```
-    pub(crate) NoUnusedVariables {
+    pub NoUnusedVariables {
         version: "1.0.0",
         name: "noUnusedVariables",
         source: RuleSource::Eslint("no-unused-vars"),
@@ -147,7 +138,27 @@ fn suggestion_for_binding(binding: &AnyJsIdentifierBinding) -> Option<SuggestedF
 // It is ok in some Typescripts constructs for a parameter to be unused.
 // Returning None means is ok to be unused
 fn suggested_fix_if_unused(binding: &AnyJsIdentifierBinding) -> Option<SuggestedFix> {
-    match binding.declaration()? {
+    let decl = binding.declaration()?;
+    // It is fine to ignore unused rest spread silbings
+    if let node @ (AnyJsBindingDeclaration::JsObjectBindingPatternShorthandProperty(_)
+    | AnyJsBindingDeclaration::JsObjectBindingPatternProperty(_)) = &decl
+    {
+        if node
+            .syntax()
+            .siblings(Direction::Next)
+            .last()
+            .is_some_and(|last_sibling| {
+                matches!(
+                    last_sibling.kind(),
+                    JsSyntaxKind::JS_OBJECT_BINDING_PATTERN_REST
+                )
+            })
+        {
+            return None;
+        }
+    }
+
+    match decl.parent_binding_pattern_declaration().unwrap_or(decl) {
         // ok to not be used
         AnyJsBindingDeclaration::TsDeclareFunctionDeclaration(_)
         | AnyJsBindingDeclaration::JsClassExpression(_)
@@ -174,8 +185,14 @@ fn suggested_fix_if_unused(binding: &AnyJsIdentifierBinding) -> Option<Suggested
                 suggestion_for_binding(binding)
             }
         }
-
         // declarations need to be check if they are under `declare`
+        AnyJsBindingDeclaration::JsArrayBindingPatternElement(_)
+        | AnyJsBindingDeclaration::JsArrayBindingPatternRestElement(_)
+        | AnyJsBindingDeclaration::JsObjectBindingPatternProperty(_)
+        | AnyJsBindingDeclaration::JsObjectBindingPatternRest(_)
+        | AnyJsBindingDeclaration::JsObjectBindingPatternShorthandProperty(_) => {
+            unreachable!("The declaration should be resolved to its parent declaration");
+        }
         node @ AnyJsBindingDeclaration::JsVariableDeclarator(_) => {
             if is_in_ambient_context(node.syntax()) {
                 None
@@ -188,8 +205,7 @@ fn suggested_fix_if_unused(binding: &AnyJsIdentifierBinding) -> Option<Suggested
         | AnyJsBindingDeclaration::JsFunctionDeclaration(_)
         | AnyJsBindingDeclaration::TsInterfaceDeclaration(_)
         | AnyJsBindingDeclaration::TsEnumDeclaration(_)
-        | AnyJsBindingDeclaration::TsModuleDeclaration(_)
-        | AnyJsBindingDeclaration::TsImportEqualsDeclaration(_)) => {
+        | AnyJsBindingDeclaration::TsModuleDeclaration(_)) => {
             if is_in_ambient_context(node.syntax()) {
                 None
             } else {
@@ -224,17 +240,20 @@ fn suggested_fix_if_unused(binding: &AnyJsIdentifierBinding) -> Option<Suggested
 
         // Bindings under unknown parameter are never ok to be unused
         AnyJsBindingDeclaration::JsBogusParameter(_)
-        // Imports are never ok to be unused
-        | AnyJsBindingDeclaration::JsShorthandNamedImportSpecifier(_)
-        | AnyJsBindingDeclaration::JsNamedImportSpecifier(_)
-        | AnyJsBindingDeclaration::JsBogusNamedImportSpecifier(_)
-        | AnyJsBindingDeclaration::JsDefaultImportSpecifier(_)
-        | AnyJsBindingDeclaration::JsNamespaceImportSpecifier(_)
         // exports with binding are ok to be unused
         | AnyJsBindingDeclaration::JsClassExportDefaultDeclaration(_)
         | AnyJsBindingDeclaration::JsFunctionExportDefaultDeclaration(_)
         | AnyJsBindingDeclaration::TsDeclareFunctionExportDefaultDeclaration(_) => {
             Some(SuggestedFix::NoSuggestion)
+        }
+        // Imports are handled by `noUnusedImports`
+        | AnyJsBindingDeclaration::JsShorthandNamedImportSpecifier(_)
+        | AnyJsBindingDeclaration::JsNamedImportSpecifier(_)
+        | AnyJsBindingDeclaration::JsBogusNamedImportSpecifier(_)
+        | AnyJsBindingDeclaration::JsDefaultImportSpecifier(_)
+        | AnyJsBindingDeclaration::JsNamespaceImportSpecifier(_)
+        | AnyJsBindingDeclaration::TsImportEqualsDeclaration(_) => {
+            None
         }
     }
 }
@@ -261,9 +280,7 @@ impl Rule for NoUnusedVariables {
         let name = binding.name_token().ok()?;
         let name = name.text_trimmed();
 
-        // Legacy React framework requires to import `React`, even if it is not used.
-        // This is required for old versions of the Babel compiler.
-        if name.starts_with('_') || name == "React" {
+        if name.starts_with('_') {
             return None;
         }
 

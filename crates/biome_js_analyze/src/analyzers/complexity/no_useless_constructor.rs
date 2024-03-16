@@ -97,12 +97,25 @@ declare_rule! {
     /// ```
     ///
     /// ```ts
+    /// class D {
+    ///   constructor(public arg: number){}
+    /// }
+    ///
+    /// class F extends D {
+    ///   // constructor with default parameters are allowed.
+    ///   constructor(arg = 4) {
+    ///     super(arg)
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// ```ts
     /// @Decorator
     /// class C {
     ///     constructor (prop: number) {}
     /// }
     /// ```
-    pub(crate) NoUselessConstructor {
+    pub NoUselessConstructor {
         version: "1.0.0",
         name: "noUselessConstructor",
         source: RuleSource::EslintTypeScript("no-useless-constructor"),
@@ -227,6 +240,14 @@ fn is_delegating_initialization(
             let param = param.ok()?;
             let arg = arg.ok()?;
             match (param, arg) {
+                (
+                    AnyJsConstructorParameter::AnyJsFormalParameter(
+                        AnyJsFormalParameter::JsFormalParameter(param),
+                    ),
+                    _,
+                ) if param.initializer().is_some() => {
+                    return Some(false);
+                }
                 (
                     AnyJsConstructorParameter::JsRestParameter(param),
                     AnyJsCallArgument::JsSpread(arg),

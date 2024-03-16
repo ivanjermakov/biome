@@ -2,29 +2,30 @@
 
 use biome_analyze::declare_group;
 
-pub(crate) mod no_constructor_return;
-pub(crate) mod no_empty_character_class_in_regex;
-pub(crate) mod no_empty_pattern;
-pub(crate) mod no_inner_declarations;
-pub(crate) mod no_invalid_constructor_super;
-pub(crate) mod no_nonoctal_decimal_escape;
-pub(crate) mod no_precision_loss;
-pub(crate) mod no_self_assign;
-pub(crate) mod no_setter_return;
-pub(crate) mod no_string_case_mismatch;
-pub(crate) mod no_switch_declarations;
-pub(crate) mod no_unnecessary_continue;
-pub(crate) mod no_unreachable;
-pub(crate) mod no_unreachable_super;
-pub(crate) mod no_unsafe_finally;
-pub(crate) mod no_unsafe_optional_chaining;
-pub(crate) mod no_unused_labels;
-pub(crate) mod no_void_type_return;
-pub(crate) mod use_valid_for_direction;
-pub(crate) mod use_yield;
+pub mod no_constructor_return;
+pub mod no_empty_character_class_in_regex;
+pub mod no_empty_pattern;
+pub mod no_inner_declarations;
+pub mod no_invalid_constructor_super;
+pub mod no_nonoctal_decimal_escape;
+pub mod no_precision_loss;
+pub mod no_self_assign;
+pub mod no_setter_return;
+pub mod no_string_case_mismatch;
+pub mod no_switch_declarations;
+pub mod no_unnecessary_continue;
+pub mod no_unreachable;
+pub mod no_unreachable_super;
+pub mod no_unsafe_finally;
+pub mod no_unsafe_optional_chaining;
+pub mod no_unused_labels;
+pub mod no_unused_private_class_members;
+pub mod no_void_type_return;
+pub mod use_valid_for_direction;
+pub mod use_yield;
 
 declare_group! {
-    pub (crate) Correctness {
+    pub Correctness {
         name : "correctness" ,
         rules : [
             self :: no_constructor_return :: NoConstructorReturn ,
@@ -44,6 +45,7 @@ declare_group! {
             self :: no_unsafe_finally :: NoUnsafeFinally ,
             self :: no_unsafe_optional_chaining :: NoUnsafeOptionalChaining ,
             self :: no_unused_labels :: NoUnusedLabels ,
+            self :: no_unused_private_class_members :: NoUnusedPrivateClassMembers ,
             self :: no_void_type_return :: NoVoidTypeReturn ,
             self :: use_valid_for_direction :: UseValidForDirection ,
             self :: use_yield :: UseYield ,

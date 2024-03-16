@@ -76,7 +76,7 @@ Biome respects VS Code's _Code Actions On Save_ setting. To enable fix on save, 
 ```json title="settings.json"
 {
   "editor.codeActionsOnSave": {
-    "quickfix.biome": true
+    "quickfix.biome": "explicit"
   }
 }
 ```
@@ -92,7 +92,7 @@ You can add the following to your editor configuration if you want the action to
 ```json title="settings.json"
 {
 	"editor.codeActionsOnSave":{
-		"source.organizeImports.biome": true
+		"source.organizeImports.biome": "explicit"
 	}
 }
 ```
@@ -107,11 +107,6 @@ The workspace folder is used as the base path if the path is relative.
 ### `biome.rename`
 
 Enables Biome to handle renames in the workspace (experimental).
-
-### `biome.requireConfiguration`
-
-Disables formatting, linting, and syntax errors for projects without a `biome.json` file.
-Enabled by default.
 
 ## Versioning
 

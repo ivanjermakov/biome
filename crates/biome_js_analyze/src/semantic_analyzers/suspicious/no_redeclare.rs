@@ -58,7 +58,7 @@ declare_rule! {
     ///     bar(a: A, b: B) {}
     /// }
     /// ```
-    pub(crate) NoRedeclare {
+    pub NoRedeclare {
         version: "1.0.0",
         name: "noRedeclare",
         source: RuleSource::EslintTypeScript("no-redeclare"),
@@ -67,7 +67,7 @@ declare_rule! {
 }
 
 #[derive(Debug)]
-pub(crate) struct Redeclaration {
+pub struct Redeclaration {
     name: String,
     declaration: TextRange,
     redeclaration: TextRange,
@@ -125,8 +125,13 @@ fn check_redeclarations_in_single_scope(scope: &Scope, redeclarations: &mut Vec<
                 //   e.g. a `function` and a `namespace`
                 // - when both are parameter-like.
                 //   A parameter can override a previous parameter.
+                // - when both are type parameter in different declarations.
+                //   A type parameter can be redeclared if they are in different declarations.
                 if !(first_decl.is_mergeable(&decl)
-                    || first_decl.is_parameter_like() && decl.is_parameter_like())
+                    || first_decl.is_parameter_like() && decl.is_parameter_like()
+                    || first_decl.is_type_parameter()
+                        && decl.is_type_parameter()
+                        && first_decl.syntax().parent() != decl.syntax().parent())
                 {
                     redeclarations.push(Redeclaration {
                         name,

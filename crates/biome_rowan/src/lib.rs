@@ -1,13 +1,14 @@
 //! A generic library for lossless syntax trees.
 //! See `examples/s_expressions.rs` for a tutorial.
 #![forbid(
-    // missing_debug_implementations,
-    unconditional_recursion,
-    future_incompatible,
-    // missing_docs,
+// missing_debug_implementations,
+unconditional_recursion,
+future_incompatible,
+// missing_docs,
 )]
 #![deny(unsafe_code)]
 #![deny(rustdoc::broken_intra_doc_links)]
+#![allow(clippy::map_unwrap_or, clippy::mem_forget)]
 
 #[doc(hidden)]
 pub mod macros;
@@ -37,7 +38,7 @@ pub use biome_text_size::{TextLen, TextRange, TextSize};
 
 pub use crate::{
     ast::*,
-    file_source::{AnyFileSource, FileSource, FileSourceError},
+    file_source::FileSourceError,
     green::{NodeCache, RawSyntaxKind},
     syntax::{
         chain_trivia_pieces, trim_leading_trivia_pieces, trim_trailing_trivia_pieces,

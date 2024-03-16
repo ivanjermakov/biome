@@ -1,5 +1,7 @@
 use crate::kind_src::KindsSrc;
-use crate::{to_upper_snake_case, LanguageKind, Result};
+use crate::language_kind::LanguageKind;
+use crate::Result;
+use biome_string_case::Case;
 use proc_macro2::{Literal, Punct, Spacing};
 use quote::{format_ident, quote};
 
@@ -12,7 +14,7 @@ pub fn generate_syntax_kinds(grammar: KindsSrc, language_kind: LanguageKind) -> 
         if "{}[]()`".contains(token) {
             let c = token.chars().next().unwrap();
             quote! { #c }
-        } else if *token == "$=" {
+        } else if matches!(*token, "$=" | "$_") {
             let token = Literal::string(token);
             quote! { #token }
         } else {
@@ -43,7 +45,7 @@ pub fn generate_syntax_kinds(grammar: KindsSrc, language_kind: LanguageKind) -> 
     // "color_profile" => COLOR_PROFILE_KW
     let full_keywords = all_keywords_values
         .iter()
-        .map(|kw| format_ident!("{}_KW", to_upper_snake_case(kw)))
+        .map(|kw| format_ident!("{}_KW", Case::Constant.convert(kw)))
         .collect::<Vec<_>>();
 
     // "color_profile" => color_profile
@@ -116,6 +118,19 @@ pub fn generate_syntax_kinds(grammar: KindsSrc, language_kind: LanguageKind) -> 
                         #(#punctuation => #punctuation_strings,)*
                         #(#full_keywords => #all_keyword_to_strings,)*
                         JSON_STRING_LITERAL => "string literal",
+                        _ => return None,
+                    };
+                    Some(tok)
+                }
+            }
+        }
+        LanguageKind::Grit => {
+            quote! {
+                pub const fn to_string(&self) -> Option<&'static str> {
+                    let tok = match self {
+                        #(#punctuation => #punctuation_strings,)*
+                        #(#full_keywords => #all_keyword_to_strings,)*
+                        GRIT_STRING_LITERAL => "string literal",
                         _ => return None,
                     };
                     Some(tok)

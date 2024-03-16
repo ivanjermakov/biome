@@ -72,10 +72,10 @@ declare_rule! {
     /// import useAsync from "react-use/lib/useAsync";
     /// ```
     ///
-    pub(crate) UseImportRestrictions {
+    pub UseImportRestrictions {
         version: "1.0.0",
         name: "useImportRestrictions",
-        source: RuleSource::EslintImport("jsdoc"),
+        source: RuleSource::EslintImportAccess("eslint-plugin-import-access"),
         source_kind: RuleSourceKind::Inspired,
         recommended: false,
     }
@@ -115,7 +115,7 @@ impl Rule for UseImportRestrictions {
     }
 }
 
-pub(crate) struct ImportRestrictionsState {
+pub struct ImportRestrictionsState {
     /// The path that is being restricted.
     path: String,
 

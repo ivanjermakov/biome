@@ -4,7 +4,8 @@ use crate::execute::process_file::{
     DiffKind, FileResult, FileStatus, Message, SharedTraversalOptions,
 };
 use crate::execute::TraversalMode;
-use biome_diagnostics::{category, DiagnosticExt};
+use biome_diagnostics::{category, Diagnostic, DiagnosticExt, Error, Severity};
+use biome_service::file_handlers::{AstroFileHandler, SvelteFileHandler, VueFileHandler};
 use biome_service::workspace::RuleCategories;
 use std::path::Path;
 use std::sync::atomic::Ordering;
@@ -53,6 +54,23 @@ pub(crate) fn format_with_guard<'ctx>(
                 ));
             }
 
+            ctx.push_message(Message::Diagnostics {
+                name: workspace_file.path.display().to_string(),
+                content: input.clone(),
+                diagnostics: diagnostics_result
+                    .diagnostics
+                    .into_iter()
+                    .filter_map(|diag| {
+                        if diag.severity() >= Severity::Error && ignore_errors {
+                            None
+                        } else {
+                            Some(Error::from(diag))
+                        }
+                    })
+                    .collect(),
+                skipped_diagnostics: diagnostics_result.skipped_diagnostics as u32,
+            });
+
             let printed = workspace_file
                 .guard()
                 .format_file()
@@ -61,11 +79,33 @@ pub(crate) fn format_with_guard<'ctx>(
                     category!("format"),
                 )?;
 
-            let output = printed.into_code();
+            let mut output = printed.into_code();
 
-            // NOTE: ignoring the
             if ignore_errors {
                 return Ok(FileStatus::Ignored);
+            }
+
+            match workspace_file.as_extension() {
+                Some("astro") => {
+                    if output.is_empty() {
+                        return Ok(FileStatus::Unchanged);
+                    }
+                    output = AstroFileHandler::output(input.as_str(), output.as_str());
+                }
+                Some("vue") => {
+                    if output.is_empty() {
+                        return Ok(FileStatus::Unchanged);
+                    }
+                    output = VueFileHandler::output(input.as_str(), output.as_str());
+                }
+
+                Some("svelte") => {
+                    if output.is_empty() {
+                        return Ok(FileStatus::Unchanged);
+                    }
+                    output = SvelteFileHandler::output(input.as_str(), output.as_str());
+                }
+                _ => {}
             }
 
             if output != input {
@@ -79,8 +119,10 @@ pub(crate) fn format_with_guard<'ctx>(
                         diff_kind: DiffKind::Format,
                     }));
                 }
+                Ok(FileStatus::Changed)
+            } else {
+                Ok(FileStatus::Unchanged)
             }
-            Ok(FileStatus::Success)
         },
     )
 }

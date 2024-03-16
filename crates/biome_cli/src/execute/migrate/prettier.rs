@@ -18,6 +18,7 @@ use indexmap::IndexSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Deserializable, Eq, PartialEq)]
+#[deserializable(unknown_fields = "allow")]
 pub(crate) struct PrettierConfiguration {
     /// https://prettier.io/docs/en/options#print-width
     print_width: u16,
@@ -271,6 +272,10 @@ impl FromPrettierConfiguration {
 
     pub(crate) fn has_configuration(&self) -> bool {
         self.formatter_configuration.is_some() || self.javascript_formatter_configuration.is_some()
+    }
+
+    pub(crate) fn has_ignore_file(&self) -> bool {
+        self.ignore_path.is_some()
     }
 
     pub(crate) fn get_configuration_path(&self) -> Option<&Path> {

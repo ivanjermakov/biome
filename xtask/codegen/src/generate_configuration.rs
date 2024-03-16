@@ -3,13 +3,13 @@ use biome_analyze::{
 };
 use biome_js_syntax::JsLanguage;
 use biome_json_syntax::JsonLanguage;
-use case::CaseExt;
+use biome_string_case::Case;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use pulldown_cmark::{Event, Parser, Tag};
 use quote::quote;
 use std::collections::BTreeMap;
 use xtask::*;
-use xtask_codegen::{to_lower_snake_case, update};
+use xtask_codegen::{to_capitalized, update};
 
 pub(crate) fn generate_rules_configuration(mode: Mode) -> Result<()> {
     let config_root = project_root().join("crates/biome_service/src/configuration/linter");
@@ -76,8 +76,8 @@ pub(crate) fn generate_rules_configuration(mode: Mode) -> Result<()> {
     let mut push_rule_list = Vec::new();
     for (group, rules) in groups {
         group_name_list.push(group);
-        let property_group_name = Ident::new(&to_lower_snake_case(group), Span::call_site());
-        let group_struct_name = Ident::new(&group.to_capitalized(), Span::call_site());
+        let property_group_name = Ident::new(&Case::Snake.convert(group), Span::call_site());
+        let group_struct_name = Ident::new(&to_capitalized(group), Span::call_site());
         let group_name_string_literal = Literal::string(group);
 
         struct_groups.push(generate_struct(group, &rules));
@@ -91,21 +91,27 @@ pub(crate) fn generate_rules_configuration(mode: Mode) -> Result<()> {
             #property_group_name: None
         });
 
-        let global_recommended = if group == "nursery" {
-            quote! { self.is_recommended() && biome_flags::is_unstable() }
+        let (global_all, global_recommended) = if group == "nursery" {
+            (
+                quote! { self.is_all() && biome_flags::is_unstable() },
+                quote! { self.is_recommended() && biome_flags::is_unstable() },
+            )
         } else {
-            quote! { self.is_recommended() }
+            (quote! { self.is_all() }, quote! { self.is_recommended() })
         };
 
         group_as_default_rules.push(quote! {
             if let Some(group) = self.#property_group_name.as_ref() {
-                group.collect_preset_rules(self.is_recommended(), &mut enabled_rules, &mut disabled_rules);
+                group.collect_preset_rules(
+                    #global_all,
+                    #global_recommended,
+                    &mut enabled_rules,
+                    &mut disabled_rules,
+                );
                 enabled_rules.extend(&group.get_enabled_rules());
                 disabled_rules.extend(&group.get_disabled_rules());
-            } else if self.is_all() {
+            } else if #global_all {
                 enabled_rules.extend(#group_struct_name::all_rules_as_filters());
-            } else if self.is_not_all() {
-                disabled_rules.extend(#group_struct_name::all_rules_as_filters());
             } else if #global_recommended {
                 enabled_rules.extend(#group_struct_name::recommended_rules_as_filters());
             }
@@ -116,14 +122,13 @@ pub(crate) fn generate_rules_configuration(mode: Mode) -> Result<()> {
                 .#property_group_name
                 .as_ref()
                 .and_then(|#property_group_name| #property_group_name.get_rule_configuration(rule_name))
-                .map(|rule_setting| rule_setting.into())
-                .unwrap_or_else(|| {
+                .map_or_else(|| {
                     if #group_struct_name::is_recommended_rule(rule_name) {
                         Severity::Error
                     } else {
                         Severity::Warning
                     }
-                })
+                }, |(level, _)| level.into())
         });
         group_match_code.push(quote! {
            #group => #group_struct_name::has_rule(rule_name).then_some((category, rule_name))
@@ -132,16 +137,20 @@ pub(crate) fn generate_rules_configuration(mode: Mode) -> Result<()> {
 
     let groups = quote! {
         use crate::RuleConfiguration;
-        use biome_analyze::RuleFilter;
+        use biome_analyze::{options::RuleOptions, RuleFilter};
         use biome_console::markup;
         use biome_deserialize::{DeserializableValidator, DeserializationDiagnostic};
         use biome_deserialize_macros::{Deserializable, Merge};
         use biome_diagnostics::{Category, Severity};
+        use biome_js_analyze::options::*;
+        use biome_json_analyze::options::*;
         use biome_rowan::TextRange;
         use indexmap::IndexSet;
         use serde::{Deserialize, Serialize};
         #[cfg(feature = "schema")]
         use schemars::JsonSchema;
+
+        use super::RulePlainConfiguration;
 
         #[derive(Clone, Debug, Default, Deserialize, Deserializable, Eq, Merge, PartialEq, Serialize)]
         #[deserializable(with_validator)]
@@ -161,7 +170,7 @@ pub(crate) fn generate_rules_configuration(mode: Mode) -> Result<()> {
 
         impl DeserializableValidator for Rules {
             fn validate(
-                &self,
+                &mut self,
                 _name: &str,
                 range: TextRange,
                 diagnostics: &mut Vec<DeserializationDiagnostic>,
@@ -234,10 +243,6 @@ pub(crate) fn generate_rules_configuration(mode: Mode) -> Result<()> {
                 matches!(self.all, Some(true))
             }
 
-            pub(crate) const fn is_not_all(&self) -> bool {
-                matches!(self.all, Some(false))
-            }
-
             /// It returns the enabled rules by default.
             ///
             /// The enabled rules are calculated from the difference with the disabled rules.
@@ -255,7 +260,7 @@ pub(crate) fn generate_rules_configuration(mode: Mode) -> Result<()> {
 
     let push_rules = quote! {
         use crate::configuration::linter::*;
-        use crate::{RuleConfiguration, Rules};
+        use crate::Rules;
         use biome_analyze::{AnalyzerRules, MetadataRegistry};
 
         pub(crate) fn push_to_analyzer_rules(
@@ -289,7 +294,6 @@ fn generate_struct(group: &str, rules: &BTreeMap<&'static str, RuleMetadata>) ->
     let mut lines_recommended_rule = Vec::new();
     let mut lines_recommended_rule_as_filter = Vec::new();
     let mut lines_all_rule_as_filter = Vec::new();
-    let mut declarations = Vec::new();
     let mut lines_rule = Vec::new();
     let mut schema_lines_rules = Vec::new();
     let mut rule_enabled_check_line = Vec::new();
@@ -343,12 +347,8 @@ fn generate_struct(group: &str, rules: &BTreeMap<&'static str, RuleMetadata>) ->
         };
 
         let rule_position = Literal::u8_unsuffixed(index as u8);
-        let rule_identifier = Ident::new(&to_lower_snake_case(rule), Span::call_site());
-        let declaration = quote! {
-            #[serde(skip_serializing_if = "RuleConfiguration::is_err")]
-            pub #rule_identifier: RuleConfiguration
-        };
-        declarations.push(declaration);
+        let rule_identifier = Ident::new(&Case::Snake.convert(rule), Span::call_site());
+        let rule_name = Ident::new(&to_capitalized(rule), Span::call_site());
         if metadata.recommended {
             lines_recommended_rule_as_filter.push(quote! {
                 RuleFilter::Rule(Self::GROUP_NAME, Self::GROUP_RULES[#rule_position])
@@ -368,7 +368,7 @@ fn generate_struct(group: &str, rules: &BTreeMap<&'static str, RuleMetadata>) ->
         schema_lines_rules.push(quote! {
             #[doc = #summary]
             #[serde(skip_serializing_if = "Option::is_none")]
-            pub #rule_identifier: Option<RuleConfiguration>
+            pub #rule_identifier: Option<RuleConfiguration<#rule_name>>
         });
 
         rule_enabled_check_line.push(quote! {
@@ -393,29 +393,19 @@ fn generate_struct(group: &str, rules: &BTreeMap<&'static str, RuleMetadata>) ->
         });
 
         get_rule_configuration_line.push(quote! {
-            #rule => self.#rule_identifier.as_ref()
+            #rule => self.#rule_identifier.as_ref().map(|conf| (conf.level(), conf.get_options()))
         });
     }
 
-    let group_struct_name = Ident::new(&group.to_capitalized(), Span::call_site());
+    let group_struct_name = Ident::new(&to_capitalized(group), Span::call_site());
 
     let number_of_recommended_rules = Literal::u8_unsuffixed(number_of_recommended_rules);
-    let (group_recommended, parent_parameter) = if group == "nursery" {
-        (
-            quote! { self.is_recommended() },
-            quote! { _parent_is_recommended: bool, },
-        )
-    } else {
-        (
-            quote! { parent_is_recommended || self.is_recommended() },
-            quote! { parent_is_recommended: bool, },
-        )
-    };
+
     quote! {
         #[derive(Clone, Debug, Default, Deserialize, Deserializable, Eq, Merge, PartialEq, Serialize)]
         #[deserializable(with_validator)]
         #[cfg_attr(feature = "schema", derive(JsonSchema))]
-        #[serde(rename_all = "camelCase", default)]
+        #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
         /// A list of rules that belong to this group
         pub struct #group_struct_name {
             /// It enables the recommended rules for this group
@@ -431,7 +421,7 @@ fn generate_struct(group: &str, rules: &BTreeMap<&'static str, RuleMetadata>) ->
 
         impl DeserializableValidator for #group_struct_name {
             fn validate(
-                &self,
+                &mut self,
                 _name: &str,
                 range: TextRange,
                 diagnostics: &mut Vec<DeserializationDiagnostic>,
@@ -520,23 +510,27 @@ fn generate_struct(group: &str, rules: &BTreeMap<&'static str, RuleMetadata>) ->
             /// Select preset rules
             pub(crate) fn collect_preset_rules(
                 &self,
-                #parent_parameter
+                parent_is_all: bool,
+                parent_is_recommended: bool,
                 enabled_rules: &mut IndexSet<RuleFilter>,
                 disabled_rules: &mut IndexSet<RuleFilter>,
             ) {
                 if self.is_all() {
                     enabled_rules.extend(Self::all_rules_as_filters());
-                } else if #group_recommended {
+                } else if self.is_recommended() {
                     enabled_rules.extend(Self::recommended_rules_as_filters());
-                }
-                if self.is_not_all() {
+                } else if self.is_not_all() {
                     disabled_rules.extend(Self::all_rules_as_filters());
                 } else if self.is_not_recommended() {
                     disabled_rules.extend(Self::recommended_rules_as_filters());
+                } else if parent_is_all {
+                    enabled_rules.extend(Self::all_rules_as_filters());
+                } else if parent_is_recommended {
+                    enabled_rules.extend(Self::recommended_rules_as_filters());
                 }
             }
 
-            pub(crate) fn get_rule_configuration(&self, rule_name: &str) -> Option<&RuleConfiguration> {
+            pub(crate) fn get_rule_configuration(&self, rule_name: &str) -> Option<(RulePlainConfiguration, Option<RuleOptions>)> {
                 match rule_name {
                     #( #get_rule_configuration_line ),*,
                     _ => None
@@ -547,19 +541,14 @@ fn generate_struct(group: &str, rules: &BTreeMap<&'static str, RuleMetadata>) ->
 }
 
 fn generate_push_to_analyzer_rules(group: &str) -> TokenStream {
-    let group_struct_name = Ident::new(&group.to_capitalized(), Span::call_site());
+    let group_struct_name = Ident::new(&to_capitalized(group), Span::call_site());
     let group_identifier = Ident::new(group, Span::call_site());
     quote! {
        if let Some(rules) = rules.#group_identifier.as_ref() {
             for rule_name in &#group_struct_name::GROUP_RULES {
-                if let Some(RuleConfiguration::WithOptions(rule_options)) =
-                    rules.get_rule_configuration(rule_name)
-                {
-                    if let Some(possible_options) = &rule_options.options {
-                        if let Some(rule_key) = metadata.find_rule(#group, rule_name) {
-                        let rule_options = possible_options.extract_option(&rule_key);
+                if let Some((_, Some(rule_options))) = rules.get_rule_configuration(rule_name) {
+                    if let Some(rule_key) = metadata.find_rule(#group, rule_name) {
                         analyzer_rules.push_rule(rule_key, rule_options);
-                        }
                     }
                 }
             }

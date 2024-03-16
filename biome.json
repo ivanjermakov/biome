@@ -1,34 +1,20 @@
 {
 	"$schema": "./packages/@biomejs/biome/configuration_schema.json",
-	"vcs": {
-		"clientKind": "git",
-		"enabled": true,
-		"useIgnoreFile": true
-	},
+	"extends": ["@biomejs/shared/biome"],
 	"files": {
 		"ignore": [
+			"crates/**",
 			"dist/**",
 			".astro/**",
 			"assets/**",
+			"packages/@biomejs/backend-jsonrpc/src/workspace.ts",
 			"public/**",
 			"**/__snapshots__",
-			"**/editors/intellij/**",
-			"**/undefined/**"
+			"**/undefined/**",
+			"_fonts/**"
 		]
 	},
 	"formatter": {
 		"ignore": ["configuration-schema.json"]
-	},
-	"linter": {
-		"enabled": true,
-		"rules": {
-			"recommended": true,
-			"style": {
-				"noNonNullAssertion": "off"
-			}
-		}
-	},
-	"organizeImports": {
-		"enabled": true
 	}
 }

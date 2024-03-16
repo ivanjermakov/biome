@@ -3,13 +3,12 @@ use biome_rowan::{AstNode, Direction, WalkEvent};
 use std::iter;
 
 pub mod batch;
-pub mod case;
 pub mod rename;
 #[cfg(test)]
 pub mod tests;
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum EscapeError {
+pub enum EscapeError {
     EscapeAtEndOfString,
     InvalidEscapedChar(char),
 }
@@ -72,7 +71,7 @@ pub(crate) fn is_node_equal(a_node: &JsSyntaxNode, b_node: &JsSyntaxNode) -> boo
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum VariablePosition {
+pub enum VariablePosition {
     Right,
     Left,
 }

@@ -1,8 +1,10 @@
 use crate::css_kinds_src::CSS_KINDS_SRC;
+use crate::grit_kinds_src::GRIT_KINDS_SRC;
 use crate::html_kinds_src::HTML_KINDS_SRC;
 use crate::js_kinds_src::{AstNodeSrc, AstSrc, Field, TokenKind, JS_KINDS_SRC};
 use crate::json_kinds_src::JSON_KINDS_SRC;
-use crate::{to_lower_snake_case, to_upper_snake_case, LanguageKind};
+use crate::language_kind::LanguageKind;
+use biome_string_case::Case;
 use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::HashMap;
@@ -14,7 +16,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
         .iter()
         .map(|node| {
             let name = format_ident!("{}", node.name);
-            let node_kind = format_ident!("{}", to_upper_snake_case(node.name.as_str()));
+            let node_kind = format_ident!("{}", Case::Constant.convert(node.name.as_str()));
             let needs_dynamic_slots = node.dynamic;
 
             let methods = node
@@ -65,6 +67,10 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
 
                         let method_name = field.method_name(language_kind);
                         if is_list {
+                            if *optional {
+                                panic!("Lists cannot be optional. Instead, the grammar should handle the situation where the list is empty.");
+                            }
+
                             quote! {
                                 pub fn #method_name(&self) -> #ty {
                                     support::list(&self.syntax, #slot_index_access)
@@ -347,7 +353,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
                 .iter()
                 .map(|variant| {
                     let variant_name = format_ident!("{}", variant);
-                    let fn_name = format_ident!("as_{}", to_lower_snake_case(variant));
+                    let fn_name = format_ident!("as_{}", Case::Snake.convert(variant));
                     quote! {
                         pub fn #fn_name(&self) -> Option<&#variant_name> {
                            match &self {
@@ -379,7 +385,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
 
             let kinds: Vec<_> = variants
                 .iter()
-                .map(|name| format_ident!("{}", to_upper_snake_case(&name.to_string())))
+                .map(|name| format_ident!("{}", Case::Constant.convert(&name.to_string())))
                 .collect();
 
             let variant_cast: Vec<_> = simple_variants
@@ -412,7 +418,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
                 .enumerate()
                 .map(|(i, en)| {
                     let variant_name = format_ident!("{}", en);
-                    let variable_name = format_ident!("{}", to_lower_snake_case(en.as_str()));
+                    let variable_name = format_ident!("{}", Case::Snake.convert(en.as_str()));
                     (
                         // cast() code
                         if i != variant_of_variants.len() - 1 {
@@ -634,7 +640,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
     let bogus = ast.bogus.iter().map(|bogus_name| {
         let ident = format_ident!("{}", bogus_name);
         let string_name = bogus_name;
-        let kind = format_ident!("{}", to_upper_snake_case(bogus_name));
+        let kind = format_ident!("{}", Case::Constant.convert(bogus_name));
 
         quote! {
             #[derive(Clone, PartialEq, Eq, Hash)]
@@ -708,7 +714,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
 
     let lists = ast.lists().map(|(name, list)| {
         let list_name = format_ident!("{}", name);
-        let list_kind = format_ident!("{}", to_upper_snake_case(name));
+        let list_kind = format_ident!("{}", Case::Constant.convert(name));
         let element_type = format_ident!("{}", list.element_name);
 
         let node_impl = quote! {
@@ -952,16 +958,14 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
     Ok(pretty)
 }
 
-pub(crate) fn token_kind_to_code(
-    name: &str,
-    language_kind: LanguageKind,
-) -> proc_macro2::TokenStream {
-    let kind_variant_name = to_upper_snake_case(name);
+pub(crate) fn token_kind_to_code(name: &str, language_kind: LanguageKind) -> TokenStream {
+    let kind_variant_name = Case::Constant.convert(name);
 
     let kind_source = match language_kind {
         LanguageKind::Js => JS_KINDS_SRC,
         LanguageKind::Css => CSS_KINDS_SRC,
         LanguageKind::Json => JSON_KINDS_SRC,
+        LanguageKind::Grit => GRIT_KINDS_SRC,
         LanguageKind::Html => HTML_KINDS_SRC,
     };
     if kind_source.literals.contains(&kind_variant_name.as_str())
@@ -972,16 +976,16 @@ pub(crate) fn token_kind_to_code(
     } else if kind_source.keywords.contains(&name) {
         // we need to replace "-" with "_" for the keywords
         // e.g. we have `color-profile` in css but it's an invalid ident in rust code
-        let token: proc_macro2::TokenStream = name.replace('-', "_").parse().unwrap();
+        let token: TokenStream = name.replace('-', "_").parse().unwrap();
         quote! { T![#token] }
     } else {
         // $ is valid syntax in rust and it's part of macros,
         // so we need to decorate the tokens with quotes
-        if name == "$=" {
+        if matches!(name, "$=" | "$_") {
             let token = Literal::string(name);
             quote! { T![#token] }
         } else {
-            let token: proc_macro2::TokenStream = name.parse().unwrap();
+            let token: TokenStream = name.parse().unwrap();
             quote! { T![#token] }
         }
     }

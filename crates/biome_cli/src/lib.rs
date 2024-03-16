@@ -75,7 +75,9 @@ impl<'app> CliSession<'app> {
 
         let result = match command {
             BiomeCommand::Version(_) => commands::version::full_version(self),
-            BiomeCommand::Rage(_, daemon_logs) => commands::rage::rage(self, daemon_logs),
+            BiomeCommand::Rage(_, daemon_logs, formatter, linter) => {
+                commands::rage::rage(self, daemon_logs, formatter, linter)
+            }
             BiomeCommand::Start(config_path) => commands::daemon::start(self, config_path),
             BiomeCommand::Stop => commands::daemon::stop(self),
             BiomeCommand::Check {
@@ -185,13 +187,20 @@ impl<'app> CliSession<'app> {
                 },
             ),
             BiomeCommand::Explain { doc } => commands::explain::explain(self, doc),
-            BiomeCommand::Init => commands::init::init(self),
-            BiomeCommand::LspProxy(config_path) => commands::daemon::lsp_proxy(config_path),
+            BiomeCommand::Init(emit_jsonc) => commands::init::init(self, emit_jsonc),
+            BiomeCommand::LspProxy(config_path, _) => commands::daemon::lsp_proxy(config_path),
             BiomeCommand::Migrate {
                 cli_options,
                 write,
-                prettier,
-            } => commands::migrate::migrate(self, cli_options, write, prettier),
+                sub_command,
+            } => commands::migrate::migrate(
+                self,
+                cli_options,
+                write,
+                sub_command
+                    .map(|sub_command| sub_command.is_prettier())
+                    .unwrap_or_default(),
+            ),
             BiomeCommand::RunServer {
                 stop_on_disconnect,
                 config_path,

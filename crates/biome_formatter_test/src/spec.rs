@@ -4,17 +4,17 @@ use crate::utils::strip_rome_placeholders;
 use crate::TestFormatLanguage;
 use biome_console::EnvConsole;
 use biome_formatter::{FormatOptions, Printed};
-use biome_fs::RomePath;
+use biome_fs::BiomePath;
 use biome_parser::AnyParse;
 use biome_rowan::{TextRange, TextSize};
-use biome_service::workspace::{FeatureName, FeaturesBuilder, SupportsFeatureParams};
+use biome_service::workspace::{FeaturesBuilder, SupportsFeatureParams};
 use biome_service::App;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct SpecTestFile<'a> {
-    input_file: RomePath,
+    input_file: BiomePath,
     root_path: &'a Path,
 
     input_code: String,
@@ -36,7 +36,7 @@ impl<'a> SpecTestFile<'a> {
             spec_input_file.display()
         );
 
-        let mut input_file = RomePath::new(file_path);
+        let mut input_file = BiomePath::new(file_path);
         let can_format = app
             .workspace
             .file_features(SupportsFeatureParams {
@@ -45,7 +45,7 @@ impl<'a> SpecTestFile<'a> {
             })
             .unwrap();
 
-        if can_format.supports_for(&FeatureName::Format) {
+        if can_format.supports_format() {
             let mut input_code = input_file.get_buffer_from_file();
 
             let (_, range_start_index, range_end_index) = strip_rome_placeholders(&mut input_code);
@@ -72,7 +72,7 @@ impl<'a> SpecTestFile<'a> {
         self.input_file.file_name().unwrap().to_str().unwrap()
     }
 
-    pub fn input_file(&self) -> &RomePath {
+    pub fn input_file(&self) -> &BiomePath {
         &self.input_file
     }
 
@@ -212,7 +212,7 @@ where
 
         let options_path = self.test_directory.join("options.json");
         if options_path.exists() {
-            let mut options_path = RomePath::new(&options_path);
+            let mut options_path = BiomePath::new(&options_path);
 
             // SAFETY: we checked its existence already, we assume we have rights to read it
             let test_options = self

@@ -45,7 +45,7 @@ declare_rule! {
     /// const includesBaz = foo.property?.includes('baz') ?? false;
     /// ```
     ///
-    pub(crate) NoNonNullAssertion {
+    pub NoNonNullAssertion {
         version: "1.0.0",
         name: "noNonNullAssertion",
         source: RuleSource::EslintTypeScript("no-non-null-assertion"),
@@ -55,7 +55,7 @@ declare_rule! {
 }
 
 declare_node_union! {
-    pub(crate) AnyTsNonNullAssertion = TsNonNullAssertionExpression | TsNonNullAssertionAssignment
+    pub AnyTsNonNullAssertion = TsNonNullAssertionExpression | TsNonNullAssertionAssignment
 }
 
 impl Rule for NoNonNullAssertion {
@@ -102,7 +102,13 @@ impl Rule for NoNonNullAssertion {
                 let old_node = AnyJsExpression::TsNonNullAssertionExpression(node.clone());
 
                 match node.parent::<AnyJsExpression>()? {
-                    AnyJsExpression::JsComputedMemberExpression(parent) => {
+                    AnyJsExpression::JsComputedMemberExpression(parent)
+                        if parent.object().is_ok_and(|object| {
+                            object
+                                .as_ts_non_null_assertion_expression()
+                                .is_some_and(|object| object == node)
+                        }) =>
+                    {
                         if parent.is_optional() {
                             // object!?["prop"] --> object?.["prop"]
                             mutation.replace_node(old_node, assertion_less_expr);

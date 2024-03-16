@@ -9,14 +9,12 @@ use biome_deserialize::json::deserialize_from_json_str;
 use biome_deserialize::Merge;
 use biome_diagnostics::Diagnostic;
 use biome_diagnostics::{category, PrintDiagnostic};
-use biome_fs::{FileSystemExt, OpenOptions, RomePath};
+use biome_fs::{BiomePath, ConfigName, FileSystemExt, OpenOptions};
 use biome_json_parser::{parse_json_with_cache, JsonParserOptions};
-use biome_json_syntax::JsonRoot;
+use biome_json_syntax::{JsonFileSource, JsonRoot};
 use biome_migrate::{migrate_configuration, ControlFlow};
 use biome_rowan::{AstNode, NodeCache};
-use biome_service::workspace::{
-    ChangeFileParams, FixAction, FormatFileParams, Language, OpenFileParams,
-};
+use biome_service::workspace::{ChangeFileParams, FixAction, FormatFileParams, OpenFileParams};
 use biome_service::{PartialConfiguration, VERSION};
 use std::borrow::Cow;
 use std::ffi::OsStr;
@@ -60,12 +58,12 @@ pub(crate) fn run(migrate_payload: MigratePayload) -> Result<(), CliDiagnostic> 
     let mut configuration_content = String::new();
     configuration_file.read_to_string(&mut configuration_content)?;
 
-    let rome_path = RomePath::new(configuration_file_path.as_path());
+    let biome_path = BiomePath::new(configuration_file_path.as_path());
     workspace.open_file(OpenFileParams {
-        path: rome_path.clone(),
+        path: biome_path.clone(),
         content: configuration_content.to_string(),
         version: 0,
-        language_hint: Language::Json,
+        document_file_source: Some(JsonFileSource::json().into()),
     })?;
 
     let parsed = parse_json_with_cache(
@@ -139,13 +137,13 @@ pub(crate) fn run(migrate_payload: MigratePayload) -> Result<(), CliDiagnostic> 
                 })?;
 
                 workspace.change_file(ChangeFileParams {
-                    path: rome_path.clone(),
+                    path: biome_path.clone(),
                     content: new_content,
                     version: 1,
                 })?;
 
                 let printed = workspace.format_file(FormatFileParams {
-                    path: rome_path.clone(),
+                    path: biome_path.clone(),
                 })?;
 
                 if write {
@@ -153,6 +151,11 @@ pub(crate) fn run(migrate_payload: MigratePayload) -> Result<(), CliDiagnostic> 
                     console.log(markup!{
                         <Info>"The configuration "<Emphasis>{{configuration_file_path.display().to_string()}}</Emphasis>" has been successfully migrated."</Info>
                     });
+                    if prettier_configuration.has_ignore_file() {
+                        console.log(markup!{
+                            <Warn>"Please make sure that the globs of the "<Emphasis>".prettierignore"</Emphasis>" file still work in Biome. Prettier's globs use git globs, while Biome's globs use uni-style globs. They both seem similar, but their semantics differ."</Warn>
+                        })
+                    }
                 } else {
                     let file_name = configuration_file_path.display().to_string();
                     let diagnostic = MigrateDiffDiagnostic {
@@ -173,7 +176,7 @@ pub(crate) fn run(migrate_payload: MigratePayload) -> Result<(), CliDiagnostic> 
     } else if configuration_content != new_configuration_content || has_deprecated_configuration {
         if write {
             let mut configuration_file = if has_deprecated_configuration {
-                let biome_file_path = configuration_directory_path.join(fs.config_name());
+                let biome_file_path = configuration_directory_path.join(ConfigName::biome_json());
                 fs.create_new(biome_file_path.as_path())?
             } else {
                 configuration_file

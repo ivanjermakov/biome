@@ -34,7 +34,7 @@ declare_rule! {
     /// const foo = 1;
     /// let bar = 1;
     ///```
-    pub(crate) NoVar {
+    pub NoVar {
         version: "1.0.0",
         name: "noVar",
         source: RuleSource::Eslint("no-var"),
@@ -110,7 +110,10 @@ impl Rule for NoVar {
             JsSyntaxKind::LET_KW
         };
         let mut mutation = ctx.root().begin();
-        mutation.replace_token(declaration.kind_token()?, make::token(replacing_token_kind));
+        mutation.replace_token(
+            declaration.kind_token().ok()?,
+            make::token(replacing_token_kind),
+        );
         Some(JsRuleAction {
             category: ActionCategory::QuickFix,
             applicability: Applicability::MaybeIncorrect,

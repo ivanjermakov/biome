@@ -2,7 +2,6 @@
 source: crates/biome_css_parser/tests/spec_test.rs
 expression: snapshot
 ---
-
 ## Input
 
 ```css
@@ -349,25 +348,23 @@ CssRoot {
                                         items: CssDeclarationOrRuleList [
                                             CssDeclarationWithSemicolon {
                                                 declaration: CssDeclaration {
-                                                    property: CssBorderProperty {
+                                                    property: CssGenericProperty {
                                                         name: CssIdentifier {
                                                             value_token: IDENT@122..128 "border" [] [],
                                                         },
                                                         colon_token: COLON@128..129 ":" [] [],
-                                                        value: CssUnknownPropertyValue {
-                                                            css_generic_component_value_list: CssGenericComponentValueList [
-                                                                CssRegularDimension {
-                                                                    value_token: CSS_NUMBER_LITERAL@129..130 "1" [] [],
-                                                                    unit_token: IDENT@130..133 "px" [] [Whitespace(" ")],
-                                                                },
-                                                                CssIdentifier {
-                                                                    value_token: IDENT@133..139 "solid" [] [Whitespace(" ")],
-                                                                },
-                                                                CssIdentifier {
-                                                                    value_token: IDENT@139..145 "black" [] [Whitespace(" ")],
-                                                                },
-                                                            ],
-                                                        },
+                                                        value: CssGenericComponentValueList [
+                                                            CssRegularDimension {
+                                                                value_token: CSS_NUMBER_LITERAL@129..130 "1" [] [],
+                                                                unit_token: IDENT@130..133 "px" [] [Whitespace(" ")],
+                                                            },
+                                                            CssIdentifier {
+                                                                value_token: IDENT@133..139 "solid" [] [Whitespace(" ")],
+                                                            },
+                                                            CssIdentifier {
+                                                                value_token: IDENT@139..145 "black" [] [Whitespace(" ")],
+                                                            },
+                                                        ],
                                                     },
                                                     important: missing (optional),
                                                 },
@@ -2476,7 +2473,7 @@ CssRoot {
                             },
                         ],
                     ],
-                    block: CssRuleListBlock {
+                    block: CssRuleBlock {
                         l_curly_token: L_CURLY@1609..1610 "{" [] [],
                         rules: CssRuleList [
                             CssQualifiedRule {
@@ -2576,7 +2573,7 @@ CssRoot {
                             },
                         ],
                     ],
-                    block: CssRuleListBlock {
+                    block: CssRuleBlock {
                         l_curly_token: L_CURLY@1698..1699 "{" [] [],
                         rules: CssRuleList [
                             CssQualifiedRule {
@@ -2629,7 +2626,7 @@ CssRoot {
                                                             },
                                                         ],
                                                     ],
-                                                    block: CssRuleListBlock {
+                                                    block: CssRuleBlock {
                                                         l_curly_token: L_CURLY@1751..1752 "{" [] [],
                                                         rules: CssRuleList [
                                                             CssQualifiedRule {
@@ -2832,7 +2829,7 @@ CssRoot {
                                     },
                                 },
                             ],
-                            block: CssRuleListBlock {
+                            block: CssRuleBlock {
                                 l_curly_token: L_CURLY@1914..1915 "{" [] [],
                                 rules: CssRuleList [
                                     CssQualifiedRule {
@@ -3010,19 +3007,18 @@ CssRoot {
                     1: CSS_DECLARATION_OR_RULE_LIST@122..145
                       0: CSS_DECLARATION_WITH_SEMICOLON@122..145
                         0: CSS_DECLARATION@122..145
-                          0: CSS_BORDER_PROPERTY@122..145
+                          0: CSS_GENERIC_PROPERTY@122..145
                             0: CSS_IDENTIFIER@122..128
                               0: IDENT@122..128 "border" [] []
                             1: COLON@128..129 ":" [] []
-                            2: CSS_UNKNOWN_PROPERTY_VALUE@129..145
-                              0: CSS_GENERIC_COMPONENT_VALUE_LIST@129..145
-                                0: CSS_REGULAR_DIMENSION@129..133
-                                  0: CSS_NUMBER_LITERAL@129..130 "1" [] []
-                                  1: IDENT@130..133 "px" [] [Whitespace(" ")]
-                                1: CSS_IDENTIFIER@133..139
-                                  0: IDENT@133..139 "solid" [] [Whitespace(" ")]
-                                2: CSS_IDENTIFIER@139..145
-                                  0: IDENT@139..145 "black" [] [Whitespace(" ")]
+                            2: CSS_GENERIC_COMPONENT_VALUE_LIST@129..145
+                              0: CSS_REGULAR_DIMENSION@129..133
+                                0: CSS_NUMBER_LITERAL@129..130 "1" [] []
+                                1: IDENT@130..133 "px" [] [Whitespace(" ")]
+                              1: CSS_IDENTIFIER@133..139
+                                0: IDENT@133..139 "solid" [] [Whitespace(" ")]
+                              2: CSS_IDENTIFIER@139..145
+                                0: IDENT@139..145 "black" [] [Whitespace(" ")]
                           1: (empty)
                         1: (empty)
                     2: R_CURLY@145..146 "}" [] []
@@ -4393,7 +4389,7 @@ CssRoot {
             0: CSS_LAYER_NAME_LIST@1604..1609
               0: CSS_IDENTIFIER@1604..1609
                 0: IDENT@1604..1609 "base" [] [Whitespace(" ")]
-          1: CSS_RULE_LIST_BLOCK@1609..1684
+          1: CSS_RULE_BLOCK@1609..1684
             0: L_CURLY@1609..1610 "{" [] []
             1: CSS_RULE_LIST@1610..1682
               0: CSS_QUALIFIED_RULE@1610..1682
@@ -4458,7 +4454,7 @@ CssRoot {
             0: CSS_LAYER_NAME_LIST@1693..1698
               0: CSS_IDENTIFIER@1693..1698
                 0: IDENT@1693..1698 "base" [] [Whitespace(" ")]
-          1: CSS_RULE_LIST_BLOCK@1698..1804
+          1: CSS_RULE_BLOCK@1698..1804
             0: L_CURLY@1698..1699 "{" [] []
             1: CSS_RULE_LIST@1699..1802
               0: CSS_QUALIFIED_RULE@1699..1802
@@ -4497,7 +4493,7 @@ CssRoot {
                               1: DOT@1742..1743 "." [] []
                               2: CSS_IDENTIFIER@1743..1751
                                 0: IDENT@1743..1751 "support" [] [Whitespace(" ")]
-                          1: CSS_RULE_LIST_BLOCK@1751..1799
+                          1: CSS_RULE_BLOCK@1751..1799
                             0: L_CURLY@1751..1752 "{" [] []
                             1: CSS_RULE_LIST@1752..1795
                               0: CSS_QUALIFIED_RULE@1752..1795
@@ -4626,7 +4622,7 @@ CssRoot {
                         0: CSS_NUMBER_LITERAL@1907..1910 "480" [] []
                         1: IDENT@1910..1912 "px" [] []
                     2: R_PAREN@1912..1914 ")" [] [Whitespace(" ")]
-              2: CSS_RULE_LIST_BLOCK@1914..1953
+              2: CSS_RULE_BLOCK@1914..1953
                 0: L_CURLY@1914..1915 "{" [] []
                 1: CSS_RULE_LIST@1915..1950
                   0: CSS_QUALIFIED_RULE@1915..1950
@@ -4666,5 +4662,3 @@ CssRoot {
   2: EOF@1955..1956 "" [Newline("\n")] []
 
 ```
-
-

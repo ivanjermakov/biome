@@ -1,9 +1,14 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource, RuleSourceKind,
+    context::RuleContext, declare_rule, Ast, FixKind, Rule, RuleDiagnostic, RuleSource,
+    RuleSourceKind,
 };
 use biome_console::markup;
-use biome_js_syntax::{AnyJsExpression, JsCallExpression, JsSyntaxToken};
-use biome_rowan::TextRange;
+use biome_diagnostics::Applicability;
+use biome_js_factory::make;
+use biome_js_syntax::JsCallExpression;
+use biome_rowan::{BatchMutationExt, TextRange};
+
+use crate::JsRuleAction;
 
 declare_rule! {
     /// Disallow disabled tests.
@@ -29,12 +34,13 @@ declare_rule! {
     /// test("test", () => {});
     /// ```
     ///
-    pub(crate) NoSkippedTests {
-        version: "next",
+    pub NoSkippedTests {
+        version: "1.6.0",
         name: "noSkippedTests",
         recommended: false,
         source: RuleSource::EslintJest("no-disabled-tests"),
         source_kind: RuleSourceKind::Inspired,
+        fix_kind: FixKind::Unsafe,
     }
 }
 
@@ -52,7 +58,7 @@ impl Rule for NoSkippedTests {
         if node.is_test_call_expression().ok()? {
             let callee = node.callee().ok()?;
             if callee.contains_a_test_pattern().ok()? {
-                let function_name = get_function_name(&callee)?;
+                let function_name = callee.get_callee_member_name()?;
 
                 if FUNCTION_NAMES.contains(&function_name.text_trimmed()) {
                     return Some(function_name.text_trimmed_range());
@@ -76,16 +82,43 @@ impl Rule for NoSkippedTests {
             .note("If this is intentional, and you want to commit a disabled test, add a suppression comment.")
         )
     }
-}
 
-fn get_function_name(callee: &AnyJsExpression) -> Option<JsSyntaxToken> {
-    match callee {
-        AnyJsExpression::JsStaticMemberExpression(node) => {
-            let member = node.member().ok()?;
-            let member = member.as_js_name()?;
-            member.value_token().ok()
-        }
-        AnyJsExpression::JsIdentifierExpression(node) => node.name().ok()?.value_token().ok(),
-        _ => None,
+    fn action(ctx: &RuleContext<Self>, _: &Self::State) -> Option<JsRuleAction> {
+        let node = ctx.query();
+        let callee = node.callee().ok()?;
+        let function_name = callee.get_callee_member_name()?;
+        let replaced_function;
+
+        let mut mutation = ctx.root().begin();
+
+        match function_name.text_trimmed() {
+            "skip" => {
+                let member = callee.as_js_static_member_expression()?;
+                let member_name = member.member().ok()?;
+                let operator_token = member.operator_token().ok()?;
+                mutation.remove_element(member_name.into());
+                mutation.remove_element(operator_token.into());
+            }
+            "xdescribe" => {
+                replaced_function = make::js_reference_identifier(make::ident("describe"));
+                mutation.replace_element(function_name.into(), replaced_function.into());
+            }
+            "xit" => {
+                replaced_function = make::js_reference_identifier(make::ident("it"));
+                mutation.replace_element(function_name.into(), replaced_function.into());
+            }
+            "xtest" => {
+                replaced_function = make::js_reference_identifier(make::ident("test"));
+                mutation.replace_element(function_name.into(), replaced_function.into());
+            }
+            _ => {}
+        };
+
+        Some(JsRuleAction {
+            category: biome_analyze::ActionCategory::QuickFix,
+            applicability: Applicability::MaybeIncorrect,
+            message: markup! { "Enable the test." }.to_owned(),
+            mutation,
+        })
     }
 }
