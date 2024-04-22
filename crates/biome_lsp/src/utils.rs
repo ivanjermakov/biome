@@ -198,8 +198,7 @@ pub(crate) fn diagnostic_to_lsp<D: Diagnostic>(
         .context("failed to convert diagnostic span to LSP range")?;
 
     let severity = match diagnostic.severity() {
-        Severity::Fatal | Severity::Error => lsp::DiagnosticSeverity::ERROR,
-        Severity::Warning => lsp::DiagnosticSeverity::WARNING,
+        Severity::Fatal | Severity::Error | Severity::Warning => lsp::DiagnosticSeverity::WARNING,
         Severity::Information => lsp::DiagnosticSeverity::INFORMATION,
         Severity::Hint => lsp::DiagnosticSeverity::HINT,
     };
