@@ -15,7 +15,7 @@ use biome_service::configuration::{
 use biome_service::file_handlers::{AstroFileHandler, SvelteFileHandler, VueFileHandler};
 use biome_service::workspace::{
     FeaturesBuilder, GetFileContentParams, OpenProjectParams, PullDiagnosticsParams,
-    SupportsFeatureParams, UpdateProjectParams,
+    RegisterProjectFolderParams, SupportsFeatureParams, UpdateProjectParams,
 };
 use biome_service::workspace::{RageEntry, RageParams, RageResult, UpdateSettingsParams};
 use biome_service::Workspace;
@@ -32,10 +32,10 @@ use std::sync::RwLock;
 use tokio::sync::Notify;
 use tokio::sync::OnceCell;
 use tower_lsp::lsp_types;
-use tower_lsp::lsp_types::Unregistration;
 use tower_lsp::lsp_types::Url;
 use tower_lsp::lsp_types::{MessageType, Registration};
-use tracing::{debug, error, info};
+use tower_lsp::lsp_types::{Unregistration, WorkspaceFolder};
+use tracing::{error, info};
 
 pub(crate) struct ClientInformation {
     /// The name of the client
@@ -83,6 +83,8 @@ struct InitializeParams {
     client_capabilities: lsp_types::ClientCapabilities,
     client_information: Option<ClientInformation>,
     root_uri: Option<Url>,
+    #[allow(unused)]
+    workspace_folders: Option<Vec<WorkspaceFolder>>,
 }
 
 #[repr(u8)]
@@ -93,6 +95,8 @@ enum ConfigurationStatus {
     Missing = 1,
     /// The configuration file exists but could not be loaded
     Error = 2,
+    /// Currently loading the configuration
+    Loading = 3,
 }
 
 impl TryFrom<u8> for ConfigurationStatus {
@@ -171,11 +175,13 @@ impl Session {
         client_capabilities: lsp_types::ClientCapabilities,
         client_information: Option<ClientInformation>,
         root_uri: Option<Url>,
+        workspace_folders: Option<Vec<WorkspaceFolder>>,
     ) {
         let result = self.initialize_params.set(InitializeParams {
             client_capabilities,
             client_information,
             root_uri,
+            workspace_folders,
         });
 
         if let Err(err) = result {
@@ -236,7 +242,7 @@ impl Session {
 
     /// Get a [`Document`] matching the provided [`lsp_types::Url`]
     ///
-    /// If document does not exist, result is [SessionError::DocumentNotFound]
+    /// If document does not exist, result is [WorkspaceError::NotFound]
     pub(crate) fn document(&self, url: &lsp_types::Url) -> Result<Document, WorkspaceError> {
         self.documents
             .read()
@@ -259,7 +265,7 @@ impl Session {
     }
 
     pub(crate) fn file_path(&self, url: &lsp_types::Url) -> Result<BiomePath> {
-        let mut path_to_file = match url.to_file_path() {
+        let path_to_file = match url.to_file_path() {
             Err(_) => {
                 // If we can't create a path, it's probably because the file doesn't exist.
                 // It can be a newly created file that it's not on disk
@@ -267,16 +273,6 @@ impl Session {
             }
             Ok(path) => path,
         };
-
-        let relative_path = self.initialize_params.get().and_then(|initialize_params| {
-            let root_uri = initialize_params.root_uri.as_ref()?;
-            let root_path = root_uri.to_file_path().ok()?;
-            path_to_file.strip_prefix(&root_path).ok()
-        });
-
-        if let Some(relative_path) = relative_path {
-            path_to_file = relative_path.into();
-        }
 
         Ok(BiomePath::new(path_to_file))
     }
@@ -328,7 +324,7 @@ impl Session {
                 _ => None,
             };
 
-            let result = result
+            result
                 .diagnostics
                 .into_iter()
                 .filter_map(|d| {
@@ -346,11 +342,7 @@ impl Session {
                         }
                     }
                 })
-                .collect();
-
-            tracing::trace!("lsp diagnostics: {:#?}", result);
-
-            result
+                .collect()
         };
 
         tracing::Span::current().record("diagnostic_count", diagnostics.len());
@@ -389,6 +381,13 @@ impl Session {
             == Some(true)
     }
 
+    /// Get the current workspace folders
+    pub(crate) fn get_workspace_folders(&self) -> Option<&Vec<WorkspaceFolder>> {
+        self.initialize_params
+            .get()
+            .and_then(|c| c.workspace_folders.as_ref())
+    }
+
     /// Returns the base path of the workspace on the filesystem if it has one
     pub(crate) fn base_path(&self) -> Option<PathBuf> {
         let initialize_params = self.initialize_params.get()?;
@@ -414,16 +413,49 @@ impl Session {
     /// the root URI and update the workspace settings accordingly
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) async fn load_workspace_settings(&self) {
-        let base_path = if let Some(config_path) = &self.config_path {
-            ConfigurationPathHint::FromUser(config_path.clone())
+        // Providing a custom configuration path will not allow to support workspaces
+        if let Some(config_path) = &self.config_path {
+            let base_path = ConfigurationPathHint::FromUser(config_path.clone());
+            let status = self.load_biome_configuration_file(base_path).await;
+            self.set_configuration_status(status);
+        } else if let Some(folders) = self.get_workspace_folders() {
+            info!("Detected workspace folder.");
+            self.set_configuration_status(ConfigurationStatus::Loading);
+            for folder in folders {
+                info!("Attempt to load the configuration file in {:?}", folder.uri);
+                let base_path = folder.uri.to_file_path();
+                match base_path {
+                    Ok(base_path) => {
+                        let status = self
+                            .load_biome_configuration_file(ConfigurationPathHint::FromWorkspace(
+                                base_path,
+                            ))
+                            .await;
+                        self.set_configuration_status(status);
+                    }
+                    Err(_) => {
+                        error!(
+                            "The Workspace root URI {:?} could not be parsed as a filesystem path",
+                            folder.uri
+                        );
+                    }
+                }
+            }
         } else {
-            match self.base_path() {
+            let base_path = match self.base_path() {
                 None => ConfigurationPathHint::default(),
                 Some(path) => ConfigurationPathHint::FromLsp(path),
-            }
-        };
+            };
+            let status = self.load_biome_configuration_file(base_path).await;
+            self.set_configuration_status(status);
+        }
+    }
 
-        let status = match load_configuration(&self.fs, base_path) {
+    async fn load_biome_configuration_file(
+        &self,
+        base_path: ConfigurationPathHint,
+    ) -> ConfigurationStatus {
+        match load_configuration(&self.fs, base_path.clone()) {
             Ok(loaded_configuration) => {
                 if loaded_configuration.has_errors() {
                     error!("Couldn't load the configuration file, reasons:");
@@ -439,7 +471,6 @@ impl Session {
                         ..
                     } = loaded_configuration;
                     info!("Loaded workspace setting");
-                    debug!("{configuration:#?}");
                     let fs = &self.fs;
 
                     let result =
@@ -447,8 +478,26 @@ impl Session {
 
                     match result {
                         Ok((vcs_base_path, gitignore_matches)) => {
+                            if let ConfigurationPathHint::FromWorkspace(path) = &base_path {
+                                // We don't need the key
+                                let _ = self.workspace.register_project_folder(
+                                    RegisterProjectFolderParams {
+                                        path: Some(path.clone()),
+                                        // This is naive, but we don't know if the user has a file already open or not, so we register every project as the current one.
+                                        // The correct one is actually set when the LSP calls `textDocument/didOpen`
+                                        set_as_current_workspace: true,
+                                    },
+                                );
+                            } else {
+                                let _ = self.workspace.register_project_folder(
+                                    RegisterProjectFolderParams {
+                                        path: fs.working_directory(),
+                                        set_as_current_workspace: true,
+                                    },
+                                );
+                            }
                             let result = self.workspace.update_settings(UpdateSettingsParams {
-                                working_directory: fs.working_directory(),
+                                workspace_directory: fs.working_directory(),
                                 configuration,
                                 vcs_base_path,
                                 gitignore_matches,
@@ -474,9 +523,7 @@ impl Session {
                 self.client.log_message(MessageType::ERROR, &err).await;
                 ConfigurationStatus::Error
             }
-        };
-
-        self.set_configuration_status(status);
+        }
     }
 
     #[tracing::instrument(level = "trace", skip(self))]
@@ -587,6 +634,7 @@ impl Session {
                 .unwrap()
                 .requires_configuration(),
             ConfigurationStatus::Error => true,
+            ConfigurationStatus::Loading => true,
         }
     }
 

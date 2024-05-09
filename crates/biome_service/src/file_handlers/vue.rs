@@ -1,9 +1,9 @@
 use crate::file_handlers::{
     javascript, AnalyzerCapabilities, Capabilities, CodeActionsParams, DebugCapabilities,
-    ExtensionHandler, FixAllParams, FormatterCapabilities, LintParams, LintResults, Mime,
-    ParseResult, ParserCapabilities,
+    ExtensionHandler, FixAllParams, FormatterCapabilities, LintParams, LintResults, ParseResult,
+    ParserCapabilities,
 };
-use crate::settings::SettingsHandle;
+use crate::settings::WorkspaceSettingsHandle;
 use crate::workspace::{
     DocumentFileSource, FixFileResult, OrganizeImportsResult, PullActionsResult,
 };
@@ -86,10 +86,6 @@ impl VueFileHandler {
 }
 
 impl ExtensionHandler for VueFileHandler {
-    fn mime(&self) -> Mime {
-        Mime::Javascript
-    }
-
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             parser: ParserCapabilities { parse: Some(parse) },
@@ -118,7 +114,7 @@ fn parse(
     _rome_path: &BiomePath,
     _file_source: DocumentFileSource,
     text: &str,
-    _settings: SettingsHandle,
+    _settings: WorkspaceSettingsHandle,
     cache: &mut NodeCache,
 ) -> ParseResult {
     let script = VueFileHandler::input(text);
@@ -145,7 +141,7 @@ fn format(
     biome_path: &BiomePath,
     document_file_source: &DocumentFileSource,
     parse: AnyParse,
-    settings: SettingsHandle,
+    settings: WorkspaceSettingsHandle,
 ) -> Result<Printed, WorkspaceError> {
     javascript::format(biome_path, document_file_source, parse, settings)
 }
@@ -154,7 +150,7 @@ pub(crate) fn format_range(
     biome_path: &BiomePath,
     document_file_source: &DocumentFileSource,
     parse: AnyParse,
-    settings: SettingsHandle,
+    settings: WorkspaceSettingsHandle,
     range: TextRange,
 ) -> Result<Printed, WorkspaceError> {
     javascript::format_range(biome_path, document_file_source, parse, settings, range)
@@ -164,7 +160,7 @@ pub(crate) fn format_on_type(
     biome_path: &BiomePath,
     document_file_source: &DocumentFileSource,
     parse: AnyParse,
-    settings: SettingsHandle,
+    settings: WorkspaceSettingsHandle,
     offset: TextSize,
 ) -> Result<Printed, WorkspaceError> {
     javascript::format_on_type(biome_path, document_file_source, parse, settings, offset)

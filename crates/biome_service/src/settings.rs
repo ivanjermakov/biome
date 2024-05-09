@@ -1,4 +1,4 @@
-use crate::workspace::DocumentFileSource;
+use crate::workspace::{DocumentFileSource, ProjectKey, WorkspaceData};
 use crate::{Matcher, WorkspaceError};
 use biome_analyze::AnalyzerRules;
 use biome_configuration::diagnostics::InvalidIgnorePattern;
@@ -30,14 +30,126 @@ use indexmap::IndexSet;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
+use std::sync::RwLockWriteGuard;
 use std::{
     num::NonZeroU64,
     sync::{RwLock, RwLockReadGuard},
 };
+use tracing::trace;
+
+#[derive(Debug, Default)]
+/// The information tracked for each project
+pub struct ProjectData {
+    /// The root path of the project. This path should be **absolute**.
+    path: BiomePath,
+    /// The settings of the project, usually inferred from the configuration file e.g. `biome.json`.
+    settings: Settings,
+}
+
+#[derive(Debug, Default)]
+/// Type that manages different projects inside the workspace.
+pub struct WorkspaceSettings {
+    /// The data of the projects
+    data: WorkspaceData<ProjectData>,
+    /// The ID of the current project.
+    current_project: ProjectKey,
+}
+
+impl WorkspaceSettings {
+    /// Retrieves the settings of the current workspace folder
+    pub fn get_current_settings(&self) -> &Settings {
+        trace!("Current key {:?}", self.current_project);
+        let data = self
+            .data
+            .get(self.current_project)
+            .expect("You must have at least one workspace.");
+        &data.settings
+    }
+
+    /// Retrieves a mutable reference of the settings of the current project
+    pub fn get_current_settings_mut(&mut self) -> &mut Settings {
+        &mut self
+            .data
+            .get_mut(self.current_project)
+            .expect("You must have at least one workspace.")
+            .settings
+    }
+
+    /// Register the current project using its unique key
+    pub fn register_current_project(&mut self, key: ProjectKey) {
+        self.current_project = key;
+    }
+
+    /// Insert a new project using its folder. Use [WorkspaceSettings::get_current_settings_mut] to retrieve
+    /// a mutable reference to its [Settings] and manipulate them.
+    pub fn insert_project(&mut self, workspace_path: impl Into<PathBuf>) -> ProjectKey {
+        let path = BiomePath::new(workspace_path.into());
+        trace!("Insert workspace folder: {:?}", path);
+        self.data.insert(ProjectData {
+            path,
+            settings: Settings::default(),
+        })
+    }
+
+    /// Remove a project using its folder.
+    pub fn remove_project(&mut self, workspace_path: &Path) {
+        let keys_to_remove = {
+            let mut data = vec![];
+            let iter = self.data.iter();
+
+            for (key, path_to_settings) in iter {
+                if path_to_settings.path.as_path() == workspace_path {
+                    data.push(key)
+                }
+            }
+
+            data
+        };
+
+        for key in keys_to_remove {
+            self.data.remove(key)
+        }
+    }
+
+    /// Checks if the current path belongs to a registered project.
+    ///
+    /// If there's a match, and the match **isn't** the current project, it returns the new key.
+    pub fn path_belongs_to_current_workspace(&self, path: &BiomePath) -> Option<ProjectKey> {
+        debug_assert!(
+            !self.data.is_empty(),
+            "You must have at least one workspace."
+        );
+        trace!("Current key: {:?}", self.current_project);
+        let iter = self.data.iter();
+        for (key, path_to_settings) in iter {
+            trace!(
+                "Workspace path {:?}, file path {:?}",
+                path_to_settings.path,
+                path
+            );
+            trace!("Iter key: {:?}", key);
+            if key == self.current_project {
+                continue;
+            }
+            if path.strip_prefix(path_to_settings.path.as_path()).is_ok() {
+                trace!("Update workspace to {:?}", key);
+                return Some(key);
+            }
+        }
+        None
+    }
+
+    /// Checks if the current path belongs to a registered project.
+    ///
+    /// If there's a match, and the match **isn't** the current project, the function will mark the match as the current project.
+    pub fn set_current_project(&mut self, new_key: ProjectKey) {
+        self.current_project = new_key;
+    }
+}
 
 /// Global settings for the entire workspace
 #[derive(Debug, Default)]
-pub struct WorkspaceSettings {
+pub struct Settings {
     /// Formatter settings applied to all files in the workspaces
     pub formatter: FormatSettings,
     /// Linter settings applied to all files in the workspace
@@ -52,40 +164,7 @@ pub struct WorkspaceSettings {
     pub override_settings: OverrideSettings,
 }
 
-impl WorkspaceSettings {
-    /// Retrieves the settings of the formatter
-    pub fn formatter(&self) -> &FormatSettings {
-        &self.formatter
-    }
-
-    /// Whether the formatter is disabled for JavaScript files
-    pub fn javascript_formatter_disabled(&self) -> bool {
-        let enabled = self.languages.javascript.formatter.enabled.as_ref();
-        enabled == Some(&false)
-    }
-
-    /// Whether the formatter is disabled for JSON files
-    pub fn json_formatter_disabled(&self) -> bool {
-        let enabled = self.languages.json.formatter.enabled.as_ref();
-        enabled == Some(&false)
-    }
-
-    /// Whether the formatter is disabled for CSS files
-    pub fn css_formatter_disabled(&self) -> bool {
-        let enabled = self.languages.css.formatter.enabled.as_ref();
-        enabled == Some(&false)
-    }
-
-    /// Retrieves the settings of the linter
-    pub fn linter(&self) -> &LinterSettings {
-        &self.linter
-    }
-
-    /// Retrieves the settings of the organize imports
-    pub fn organize_imports(&self) -> &OrganizeImportsSettings {
-        &self.organize_imports
-    }
-
+impl Settings {
     /// The [PartialConfiguration] is merged into the workspace
     #[tracing::instrument(level = "trace", skip(self))]
     pub fn merge_with_configuration(
@@ -146,6 +225,39 @@ impl WorkspaceSettings {
         }
 
         Ok(())
+    }
+
+    /// Retrieves the settings of the formatter
+    pub fn formatter(&self) -> &FormatSettings {
+        &self.formatter
+    }
+
+    /// Whether the formatter is disabled for JavaScript files
+    pub fn javascript_formatter_disabled(&self) -> bool {
+        let enabled = self.languages.javascript.formatter.enabled.as_ref();
+        enabled == Some(&false)
+    }
+
+    /// Whether the formatter is disabled for JSON files
+    pub fn json_formatter_disabled(&self) -> bool {
+        let enabled = self.languages.json.formatter.enabled.as_ref();
+        enabled == Some(&false)
+    }
+
+    /// Whether the formatter is disabled for CSS files
+    pub fn css_formatter_disabled(&self) -> bool {
+        let enabled = self.languages.css.formatter.enabled.as_ref();
+        enabled == Some(&false)
+    }
+
+    /// Retrieves the settings of the linter
+    pub fn linter(&self) -> &LinterSettings {
+        &self.linter
+    }
+
+    /// Retrieves the settings of the organize imports
+    pub fn organize_imports(&self) -> &OrganizeImportsSettings {
+        &self.organize_imports
     }
 
     /// It retrieves the severity based on the `code` of the rule and the current configuration.
@@ -492,25 +604,29 @@ fn to_file_settings(
 /// Handle object holding a temporary lock on the workspace settings until
 /// the deferred language-specific options resolution is called
 #[derive(Debug)]
-pub struct SettingsHandle<'a> {
+pub struct WorkspaceSettingsHandle<'a> {
     inner: RwLockReadGuard<'a, WorkspaceSettings>,
 }
 
-impl<'a> SettingsHandle<'a> {
+impl<'a> WorkspaceSettingsHandle<'a> {
     pub(crate) fn new(settings: &'a RwLock<WorkspaceSettings>) -> Self {
         Self {
             inner: settings.read().unwrap(),
         }
     }
+
+    pub(crate) fn settings(&self) -> &Settings {
+        self.inner.get_current_settings()
+    }
 }
 
-impl<'a> AsRef<WorkspaceSettings> for SettingsHandle<'a> {
+impl<'a> AsRef<WorkspaceSettings> for WorkspaceSettingsHandle<'a> {
     fn as_ref(&self) -> &WorkspaceSettings {
         &self.inner
     }
 }
 
-impl<'a> SettingsHandle<'a> {
+impl<'a> WorkspaceSettingsHandle<'a> {
     /// Resolve the formatting context for the given language
     pub(crate) fn format_options<L>(
         self,
@@ -520,13 +636,32 @@ impl<'a> SettingsHandle<'a> {
     where
         L: ServiceLanguage,
     {
+        let settings = self.inner.get_current_settings();
         L::resolve_format_options(
-            &self.inner.formatter,
-            &self.inner.override_settings,
-            &L::lookup_settings(&self.inner.languages).formatter,
+            &settings.formatter,
+            &settings.override_settings,
+            &L::lookup_settings(&settings.languages).formatter,
             path,
             file_source,
         )
+    }
+}
+
+pub struct WorkspaceSettingsHandleMut<'a> {
+    inner: RwLockWriteGuard<'a, WorkspaceSettings>,
+}
+
+impl<'a> WorkspaceSettingsHandleMut<'a> {
+    pub(crate) fn new(settings: &'a RwLock<WorkspaceSettings>) -> Self {
+        Self {
+            inner: settings.write().unwrap(),
+        }
+    }
+}
+
+impl<'a> AsMut<WorkspaceSettings> for WorkspaceSettingsHandleMut<'a> {
+    fn as_mut(&mut self) -> &mut WorkspaceSettings {
+        &mut self.inner
     }
 }
 
@@ -1042,7 +1177,7 @@ impl TryFrom<OverrideOrganizeImportsConfiguration> for OrganizeImportsSettings {
 pub fn to_override_settings(
     working_directory: Option<PathBuf>,
     overrides: Overrides,
-    current_settings: &WorkspaceSettings,
+    current_settings: &Settings,
 ) -> Result<OverrideSettings, WorkspaceError> {
     let mut override_settings = OverrideSettings::default();
     for mut pattern in overrides.0 {

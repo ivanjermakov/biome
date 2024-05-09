@@ -2204,7 +2204,7 @@ fn check_stdin_apply_unsafe_successfully() {
     let mut console = BufferConsole::default();
 
     console.in_buffer.push(
-        "import 'zod'; import 'lodash'; function f() {var x = 1; return{x}} class Foo {}"
+        "import zod from 'zod'; import _ from 'lodash'; function f() {var x = 1; return{x}} class Foo {}"
             .to_string(),
     );
 
@@ -2236,7 +2236,7 @@ fn check_stdin_apply_unsafe_successfully() {
 
     assert_eq!(
         content,
-        "import \"lodash\";\nimport \"zod\";\nfunction f() {\n\tconst x = 1;\n\treturn { x };\n}\nclass Foo {}\n"
+        "import _ from \"lodash\";\nimport zod from \"zod\";\nfunction f() {\n\tconst x = 1;\n\treturn { x };\n}\nclass Foo {}\n"
     );
 
     assert_cli_snapshot(SnapshotPayload::new(
@@ -2253,9 +2253,10 @@ fn check_stdin_apply_unsafe_only_organize_imports() {
     let mut fs = MemoryFileSystem::default();
     let mut console = BufferConsole::default();
 
-    console
-        .in_buffer
-        .push("import 'zod'; import 'lodash'; function f() {return{}} class Foo {}".to_string());
+    console.in_buffer.push(
+        "import zod from 'zod'; import _ from 'lodash'; function f() {return{}} class Foo {}"
+            .to_string(),
+    );
 
     let result = run_cli(
         DynRef::Borrowed(&mut fs),
@@ -2287,7 +2288,7 @@ fn check_stdin_apply_unsafe_only_organize_imports() {
 
     assert_eq!(
         content,
-        "import 'lodash'; import 'zod'; function f() {return{}} class Foo {}"
+        "import _ from 'lodash'; import zod from 'zod'; function f() {return{}} class Foo {}"
     );
 
     assert_cli_snapshot(SnapshotPayload::new(
@@ -2891,6 +2892,31 @@ fn print_json_pretty() {
     assert_cli_snapshot(SnapshotPayload::new(
         module_path!(),
         "print_json_pretty",
+        fs,
+        console,
+        result,
+    ));
+}
+
+#[test]
+fn lint_error_without_file_paths() {
+    let mut fs = MemoryFileSystem::default();
+    let mut console = BufferConsole::default();
+
+    let file_path = Path::new("check.js");
+    fs.insert(file_path.into(), LINT_ERROR.as_bytes());
+
+    let result: Result<(), biome_cli::CliDiagnostic> = run_cli(
+        DynRef::Borrowed(&mut fs),
+        &mut console,
+        Args::from([("check"), ""].as_slice()),
+    );
+
+    assert!(result.is_err(), "run_cli returned {result:?}");
+
+    assert_cli_snapshot(SnapshotPayload::new(
+        module_path!(),
+        "lint_error_without_file_paths",
         fs,
         console,
         result,

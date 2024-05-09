@@ -7,7 +7,7 @@ pub use crate::file_handlers::svelte::{SvelteFileHandler, SVELTE_FENCE};
 pub use crate::file_handlers::vue::{VueFileHandler, VUE_FENCE};
 use crate::workspace::{FixFileMode, OrganizeImportsResult};
 use crate::{
-    settings::SettingsHandle,
+    settings::WorkspaceSettingsHandle,
     workspace::{FixFileResult, GetSyntaxTreeResult, PullActionsResult, RenameResult},
     WorkspaceError,
 };
@@ -299,36 +299,12 @@ impl biome_console::fmt::Display for DocumentFileSource {
     }
 }
 
-pub(crate) enum Mime {
-    Javascript,
-    Json,
-    Css,
-    Text,
-}
-
-impl std::fmt::Display for Mime {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Mime::Css => write!(f, "text/css"),
-            Mime::Json => write!(f, "application/json"),
-            Mime::Javascript => write!(f, "application/javascript"),
-            Mime::Text => write!(f, "text/plain"),
-        }
-    }
-}
-
-impl biome_console::fmt::Display for Mime {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::io::Result<()> {
-        write!(f, "{self}")
-    }
-}
-
 pub struct FixAllParams<'a> {
     pub(crate) parse: AnyParse,
     pub(crate) rules: Option<&'a Rules>,
     pub(crate) filter: AnalysisFilter<'a>,
     pub(crate) fix_file_mode: FixFileMode,
-    pub(crate) settings: SettingsHandle<'a>,
+    pub(crate) settings: WorkspaceSettingsHandle<'a>,
     /// Whether it should format the code action
     pub(crate) should_format: bool,
     pub(crate) biome_path: &'a BiomePath,
@@ -351,8 +327,13 @@ pub struct ParseResult {
     pub(crate) language: Option<DocumentFileSource>,
 }
 
-type Parse =
-    fn(&BiomePath, DocumentFileSource, &str, SettingsHandle, &mut NodeCache) -> ParseResult;
+type Parse = fn(
+    &BiomePath,
+    DocumentFileSource,
+    &str,
+    WorkspaceSettingsHandle,
+    &mut NodeCache,
+) -> ParseResult;
 
 #[derive(Default)]
 pub struct ParserCapabilities {
@@ -362,8 +343,12 @@ pub struct ParserCapabilities {
 
 type DebugSyntaxTree = fn(&BiomePath, AnyParse) -> GetSyntaxTreeResult;
 type DebugControlFlow = fn(AnyParse, TextSize) -> String;
-type DebugFormatterIR =
-    fn(&BiomePath, &DocumentFileSource, AnyParse, SettingsHandle) -> Result<String, WorkspaceError>;
+type DebugFormatterIR = fn(
+    &BiomePath,
+    &DocumentFileSource,
+    AnyParse,
+    WorkspaceSettingsHandle,
+) -> Result<String, WorkspaceError>;
 
 #[derive(Default)]
 pub struct DebugCapabilities {
@@ -377,7 +362,7 @@ pub struct DebugCapabilities {
 
 pub(crate) struct LintParams<'a> {
     pub(crate) parse: AnyParse,
-    pub(crate) settings: SettingsHandle<'a>,
+    pub(crate) settings: WorkspaceSettingsHandle<'a>,
     pub(crate) language: DocumentFileSource,
     pub(crate) max_diagnostics: u32,
     pub(crate) path: &'a BiomePath,
@@ -394,8 +379,7 @@ pub(crate) struct LintResults {
 pub(crate) struct CodeActionsParams<'a> {
     pub(crate) parse: AnyParse,
     pub(crate) range: TextRange,
-    pub(crate) rules: Option<&'a Rules>,
-    pub(crate) settings: SettingsHandle<'a>,
+    pub(crate) workspace: WorkspaceSettingsHandle<'a>,
     pub(crate) path: &'a BiomePath,
     pub(crate) manifest: Option<PackageJson>,
     pub(crate) language: DocumentFileSource,
@@ -425,20 +409,20 @@ type Format = fn(
     &BiomePath,
     &DocumentFileSource,
     AnyParse,
-    SettingsHandle,
+    WorkspaceSettingsHandle,
 ) -> Result<Printed, WorkspaceError>;
 type FormatRange = fn(
     &BiomePath,
     &DocumentFileSource,
     AnyParse,
-    SettingsHandle,
+    WorkspaceSettingsHandle,
     TextRange,
 ) -> Result<Printed, WorkspaceError>;
 type FormatOnType = fn(
     &BiomePath,
     &DocumentFileSource,
     AnyParse,
-    SettingsHandle,
+    WorkspaceSettingsHandle,
     TextSize,
 ) -> Result<Printed, WorkspaceError>;
 
@@ -454,24 +438,9 @@ pub(crate) struct FormatterCapabilities {
 
 /// Main trait to use to add a new language to Biome
 pub(crate) trait ExtensionHandler {
-    /// MIME types used to identify a certain language
-    fn mime(&self) -> Mime;
-
-    /// A file that can support tabs inside its content
-    fn may_use_tabs(&self) -> bool {
-        true
-    }
-
     /// Capabilities that can applied to a file
     fn capabilities(&self) -> Capabilities {
         Capabilities::default()
-    }
-
-    /// How a file should be treated. Usually an asset doesn't posses a parser.
-    ///
-    /// An image should me parked as asset.
-    fn is_asset(&self) -> bool {
-        false
     }
 }
 

@@ -269,13 +269,17 @@ The following this convention encourages commit best-practices and facilitates c
 
 The following commit prefixes are supported:
 
+- `build:`, a change that affects the build system or external dependencies
+- `chore:`, project housekeeping
+- `ci:`, a change that affects CI
+- `docs:`, a documentation update
 - `feat:`, a new feature
 - `fix:`, a bugfix
-- `docs:`, a documentation update
-- `test:`, a test update
-- `chore:`, project housekeeping
 - `perf:`, project performance
 - `refactor:`, refactor of the code without change in functionality
+- `release:`, release of a new version
+- `revert:`, revert a previous change
+- `test:`, a test update
 
 Below are examples of well-formatted commits:
 
@@ -414,7 +418,6 @@ Members are listed in alphabetical order. Members are free to use the full name,
 ### Core Contributors team
 
 - [Arend van Beelen @arendjr](https://github.com/arendjr)
-- [Daiki Nishikawa @nissy-dev](https://github.com/nissy-dev)
 - [Denis Bezrukov @denbezrukov](https://github.com/denbezrukov)
 - [Hiroki Ihoriya @unvalley](https://github.com/unvalley)
 - [Jon Egeland @faultyserver](https://github.com/faultyserver)
@@ -431,3 +434,9 @@ Members are listed in alphabetical order. Members are free to use the full name,
 - [Yoshiaki Togami @togami2864](https://github.com/togami2864)
 - [Ze-Zheng Wu @Sec-ant](https://github.com/Sec-ant)
 - [Zheyu Zhang @ah-yu](https://github.com/ah-yu)
+
+### Past Maintainers
+
+- [Daiki Nishikawa @nissy-dev](https://github.com/nissy-dev) (Core contributor)
+
+

@@ -9,7 +9,9 @@ use crate::{handlers, requests};
 use biome_console::markup;
 use biome_diagnostics::panic::PanicError;
 use biome_fs::{ConfigName, FileSystem, OsFileSystem, ROME_JSON};
-use biome_service::workspace::{RageEntry, RageParams, RageResult};
+use biome_service::workspace::{
+    RageEntry, RageParams, RageResult, RegisterProjectFolderParams, UnregisterProjectFolderParams,
+};
 use biome_service::{workspace, DynRef, Workspace};
 use futures::future::ready;
 use futures::FutureExt;
@@ -233,7 +235,7 @@ impl LanguageServer for LSPServer {
     // The `root_path` field is deprecated, but we still read it so we can print a warning about it
     #[allow(deprecated)]
     #[tracing::instrument(
-        level = "debug",
+        level = "trace",
         skip_all,
         fields(
             root_uri = params.root_uri.as_ref().map(display),
@@ -248,6 +250,10 @@ impl LanguageServer for LSPServer {
         self.is_initialized.store(true, Ordering::Relaxed);
 
         let server_capabilities = server_capabilities(&params.capabilities);
+        if params.root_path.is_some() {
+            warn!("The Biome Server was initialized with the deprecated `root_path` parameter: this is not supported, use `root_uri` instead");
+        }
+
         self.session.initialize(
             params.capabilities,
             params.client_info.map(|client_info| ClientInformation {
@@ -255,15 +261,8 @@ impl LanguageServer for LSPServer {
                 version: client_info.version,
             }),
             params.root_uri,
+            params.workspace_folders,
         );
-
-        if params.root_path.is_some() {
-            warn!("The Biome Server was initialized with the deprecated `root_path` parameter: this is not supported, use `root_uri` instead");
-        }
-
-        if params.workspace_folders.is_some() {
-            warn!("The Biome Server was initialized with the `workspace_folders` parameter: this is unsupported at the moment, use `root_uri` instead");
-        }
 
         //
         let init = InitializeResult {
@@ -366,6 +365,47 @@ impl LanguageServer for LSPServer {
         handlers::text_document::did_close(&self.session, params)
             .await
             .ok();
+    }
+
+    async fn did_change_workspace_folders(&self, params: DidChangeWorkspaceFoldersParams) {
+        for removed in &params.event.removed {
+            if let Ok(project_path) = self.session.file_path(&removed.uri) {
+                let result = self
+                    .session
+                    .workspace
+                    .unregister_project_folder(UnregisterProjectFolderParams { path: project_path })
+                    .map_err(into_lsp_error);
+
+                if let Err(err) = result {
+                    error!("Failed to remove project from the workspace: {}", err);
+                    self.session
+                        .client
+                        .log_message(MessageType::ERROR, err)
+                        .await;
+                }
+            }
+        }
+
+        for added in &params.event.added {
+            if let Ok(project_path) = self.session.file_path(&added.uri) {
+                let result = self
+                    .session
+                    .workspace
+                    .register_project_folder(RegisterProjectFolderParams {
+                        path: Some(project_path.to_path_buf()),
+                        set_as_current_workspace: true,
+                    })
+                    .map_err(into_lsp_error);
+
+                if let Err(err) = result {
+                    error!("Failed to add project to the workspace: {}", err);
+                    self.session
+                        .client
+                        .log_message(MessageType::ERROR, err)
+                        .await;
+                }
+            }
+        }
     }
 
     async fn code_action(&self, params: CodeActionParams) -> LspResult<Option<CodeActionResponse>> {
@@ -574,6 +614,8 @@ impl ServerFactory {
         workspace_method!(builder, file_features);
         workspace_method!(builder, is_path_ignored);
         workspace_method!(builder, update_settings);
+        workspace_method!(builder, register_project_folder);
+        workspace_method!(builder, unregister_project_folder);
         workspace_method!(builder, open_file);
         workspace_method!(builder, open_project);
         workspace_method!(builder, update_current_project);

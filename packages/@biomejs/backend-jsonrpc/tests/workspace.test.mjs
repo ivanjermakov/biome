@@ -14,7 +14,9 @@ describe("Workspace API", () => {
 		);
 
 		const workspace = await createWorkspaceWithBinary(command);
-
+		workspace.registerProjectFolder({
+			setAsCurrentWorkspace: true,
+		});
 		await workspace.openFile({
 			path: {
 				path: "test.js",
