@@ -1,8 +1,8 @@
 use super::{
-    compilation_context::NodeCompilationContext, variable_compiler::VariableCompiler,
-    PatternCompiler,
+    PatternCompiler, compilation_context::NodeCompilationContext,
+    variable_compiler::VariableCompiler,
 };
-use crate::{grit_code_snippet::GritCodeSnippet, grit_context::GritQueryContext, CompileError};
+use crate::{CompileError, grit_code_snippet::GritCodeSnippet, grit_context::GritQueryContext};
 use biome_grit_syntax::{GritPatternAccumulate, GritPredicateAccumulate};
 use grit_pattern_matcher::pattern::{Accumulate, DynamicPattern, Pattern};
 
@@ -15,13 +15,13 @@ impl AccumulateCompiler {
     ) -> Result<Accumulate<GritQueryContext>, CompileError> {
         let left = PatternCompiler::from_node(&node.left()?, context)?;
         let right = PatternCompiler::from_node_with_rhs(&node.right()?, context, true)?;
-        let dynamic_right = match &right {
-            Pattern::Dynamic(r) => Some(r.clone()),
+        let dynamic_right = match right.clone() {
+            Pattern::Dynamic(pattern) => Some(pattern),
             Pattern::CodeSnippet(GritCodeSnippet {
-                dynamic_snippet: Some(r),
+                dynamic_snippet: Some(snippet),
                 ..
-            }) => Some(r.clone()),
-            Pattern::Variable(v) => Some(DynamicPattern::Variable(*v)),
+            }) => Some(snippet),
+            Pattern::Variable(variable) => Some(DynamicPattern::Variable(variable)),
             _ => None,
         };
 
@@ -36,15 +36,15 @@ impl PrAccumulateCompiler {
         node: &GritPredicateAccumulate,
         context: &mut NodeCompilationContext,
     ) -> Result<Accumulate<GritQueryContext>, CompileError> {
-        let left = Pattern::Variable(VariableCompiler::from_node(&node.left()?, context)?);
+        let left = Pattern::Variable(VariableCompiler::from_node(&node.left()?, context));
         let right = PatternCompiler::from_node_with_rhs(&node.right()?, context, true)?;
-        let dynamic_right = match &right {
-            Pattern::Dynamic(r) => Some(r.clone()),
+        let dynamic_right = match right.clone() {
+            Pattern::Dynamic(pattern) => Some(pattern),
             Pattern::CodeSnippet(GritCodeSnippet {
-                dynamic_snippet: Some(r),
+                dynamic_snippet: Some(snippet),
                 ..
-            }) => Some(r.clone()),
-            Pattern::Variable(v) => Some(DynamicPattern::Variable(*v)),
+            }) => Some(snippet),
+            Pattern::Variable(variable) => Some(DynamicPattern::Variable(variable)),
             _ => None,
         };
 

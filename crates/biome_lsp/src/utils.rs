@@ -1,14 +1,14 @@
-use crate::converters::line_index::LineIndex;
-use crate::converters::{from_proto, to_proto, PositionEncoding};
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use biome_analyze::ActionCategory;
+use biome_console::MarkupBuf;
 use biome_console::fmt::Termcolor;
 use biome_console::fmt::{self, Formatter};
-use biome_console::MarkupBuf;
 use biome_diagnostics::termcolor::NoColor;
 use biome_diagnostics::{
     Applicability, {Diagnostic, DiagnosticTags, Location, PrintDescription, Severity, Visit},
 };
+use biome_lsp_converters::line_index::LineIndex;
+use biome_lsp_converters::{PositionEncoding, from_proto, to_proto};
 use biome_rowan::{TextRange, TextSize};
 use biome_service::workspace::CodeAction;
 use biome_text_edit::{CompressedOp, DiffOp, TextEdit};
@@ -128,18 +128,7 @@ pub(crate) fn code_fix_to_lsp(
         })
         .unwrap_or_default();
 
-    let kind = action.category.to_str();
-    let mut kind = kind.into_owned();
-
-    if !matches!(action.category, ActionCategory::Source(_)) {
-        if let Some((group, rule)) = action.rule_name {
-            kind.push('.');
-            kind.push_str(group.as_ref());
-            kind.push('.');
-            kind.push_str(rule.as_ref());
-        }
-    }
-
+    let kind = action.category.to_str().into_owned();
     let suggestion = action.suggestion;
 
     let mut changes = HashMap::new();
@@ -390,8 +379,8 @@ pub(crate) fn apply_document_changes(
 #[cfg(test)]
 mod tests {
     use super::apply_document_changes;
-    use crate::converters::line_index::LineIndex;
-    use crate::converters::{PositionEncoding, WideEncoding};
+    use biome_lsp_converters::line_index::LineIndex;
+    use biome_lsp_converters::{PositionEncoding, WideEncoding};
     use biome_text_edit::TextEdit;
     use tower_lsp::lsp_types as lsp;
     use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent};

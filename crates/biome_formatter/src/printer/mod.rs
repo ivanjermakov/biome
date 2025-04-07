@@ -14,8 +14,8 @@ use crate::{
 
 use crate::format_element::document::Document;
 use crate::format_element::tag::Condition;
-use crate::prelude::tag::{DedentMode, Tag, TagKind, VerbatimKind};
 use crate::prelude::Tag::EndFill;
+use crate::prelude::tag::{DedentMode, Tag, TagKind, VerbatimKind};
 use crate::printer::call_stack::{
     CallStack, FitsCallStack, FitsIndentStack, IndentStack, PrintCallStack, PrintElementArgs,
     StackFrame, SuffixStack,
@@ -856,6 +856,7 @@ impl Indention {
     /// The behaviour depends on the [`indent_style`][IndentStyle] if this is an [Indent::Align]:
     /// * **Tabs**: `align` is converted into an indent. This results in `level` increasing by two: once for the align, once for the level increment
     /// * **Spaces**: Increments the `level` by one and keeps the `align` unchanged.
+    ///
     /// Keeps any  the current value is [Indent::Align] and increments the level by one.
     fn increment_level(self, indent_style: IndentStyle) -> Self {
         match self {
@@ -1282,7 +1283,9 @@ impl<'a, 'print> FitsMeasurer<'a, 'print> {
             let char_width = match c {
                 '\t' => self.options().indent_width.value() as usize,
                 '\n' => {
-                    return if self.must_be_flat {
+                    return if self.must_be_flat
+                        || self.state.line_width > self.options().print_width.into()
+                    {
                         Fits::No
                     } else {
                         Fits::Yes
@@ -1390,17 +1393,17 @@ struct FitsState {
 
 #[cfg(test)]
 mod tests {
+    use crate::LineEnding;
     use crate::prelude::*;
     use crate::printer::{PrintWidth, Printer, PrinterOptions};
-    use crate::LineEnding;
-    use crate::{format_args, write, Document, FormatState, IndentStyle, Printed, VecBuffer};
+    use crate::{Document, FormatState, IndentStyle, Printed, VecBuffer, format_args, write};
 
     fn format(root: &dyn Format<SimpleFormatContext>) -> Printed {
         format_with_options(
             root,
             PrinterOptions {
                 indent_style: IndentStyle::Space,
-                indent_width: 2.into(),
+                indent_width: 2.try_into().unwrap(),
                 line_ending: LineEnding::Lf,
                 ..PrinterOptions::default()
             },
@@ -1568,7 +1571,7 @@ two lines`,
     fn it_use_the_indent_character_specified_in_the_options() {
         let options = PrinterOptions {
             indent_style: IndentStyle::Tab,
-            indent_width: 4.into(),
+            indent_width: 2.try_into().unwrap(),
             print_width: PrintWidth::new(19),
             ..PrinterOptions::default()
         };
@@ -1735,7 +1738,10 @@ two lines`,
 
         let printed = format(&content);
 
-        assert_eq!(printed.as_code(), "The referenced group breaks.\nThis group breaks because:\nIt measures with the 'if_group_breaks' variant because the referenced group breaks and that's just way too much text.");
+        assert_eq!(
+            printed.as_code(),
+            "The referenced group breaks.\nThis group breaks because:\nIt measures with the 'if_group_breaks' variant because the referenced group breaks and that's just way too much text."
+        );
     }
 
     #[test]
@@ -1778,6 +1784,30 @@ two lines`,
 Group with id-1 does not fit on the line because it exceeds the line width of 80 characters by
 Group 2 fits
 Group 1 breaks"#
+        );
+    }
+
+    #[test]
+    fn break_group_if_partial_string_exceeds_print_width() {
+        let options = PrinterOptions {
+            print_width: PrintWidth::new(10),
+            ..PrinterOptions::default()
+        };
+
+        let result = format_with_options(
+            &format_args![group(&format_args!(
+                text("("),
+                soft_line_break(),
+                text("This is a string\n containing a newline"),
+                soft_line_break(),
+                text(")")
+            ))],
+            options,
+        );
+
+        assert_eq!(
+            "(\nThis is a string\n containing a newline\n)",
+            result.as_code()
         );
     }
 

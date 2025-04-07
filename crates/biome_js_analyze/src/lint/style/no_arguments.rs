@@ -1,9 +1,10 @@
 use crate::services::semantic::SemanticServices;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::TextRange;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of `arguments`.
     ///
     /// ## Examples
@@ -27,31 +28,31 @@ declare_rule! {
     pub NoArguments {
         version: "1.0.0",
         name: "noArguments",
+        language: "js",
         sources: &[RuleSource::Eslint("prefer-rest-params")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
     }
 }
 
 impl Rule for NoArguments {
     type Query = SemanticServices;
     type State = TextRange;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let model = ctx.query();
-
         let mut found_arguments = vec![];
 
         for unresolved_reference in model.all_unresolved_references() {
             let name = unresolved_reference.syntax().text_trimmed();
             if name == "arguments" {
-                let range = unresolved_reference.range();
-                found_arguments.push(*range);
+                found_arguments.push(unresolved_reference.range());
             }
         }
 
-        found_arguments
+        found_arguments.into_boxed_slice()
     }
 
     fn diagnostic(_: &RuleContext<Self>, range: &Self::State) -> Option<RuleDiagnostic> {

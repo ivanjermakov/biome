@@ -10,8 +10,8 @@ use std::ptr::NonNull;
 use crate::green::Slot;
 use crate::syntax::{TriviaPiece, TriviaPieceKind};
 use crate::{
-    green::GreenElementRef, GreenNode, GreenNodeData, GreenToken, GreenTokenData, NodeOrToken,
-    RawSyntaxKind,
+    GreenNode, GreenNodeData, GreenToken, GreenTokenData, NodeOrToken, RawSyntaxKind,
+    green::GreenElementRef,
 };
 
 use super::element::GreenElement;
@@ -113,7 +113,7 @@ impl IntoRawPointer for GreenToken {
     }
 
     unsafe fn from_raw(ptr: *mut Self::Pointee) -> Self {
-        GreenToken::from_raw(NonNull::new(ptr).unwrap())
+        unsafe { GreenToken::from_raw(NonNull::new(ptr).unwrap()) }
     }
 }
 
@@ -140,7 +140,7 @@ impl IntoRawPointer for GreenNode {
     }
 
     unsafe fn from_raw(ptr: *mut Self::Pointee) -> Self {
-        GreenNode::from_raw(NonNull::new(ptr).unwrap())
+        unsafe { GreenNode::from_raw(NonNull::new(ptr).unwrap()) }
     }
 }
 
@@ -221,11 +221,11 @@ impl NodeCache {
     /// Returns an entry that allows the caller to:
     /// * Retrieve the cached node if it is present in the cache
     /// * Insert a node if it isn't present in the cache
-    pub(crate) fn node<'a>(
-        &'a mut self,
+    pub(crate) fn node(
+        &mut self,
         kind: RawSyntaxKind,
         children: &[(u64, GreenElement)],
-    ) -> NodeCacheNodeEntryMut<'a> {
+    ) -> NodeCacheNodeEntryMut {
         if children.len() > 3 {
             return NodeCacheNodeEntryMut::NoCache(Self::UNCACHED_NODE_HASH);
         }
@@ -343,16 +343,16 @@ impl NodeCache {
 
     /// Removes nodes, tokens and trivia entries from the cache when their
     /// generation doesn't match the current generation of the whole cache
-    pub(crate) fn sweep_cache(&mut self) {
+    pub(crate) fn retain_cache(&mut self) {
         self.nodes
-            .drain_filter(|node, _| node.node.generation() != self.generation);
+            .retain(|node, _| node.node.generation() == self.generation);
 
         self.tokens
-            .drain_filter(|token, _| token.0.generation() != self.generation);
+            .retain(|token, _| token.0.generation() == self.generation);
 
         self.trivia
             .cache
-            .drain_filter(|trivia, _| trivia.0.generation() != self.generation);
+            .retain(|trivia, _| trivia.0.generation() == self.generation);
     }
 }
 
@@ -382,7 +382,7 @@ pub(crate) struct CachedNodeEntry<'a> {
     raw_entry: RawOccupiedEntryMut<'a, CachedNode, (), BuildHasherDefault<FxHasher>>,
 }
 
-impl<'a> CachedNodeEntry<'a> {
+impl CachedNodeEntry<'_> {
     pub fn node(&self) -> &GreenNodeData {
         self.raw_entry.key().node.value()
     }
@@ -392,7 +392,7 @@ impl<'a> CachedNodeEntry<'a> {
     }
 }
 
-impl<'a> VacantNodeEntry<'a> {
+impl VacantNodeEntry<'_> {
     /// Inserts the `node` into the cache so that future queries for the same kind and children resolve to the passed `node`.
     ///
     /// Returns the hash of the node.
@@ -434,7 +434,7 @@ impl IntoRawPointer for GreenTrivia {
     }
 
     unsafe fn from_raw(ptr: *mut Self::Pointee) -> Self {
-        GreenTrivia::from_raw(ptr)
+        unsafe { GreenTrivia::from_raw(ptr) }
     }
 }
 
@@ -462,10 +462,12 @@ impl TriviaCache {
     fn get(&mut self, generation: Generation, pieces: &[TriviaPiece]) -> GreenTrivia {
         match pieces {
             [] => GreenTrivia::empty(),
-            [TriviaPiece {
-                kind: TriviaPieceKind::Whitespace,
-                length,
-            }] if *length == TextSize::from(1) => self.whitespace.clone(),
+            [
+                TriviaPiece {
+                    kind: TriviaPieceKind::Whitespace,
+                    length,
+                },
+            ] if *length == TextSize::from(1) => self.whitespace.clone(),
 
             _ => {
                 let hash = Self::trivia_hash_of(pieces);
@@ -512,7 +514,7 @@ impl TriviaCache {
 mod tests {
     use std::mem::size_of;
 
-    use crate::green::node_cache::{token_hash, CachedNode, CachedToken, CachedTrivia};
+    use crate::green::node_cache::{CachedNode, CachedToken, CachedTrivia, token_hash};
     use crate::green::trivia::GreenTrivia;
     use crate::{GreenToken, RawSyntaxKind};
     use biome_text_size::TextSize;
@@ -536,7 +538,7 @@ mod tests {
 
         assert_eq!(token_hash(&t1), token_hash(&t2));
 
-        let t3 = GreenToken::new(kind, "let");
+        let t3 = GreenToken::new_raw(kind, "let");
         assert_ne!(token_hash(&t1), token_hash(&t3));
 
         let t4 = GreenToken::with_trivia(

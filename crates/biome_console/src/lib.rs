@@ -6,11 +6,12 @@ use write::Termcolor;
 
 pub mod fmt;
 mod markup;
+mod utils;
 mod write;
 
 pub use self::markup::{Markup, MarkupBuf, MarkupElement, MarkupNode};
-use crate::fmt::Formatter;
 pub use biome_markup::markup;
+pub use utils::*;
 
 /// Determines the "output stream" a message should get printed to
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -166,7 +167,7 @@ impl Console for EnvConsole {
     fn read(&mut self) -> Option<String> {
         // Here we check if stdin is redirected. If not, we bail.
         //
-        // Doing this check allows us to pipe stdin to rome, without expecting
+        // Doing this check allows us to pipe stdin to biome, without expecting
         // user content when we call `read_to_string`
         if io::stdin().is_terminal() {
             return None;
@@ -175,11 +176,7 @@ impl Console for EnvConsole {
         let mut buffer = String::new();
         let result = handle.read_to_string(&mut buffer);
         // Skipping the error for now
-        if result.is_ok() {
-            Some(buffer)
-        } else {
-            None
-        }
+        if result.is_ok() { Some(buffer) } else { None }
     }
 }
 
@@ -227,22 +224,5 @@ impl Console for BufferConsole {
             // particular use case for multiple prompts
             Some(self.in_buffer[0].clone())
         }
-    }
-}
-
-/// A horizontal line with the given print width
-pub struct HorizontalLine {
-    width: usize,
-}
-
-impl HorizontalLine {
-    pub fn new(width: usize) -> Self {
-        Self { width }
-    }
-}
-
-impl fmt::Display for HorizontalLine {
-    fn fmt(&self, fmt: &mut Formatter) -> io::Result<()> {
-        fmt.write_str(&"\u{2501}".repeat(self.width))
     }
 }

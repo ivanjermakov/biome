@@ -1,6 +1,7 @@
 ---
 source: crates/biome_cli/tests/snap_test.rs
-expression: content
+expression: redactor(content)
+snapshot_kind: text
 ---
 ## `biome.json`
 
@@ -14,22 +15,27 @@ expression: content
     "lineEnding": "lf",
     "lineWidth": 80,
     "attributePosition": "auto",
-    "ignore": ["dist/**", "node_modules/**", "generated/*.spec.js"]
+    "bracketSameLine": false,
+    "bracketSpacing": true,
+    "expand": "auto",
+    "useEditorconfig": true,
+    "includes": ["**", "!dist/**", "!node_modules/**", "!generated/*.spec.js"]
   },
   "linter": { "enabled": true },
   "javascript": {
     "formatter": {
       "jsxQuoteStyle": "double",
       "quoteProperties": "asNeeded",
-      "trailingComma": "all",
+      "trailingCommas": "all",
       "semicolons": "always",
       "arrowParentheses": "always",
-      "bracketSpacing": true,
       "bracketSameLine": false,
       "quoteStyle": "single",
-      "attributePosition": "auto"
+      "attributePosition": "auto",
+      "bracketSpacing": true
     }
-  }
+  },
+  "html": { "formatter": { "selfCloseVoidElements": "always" } }
 }
 ```
 

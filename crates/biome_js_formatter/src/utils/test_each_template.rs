@@ -1,9 +1,9 @@
 use crate::js::auxiliary::template_element::TemplateElementOptions;
-use crate::js::lists::template_element_list::{TemplateElementIndention, TemplateElementLayout};
+use crate::js::lists::template_element_list::TemplateElementIndention;
 use crate::prelude::*;
 use biome_formatter::printer::Printer;
 use biome_formatter::{
-    format_args, write, CstFormatContext, FormatOptions, RemoveSoftLinesBuffer, VecBuffer,
+    CstFormatContext, FormatOptions, RemoveSoftLinesBuffer, VecBuffer, format_args, write,
 };
 use biome_js_syntax::{AnyJsTemplateElement, JsTemplateElementList};
 use biome_text_size::{TextRange, TextSize};
@@ -243,7 +243,6 @@ impl EachTemplateTable {
                     let options = TemplateElementOptions {
                         after_new_line: false,
                         indention: TemplateElementIndention::default(),
-                        layout: TemplateElementLayout::Fit,
                     };
 
                     // print the current column with infinite print width

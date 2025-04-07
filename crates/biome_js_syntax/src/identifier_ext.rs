@@ -1,9 +1,10 @@
 use crate::{
-    inner_string_text, AnyJsExportNamedSpecifier, AnyJsName, JsIdentifierAssignment,
-    JsLiteralExportName, JsReferenceIdentifier, JsSyntaxKind, JsSyntaxToken,
-    JsxReferenceIdentifier,
+    AnyJsExportNamedSpecifier, AnyJsName, JsIdentifierAssignment, JsLiteralExportName,
+    JsReferenceIdentifier, JsSyntaxKind, JsSyntaxToken, JsxReferenceIdentifier, inner_string_text,
 };
-use biome_rowan::{declare_node_union, AstNode, SyntaxNodeOptionExt, SyntaxResult, TokenText};
+use biome_rowan::{
+    AstNode, SyntaxError, SyntaxNodeOptionExt, SyntaxResult, TokenText, declare_node_union,
+};
 
 declare_node_union! {
     pub AnyJsIdentifierUsage = JsReferenceIdentifier | JsIdentifierAssignment | JsxReferenceIdentifier
@@ -94,6 +95,7 @@ impl AnyJsName {
         match self {
             AnyJsName::JsName(name) => name.value_token(),
             AnyJsName::JsPrivateName(name) => name.value_token(),
+            AnyJsName::JsMetavariable(_) => Err(SyntaxError::UnexpectedMetavariable),
         }
     }
 }

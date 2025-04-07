@@ -1,16 +1,15 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
-use biome_js_syntax::{JsSyntaxToken, TsModuleDeclaration, T};
+use biome_js_syntax::{JsSyntaxToken, T, TsModuleDeclaration};
 use biome_rowan::BatchMutationExt;
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Require using the `namespace` keyword over the `module` keyword to declare TypeScript namespaces.
     ///
     /// TypeScript historically allowed a code organization called _namespace_.
@@ -44,8 +43,10 @@ declare_rule! {
     pub UseNamespaceKeyword {
         version: "1.0.0",
         name: "useNamespaceKeyword",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("prefer-namespace-keyword")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Safe,
     }
 }
@@ -77,11 +78,11 @@ impl Rule for UseNamespaceKeyword {
     fn action(ctx: &RuleContext<Self>, module_token: &Self::State) -> Option<JsRuleAction> {
         let mut mutation = ctx.root().begin();
         mutation.replace_token_transfer_trivia(module_token.clone(), make::token(T![namespace]));
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! {"Use "<Emphasis>"namespace"</Emphasis>" instead."}.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {"Use "<Emphasis>"namespace"</Emphasis>" instead."}.to_owned(),
             mutation,
-        })
+        ))
     }
 }

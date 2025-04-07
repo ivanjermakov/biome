@@ -1,12 +1,13 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
-use biome_console::{markup, MarkupBuf};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
+use biome_console::{MarkupBuf, markup};
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsClass, AnyJsExpression, JsAssignmentOperator, JsConstructorClassMember, JsLogicalOperator,
 };
 use biome_rowan::{AstNode, AstNodeList, TextRange};
 
-declare_rule! {
+declare_lint_rule! {
     /// Prevents the incorrect use of `super()` inside classes. It also checks whether a call `super()` is missing from classes that extends other constructors.
     ///
     /// ## Examples
@@ -48,8 +49,10 @@ declare_rule! {
     pub NoInvalidConstructorSuper {
         version: "1.0.0",
         name: "noInvalidConstructorSuper",
+        language: "js",
         sources: &[RuleSource::Eslint("constructor-super")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -221,6 +224,7 @@ fn is_valid_constructor(expression: AnyJsExpression) -> Option<bool> {
         | AnyJsExpression::JsArrowFunctionExpression(_)
         | AnyJsExpression::JsBinaryExpression(_)
         | AnyJsExpression::JsBogusExpression(_)
+        | AnyJsExpression::JsMetavariable(_)
         | AnyJsExpression::JsInstanceofExpression(_)
         | AnyJsExpression::JsObjectExpression(_)
         | AnyJsExpression::JsPostUpdateExpression(_)

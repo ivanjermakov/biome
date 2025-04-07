@@ -1,15 +1,14 @@
 use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
-use biome_js_syntax::{is_negation, AnyJsExpression, JsInExpression, JsInstanceofExpression};
-use biome_rowan::{declare_node_union, AstNode, AstNodeExt, BatchMutationExt};
+use biome_js_syntax::{AnyJsExpression, JsInExpression, JsInstanceofExpression, is_negation};
+use biome_rowan::{AstNode, AstNodeExt, BatchMutationExt, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow using unsafe negation.
     ///
     /// ## Examples
@@ -36,8 +35,10 @@ declare_rule! {
     pub NoUnsafeNegation {
         version: "1.0.0",
         name: "noUnsafeNegation",
+        language: "js",
         sources: &[RuleSource::Eslint("no-unsafe-negation")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -125,17 +126,16 @@ impl Rule for NoUnsafeNegation {
             }
         }
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Wrap the expression with a parenthesis" }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Wrap the expression with a parenthesis" }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 
 declare_node_union! {
     /// Enum for [JsInstanceofExpression] and [JsInExpression]
-    #[allow(dead_code)]
     pub JsInOrInstanceOfExpression  = JsInstanceofExpression  | JsInExpression
 }

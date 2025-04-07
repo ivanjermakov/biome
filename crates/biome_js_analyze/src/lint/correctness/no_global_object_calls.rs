@@ -1,11 +1,12 @@
 use crate::services::semantic::Semantic;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_js_syntax::{global_identifier, AnyJsExpression, JsCallExpression, JsNewExpression};
-use biome_rowan::{declare_node_union, SyntaxResult, TextRange};
+use biome_diagnostics::Severity;
+use biome_js_syntax::{AnyJsExpression, JsCallExpression, JsNewExpression, global_identifier};
+use biome_rowan::{SyntaxResult, TextRange, declare_node_union};
 use std::{fmt::Display, str::FromStr};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow calling global object properties as functions
     ///
     /// ECMAScript provides several global objects that are intended to be used as-is.
@@ -86,8 +87,10 @@ declare_rule! {
     pub NoGlobalObjectCalls {
         version: "1.0.0",
         name: "noGlobalObjectCalls",
+        language: "js",
         sources: &[RuleSource::Eslint("no-obj-calls")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -169,6 +172,6 @@ impl Display for NonCallableGlobals {
             NonCallableGlobals::Reflect => "Reflect",
             NonCallableGlobals::Intl => "Intl",
         };
-        write!(f, "{}", repr)
+        write!(f, "{repr}")
     }
 }

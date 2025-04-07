@@ -1,9 +1,11 @@
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_js_syntax::{jsx_ext::AnyJsxElement, JsxAttribute, JsxChildList, JsxElement};
+use biome_diagnostics::Severity;
+use biome_js_syntax::{JsxAttribute, JsxChildList, JsxElement, jsx_ext::AnyJsxElement};
 use biome_rowan::{AstNode, AstNodeList};
+use biome_string_case::StrLikeExtension;
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforces the usage of the `title` element for the `svg` element.
     ///
     /// It is not possible to specify the `alt` attribute for the `svg` as for the `img`.
@@ -15,34 +17,34 @@ declare_rule! {
     ///
     /// ### Invalid
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <svg>foo</svg>
     /// ```
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <svg>
     ///     <title></title>
     ///     <circle />
     /// </svg>
     /// ```
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <svg>foo</svg>
     /// ```
     ///
-    /// ```js
+    /// ```jsx
     /// <svg role="img" aria-label="">
     ///     <span id="">Pass</span>
     /// </svg>
     /// ```
     ///
-    /// ```js
+    /// ```jsx
     /// <svg role="presentation">foo</svg>
     /// ```
     ///
     /// ### Valid
     ///
-    /// ```js
+    /// ```jsx
     /// <svg>
     ///     <rect />
     ///     <rect />
@@ -58,33 +60,33 @@ declare_rule! {
     /// </svg>
     /// ```
     ///
-    /// ```js
+    /// ```jsx
     /// <svg>
     ///     <title>Pass</title>
     ///     <circle />
     /// </svg>
     /// ```
     ///
-    /// ```js
+    /// ```jsx
     /// <svg role="img" aria-labelledby="title">
     ///     <span id="title">Pass</span>
     /// </svg>
     /// ```
     ///
-    /// ```js
+    /// ```jsx
     /// <svg role="img" aria-label="title">
     ///     <span id="title">Pass</span>
     /// </svg>
     /// ```
-    /// ```js
+    /// ```jsx
     /// <svg role="graphics-symbol"><rect /></svg>
     /// ```
     ///
-    /// ```js
+    /// ```jsx
     /// <svg role="graphics-symbol img"><rect /></svg>
     /// ```
     ///
-    /// ```js
+    /// ```jsx
     /// <svg aria-hidden="true"><rect /></svg>
     /// ```
     ///
@@ -99,7 +101,9 @@ declare_rule! {
     pub NoSvgWithoutTitle {
         version: "1.0.0",
         name: "noSvgWithoutTitle",
+        language: "jsx",
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -112,7 +116,7 @@ impl Rule for NoSvgWithoutTitle {
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
 
-        if node.name_value_token()?.text_trimmed() != "svg" {
+        if node.name_value_token().ok()?.text_trimmed() != "svg" {
             return None;
         }
 
@@ -129,7 +133,7 @@ impl Rule for NoSvgWithoutTitle {
         let jsx_element = node.parent::<JsxElement>()?;
         if let AnyJsxElement::JsxOpeningElement(_) = node {
             let has_valid_title = has_valid_title_element(&jsx_element.children());
-            if has_valid_title.map_or(false, |bool| bool) {
+            if has_valid_title.is_some_and(|bool| bool) {
                 return None;
             }
         }
@@ -148,7 +152,7 @@ impl Rule for NoSvgWithoutTitle {
             return Some(());
         };
 
-        match role_attribute_text.to_lowercase().as_str() {
+        match role_attribute_text.to_ascii_lowercase_cow().as_ref() {
             "img" => {
                 let [aria_label, aria_labelledby] = node
                     .attributes()
@@ -194,7 +198,7 @@ fn is_valid_attribute_value(
         .filter_map(|child| {
             let jsx_element = child.as_jsx_element()?;
             let opening_element = jsx_element.opening_element().ok()?;
-            let maybe_attribute = opening_element.find_attribute_by_name("id").ok()?;
+            let maybe_attribute = opening_element.find_attribute_by_name("id");
             let child_attribute_value = maybe_attribute?.initializer()?.value().ok()?;
             let is_valid = attribute_value.as_static_value()?.text()
                 == child_attribute_value.as_static_value()?.text();

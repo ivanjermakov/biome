@@ -1,19 +1,20 @@
 use crate::parser::{
-    directive::DirectiveList, parse_description, parse_error::expected_name, parse_name,
-    value::is_at_string, GraphqlParser,
+    GraphqlParser,
+    directive::DirectiveList,
+    parse_binding, parse_description,
+    parse_error::{expected_name, expected_object_extension},
+    parse_reference,
 };
 use biome_graphql_syntax::{GraphqlSyntaxKind::*, T};
 use biome_parser::{
-    parse_lists::ParseNodeList, parsed_syntax::ParsedSyntax, prelude::ParsedSyntax::*, Parser,
+    Parser, parse_lists::ParseNodeList, parsed_syntax::ParsedSyntax, prelude::ParsedSyntax::*,
+    token_source::TokenSource,
 };
 
 use super::{field::parse_fields_definition, interface::parse_implements_interface};
 
 #[inline]
 pub(crate) fn parse_object_type_definition(p: &mut GraphqlParser) -> ParsedSyntax {
-    if !is_at_object_type_definition(p) {
-        return Absent;
-    }
     let m = p.start();
 
     // description is optional
@@ -21,7 +22,7 @@ pub(crate) fn parse_object_type_definition(p: &mut GraphqlParser) -> ParsedSynta
 
     p.bump(T![type]);
 
-    parse_name(p).or_add_diagnostic(p, expected_name);
+    parse_binding(p).or_add_diagnostic(p, expected_name);
 
     // implements interface is optional
     parse_implements_interface(p).ok();
@@ -33,7 +34,27 @@ pub(crate) fn parse_object_type_definition(p: &mut GraphqlParser) -> ParsedSynta
     Present(m.complete(p, GRAPHQL_OBJECT_TYPE_DEFINITION))
 }
 
+/// Must only be called if the next 2 token is `extend` and `type`, otherwise it will panic.
 #[inline]
-pub(crate) fn is_at_object_type_definition(p: &mut GraphqlParser<'_>) -> bool {
-    p.at(T![type]) || (is_at_string(p) && p.nth_at(1, T![type]))
+pub(crate) fn parse_object_type_extension(p: &mut GraphqlParser) -> ParsedSyntax {
+    let m = p.start();
+
+    p.bump(T![extend]);
+    p.bump(T![type]);
+
+    parse_reference(p).or_add_diagnostic(p, expected_name);
+
+    let implements_interface_empty = parse_implements_interface(p).is_absent();
+
+    let pos = p.source().position();
+    DirectiveList.parse_list(p);
+    let directive_empty = p.source().position() == pos;
+
+    let fields_definition_empty = parse_fields_definition(p).is_absent();
+
+    if directive_empty && implements_interface_empty && fields_definition_empty {
+        p.error(expected_object_extension(p, p.cur_range()));
+    }
+
+    Present(m.complete(p, GRAPHQL_OBJECT_TYPE_EXTENSION))
 }

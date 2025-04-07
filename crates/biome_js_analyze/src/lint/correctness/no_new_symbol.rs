@@ -1,14 +1,13 @@
-use crate::{services::semantic::Semantic, JsRuleAction};
+use crate::{JsRuleAction, services::semantic::Semantic};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
-use biome_js_syntax::{global_identifier, AnyJsExpression, JsCallExpression, JsNewExpression};
-use biome_rowan::{chain_trivia_pieces, AstNode, BatchMutationExt};
+use biome_js_syntax::{AnyJsExpression, JsCallExpression, JsNewExpression, global_identifier};
+use biome_rowan::{AstNode, BatchMutationExt, chain_trivia_pieces};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow `new` operators with the `Symbol` object.
     ///
     /// `Symbol` cannot be instantiated. This results in throwing a `TypeError`.
@@ -33,6 +32,7 @@ declare_rule! {
     pub NoNewSymbol {
         version: "1.0.0",
         name: "noNewSymbol",
+        language: "js",
         recommended: false,
         sources: &[RuleSource::Eslint("no-new-symbol")],
         deprecated: "Use `noInvalidNewBuiltin` instead.",
@@ -73,12 +73,12 @@ impl Rule for NoNewSymbol {
             node.clone().into(),
             call_expression.into(),
         );
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove "<Emphasis>"new"</Emphasis>"." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove "<Emphasis>"new"</Emphasis>"." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

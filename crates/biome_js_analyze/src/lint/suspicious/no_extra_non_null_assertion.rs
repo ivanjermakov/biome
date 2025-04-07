@@ -1,15 +1,16 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
-    AnyJsAssignment, AnyJsExpression, TsNonNullAssertionAssignment, TsNonNullAssertionExpression,
+    AnyJsAssignment, AnyJsExpression, JsSyntaxKind, TsNonNullAssertionAssignment,
+    TsNonNullAssertionExpression,
 };
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt};
+use biome_rowan::{AstNode, BatchMutationExt, declare_node_union};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Prevents the wrong usage of the non-null assertion operator (`!`) in TypeScript files.
     ///
     /// > The `!` non-null assertion operator in TypeScript is used to assert that a value's type does not include `null` or `undefined`. Using the operator any more than once on a single value does nothing.
@@ -48,8 +49,10 @@ declare_rule! {
     pub NoExtraNonNullAssertion {
         version: "1.0.0",
         name: "noExtraNonNullAssertion",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("no-extra-non-null-assertion")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Safe,
     }
 }
@@ -78,14 +81,19 @@ impl Rule for NoExtraNonNullAssertion {
                 }
             }
             AnyTsNonNullAssertion::TsNonNullAssertionExpression(_) => {
-                let parent = node.parent::<AnyJsExpression>()?;
+                let parent = node
+                    .syntax()
+                    .ancestors()
+                    .skip(1)
+                    .find(|ancestor| ancestor.kind() != JsSyntaxKind::JS_PARENTHESIZED_EXPRESSION)
+                    .and_then(AnyJsExpression::cast)?;
 
                 // Cases considered as invalid:
                 // - TsNonNullAssertionAssignment > TsNonNullAssertionExpression
                 // - TsNonNullAssertionExpression > TsNonNullAssertionExpression
                 // - JsCallExpression[optional] > TsNonNullAssertionExpression
                 // - JsStaticMemberExpression[optional] > TsNonNullAssertionExpression
-                let has_extra_non_assertion = match parent.omit_parentheses() {
+                let has_extra_non_assertion = match parent {
                     AnyJsExpression::JsAssignmentExpression(expr) => expr
                         .left()
                         .ok()?
@@ -132,11 +140,11 @@ impl Rule for NoExtraNonNullAssertion {
 
         mutation.remove_token(excl_token);
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Remove extra non-null assertion." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove extra non-null assertion." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

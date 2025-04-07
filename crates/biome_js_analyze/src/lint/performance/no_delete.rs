@@ -1,8 +1,6 @@
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsAssignment, AnyJsAssignmentPattern, AnyJsExpression, JsComputedMemberExpressionFields,
@@ -12,7 +10,7 @@ use biome_rowan::{AstNode, BatchMutationExt};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of the `delete` operator.
     ///
     /// The `delete` operator enables the removal of a property from an object.
@@ -61,7 +59,8 @@ declare_rule! {
     pub NoDelete {
         version: "1.0.0",
         name: "noDelete",
-        recommended: true,
+        language: "js",
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -95,7 +94,7 @@ impl Rule for NoDelete {
                 {
                     let name = static_expression.member().ok()?;
                     let name = name.as_js_name()?;
-                    if name.text() == "dataset" {
+                    if name.to_trimmed_string() == "dataset" {
                         return None;
                     }
                 }
@@ -135,13 +134,12 @@ impl Rule for NoDelete {
                 )),
             )),
         );
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Use an "<Emphasis>"undefined"</Emphasis>" assignment instead." }
-                .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use an "<Emphasis>"undefined"</Emphasis>" assignment instead." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

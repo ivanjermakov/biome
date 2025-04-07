@@ -1,14 +1,12 @@
 use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_syntax::{AnyJsStatement, JsBlockStatement, JsElseClause, JsIfStatement};
 use biome_rowan::{AstNode, AstNodeList, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce using `else if` instead of nested `if` in `else` clauses.
     ///
     /// If an `if` statement is the only statement in the `else` block, it is often clearer to use an `else if` form.
@@ -84,6 +82,7 @@ declare_rule! {
     pub UseCollapsedElseIf {
         version: "1.1.0",
         name: "useCollapsedElseIf",
+        language: "js",
         sources: &[
             RuleSource::Eslint("no-lonely-if"),
             RuleSource::Clippy("collapsible_else_if")
@@ -127,7 +126,7 @@ impl Rule for UseCollapsedElseIf {
     fn diagnostic(_: &RuleContext<Self>, state: &Self::State) -> Option<RuleDiagnostic> {
         Some(RuleDiagnostic::new(
             rule_category!(),
-            state.if_statement.syntax().text_range(),
+            state.if_statement.syntax().text_range_with_trivia(),
             markup! {
                 "This "<Emphasis>"if"</Emphasis>" statement can be collapsed into an "<Emphasis>"else if"</Emphasis>" statement."
             },
@@ -156,12 +155,11 @@ impl Rule for UseCollapsedElseIf {
             if_statement.clone().into(),
         );
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Use collapsed "<Emphasis>"else if"</Emphasis>" instead." }
-                .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use collapsed "<Emphasis>"else if"</Emphasis>" instead." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

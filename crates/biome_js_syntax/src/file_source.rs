@@ -1,5 +1,7 @@
 use biome_rowan::FileSourceError;
-use std::{ffi::OsStr, path::Path};
+use biome_string_case::StrLikeExtension;
+use camino::Utf8Path;
+use std::borrow::Cow;
 
 /// Enum of the different ECMAScript standard versions.
 /// The versions are ordered in increasing order; The newest version comes last.
@@ -7,6 +9,7 @@ use std::{ffi::OsStr, path::Path};
 /// Defaults to the latest stable ECMAScript standard.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum LanguageVersion {
     ES2022,
 
@@ -33,6 +36,7 @@ impl Default for LanguageVersion {
 #[derive(
     Debug, Clone, Default, Copy, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "camelCase")]
 pub enum ModuleKind {
     /// An ECMAScript [Script](https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-scripts)
     Script,
@@ -55,6 +59,7 @@ impl ModuleKind {
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Hash, Default, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "camelCase")]
 pub enum LanguageVariant {
     /// Standard JavaScript or TypeScript syntax without any extensions
     #[default]
@@ -83,6 +88,7 @@ impl LanguageVariant {
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Default, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "camelCase")]
 pub enum Language {
     #[default]
     JavaScript,
@@ -213,6 +219,14 @@ impl JsFileSource {
         self
     }
 
+    pub fn set_module_kind(&mut self, kind: ModuleKind) {
+        self.module_kind = kind;
+    }
+
+    pub fn set_variant(&mut self, variant: LanguageVariant) {
+        self.variant = variant;
+    }
+
     pub const fn with_version(mut self, version: LanguageVersion) -> Self {
         self.version = version;
         self
@@ -248,6 +262,10 @@ impl JsFileSource {
         self.module_kind.is_module()
     }
 
+    pub const fn is_script(&self) -> bool {
+        self.module_kind.is_script()
+    }
+
     pub const fn is_typescript(&self) -> bool {
         self.language.is_typescript()
     }
@@ -272,25 +290,46 @@ impl JsFileSource {
                 }
             }
             Language::TypeScript { .. } => {
-                if matches!(self.variant, LanguageVariant::Jsx) {
-                    "tsx"
-                } else {
-                    "ts"
+                match self.variant {
+                    LanguageVariant::Standard => "ts",
+                    LanguageVariant::StandardRestricted => {
+                        // This could also be `mts`.
+                        // We choose `cts` because we expect this extension to be more widely used.
+                        // Moreover, it allows more valid syntax such as `import type` with import
+                        // attributes (See `noTypeOnlyImportAttributes` syntax rule).
+                        "cts"
+                    }
+                    LanguageVariant::Jsx => "tsx",
                 }
             }
         }
     }
 
     /// Try to return the JS file source corresponding to this file name from well-known files
-    pub fn try_from_well_known(file_name: &str) -> Result<Self, FileSourceError> {
-        // TODO: to be implemented
-        Err(FileSourceError::UnknownFileName(file_name.into()))
+    pub fn try_from_well_known(path: &Utf8Path) -> Result<Self, FileSourceError> {
+        // Be careful with definition files, because `Path::extension()` only
+        // returns the extension after the _last_ dot:
+        let file_name = path.file_name().ok_or(FileSourceError::MissingFileName)?;
+        if file_name.ends_with(".d.ts") {
+            return Self::try_from_extension("d.ts");
+        } else if file_name.ends_with(".d.mts") {
+            return Self::try_from_extension("d.mts");
+        } else if file_name.ends_with(".d.cts") {
+            return Self::try_from_extension("d.cts");
+        }
+
+        match path.extension() {
+            Some(extension) => Self::try_from_extension(extension),
+            None => Err(FileSourceError::MissingFileExtension),
+        }
     }
 
     /// Try to return the JS file source corresponding to this file extension
     pub fn try_from_extension(extension: &str) -> Result<Self, FileSourceError> {
+        // We assume the file extension is normalized to lowercase
         match extension {
-            "js" | "mjs" | "jsx" => Ok(Self::jsx()),
+            "js" | "mjs" => Ok(Self::js_module()),
+            "jsx" => Ok(Self::jsx()),
             "cjs" => Ok(Self::js_script()),
             "ts" => Ok(Self::ts()),
             "mts" | "cts" => Ok(Self::ts_restricted()),
@@ -304,10 +343,7 @@ impl JsFileSource {
             "vue" => Ok(Self::vue()),
             // TODO: Remove once we have full support of svelte files
             "svelte" => Ok(Self::svelte()),
-            _ => Err(FileSourceError::UnknownExtension(
-                Default::default(),
-                extension.into(),
-            )),
+            _ => Err(FileSourceError::UnknownExtension),
         }
     }
 
@@ -339,55 +375,57 @@ impl JsFileSource {
             "vue" => Ok(Self::vue()),
             // TODO: Remove once we have full support of svelte files
             "svelte" => Ok(Self::svelte()),
-            _ => Err(FileSourceError::UnknownLanguageId(language_id.into())),
+            _ => Err(FileSourceError::UnknownLanguageId),
         }
     }
 }
 
-impl TryFrom<&Path> for JsFileSource {
+impl TryFrom<&Utf8Path> for JsFileSource {
     type Error = FileSourceError;
 
-    fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        let file_name = path
-            .file_name()
-            .and_then(OsStr::to_str)
-            .ok_or_else(|| FileSourceError::MissingFileName(path.into()))?;
-
-        if let Ok(file_source) = Self::try_from_well_known(file_name) {
+    fn try_from(path: &Utf8Path) -> Result<Self, Self::Error> {
+        if let Ok(file_source) = Self::try_from_well_known(path) {
             return Ok(file_source);
         }
+
+        let filename = path
+            .file_name()
+            // We assume the file extensions are case-insensitive.
+            // Thus, we normalize the filrname to lowercase.
+            .map(|filename| filename.to_ascii_lowercase_cow());
 
         // We assume the file extensions are case-insensitive
         // and we use the lowercase form of them for pattern matching
         // TODO: This should be extracted to a dedicated function, maybe in biome_fs
         // because the same logic is also used in DocumentFileSource::from_path_optional
         // and we may support more and more extensions with more than one dots.
-        let extension = &match path {
-            _ if path
-                .to_str()
-                .is_some_and(|p| p.to_lowercase().ends_with(".d.ts")) =>
-            {
-                Some("d.ts".to_owned())
-            }
-            _ if path
-                .to_str()
-                .is_some_and(|p| p.to_lowercase().ends_with(".d.mts")) =>
-            {
-                Some("d.mts".to_owned())
-            }
-            _ if path
-                .to_str()
-                .is_some_and(|p| p.to_lowercase().ends_with(".d.cts")) =>
-            {
-                Some("d.cts".to_owned())
-            }
-            path => path
+        let extension = &match filename {
+            Some(filename) if filename.ends_with(".d.ts") => Cow::Borrowed("d.ts"),
+            Some(filename) if filename.ends_with(".d.mts") => Cow::Borrowed("d.mts"),
+            Some(filename) if filename.ends_with(".d.cts") => Cow::Borrowed("d.cts"),
+            _ => path
                 .extension()
-                .and_then(OsStr::to_str)
-                .map(|s| s.to_lowercase()),
-        }
-        .ok_or_else(|| FileSourceError::MissingFileExtension(path.into()))?;
+                // We assume the file extensions are case-insensitive.
+                // Thus, we normalize the extension to lowercase.
+                .map(|ext| ext.to_ascii_lowercase_cow())
+                .ok_or(FileSourceError::MissingFileExtension)?,
+        };
 
         Self::try_from_extension(extension)
+    }
+}
+
+impl From<Language> for JsFileSource {
+    fn from(value: Language) -> Self {
+        match value {
+            Language::JavaScript => JsFileSource::js_module(),
+            Language::TypeScript { definition_file } => {
+                if definition_file {
+                    JsFileSource::d_ts()
+                } else {
+                    JsFileSource::ts()
+                }
+            }
+        }
     }
 }

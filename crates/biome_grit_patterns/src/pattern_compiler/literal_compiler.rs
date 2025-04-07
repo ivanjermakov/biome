@@ -1,9 +1,12 @@
 use super::{
     compilation_context::NodeCompilationContext, list_compiler::ListCompiler,
-    map_compiler::MapCompiler,
+    map_compiler::MapCompiler, snippet_compiler::parse_snippet_content,
 };
-use crate::{grit_context::GritQueryContext, CompileError};
-use biome_grit_syntax::{AnyGritLiteral, GritSyntaxKind};
+use crate::{
+    CompileError, GritTargetLanguage, grit_context::GritQueryContext, util::TextRangeGritExt,
+};
+use biome_grit_syntax::{AnyGritCodeSnippetSource, AnyGritLiteral, GritSyntaxKind};
+use biome_rowan::AstNode;
 use grit_pattern_matcher::pattern::{
     BooleanConstant, FloatConstant, IntConstant, Pattern, StringConstant,
 };
@@ -20,7 +23,39 @@ impl LiteralCompiler {
             AnyGritLiteral::GritBooleanLiteral(node) => Ok(Pattern::BooleanConstant(
                 BooleanConstant::new(node.value()?.text_trimmed() == "true"),
             )),
-            AnyGritLiteral::GritCodeSnippet(_) => todo!(),
+            AnyGritLiteral::GritCodeSnippet(node) => match node.source()? {
+                AnyGritCodeSnippetSource::GritBacktickSnippetLiteral(node) => {
+                    let token = node.value_token()?;
+                    let text = token.text_trimmed();
+                    let range = node.syntax().text_trimmed_range().to_byte_range();
+                    debug_assert!(text.len() >= 2, "Literals must have quotes");
+                    parse_snippet_content(&text[1..text.len() - 1], range, context, is_rhs)
+                }
+                AnyGritCodeSnippetSource::GritLanguageSpecificSnippet(node) => {
+                    let lang_node = node.language()?;
+                    let lang_name = lang_node.to_trimmed_string();
+                    if GritTargetLanguage::from_extension(&lang_name).is_none() {
+                        return Err(CompileError::UnknownTargetLanguage(lang_name));
+                    }
+
+                    let snippet_token = node.snippet_token()?;
+                    let source = snippet_token.text_trimmed();
+                    let range = node.syntax().text_trimmed_range().to_byte_range();
+                    debug_assert!(source.len() >= 2, "Literals must have quotes");
+                    parse_snippet_content(&source[1..source.len() - 1], range, context, is_rhs)
+                }
+                AnyGritCodeSnippetSource::GritRawBacktickSnippetLiteral(node) => {
+                    if !is_rhs {
+                        return Err(CompileError::InvalidRawSnippetPosition);
+                    }
+
+                    let token = node.value_token()?;
+                    let source = token.text_trimmed();
+                    let range = token.text_trimmed_range().to_byte_range();
+                    debug_assert!(source.starts_with("raw`") && source.ends_with('`'));
+                    parse_snippet_content(&source[4..source.len() - 1], range, context, is_rhs)
+                }
+            },
             AnyGritLiteral::GritDoubleLiteral(node) => Ok(Pattern::FloatConstant(
                 FloatConstant::new(node.value_token()?.text_trimmed().parse().map_err(|err| {
                     CompileError::LiteralOutOfRange(format!("Error parsing double: {err}"))

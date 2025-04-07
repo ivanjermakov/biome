@@ -1,13 +1,14 @@
-use biome_analyze::context::RuleContext;
 use biome_analyze::RuleSource;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic};
+use biome_analyze::context::RuleContext;
+use biome_analyze::{Ast, Rule, RuleDiagnostic, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{JsConstructorClassMember, JsReturnStatement};
 use biome_rowan::AstNode;
 
 use crate::services::control_flow::AnyJsControlFlowRoot;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow returning a value from a `constructor`.
     ///
     /// Returning a value from a `constructor` of a class is a possible error.
@@ -43,11 +44,22 @@ declare_rule! {
     /// }
     /// ```
     ///
+    /// ## Using this rule in combination with the singleton pattern
+    ///
+    /// Some people implement the singleton pattern in JavaScript by returning
+    /// an existing instance from the constructor, which would conflict with
+    /// this rule.
+    ///
+    /// Instead, we advise to follow one of the suggestions described in this
+    /// blog post: https://arendjr.nl/blog/2024/11/singletons-in-javascript/
+    ///
     pub NoConstructorReturn {
         version: "1.0.0",
         name: "noConstructorReturn",
+        language: "js",
         sources: &[RuleSource::Eslint("no-constructor-return")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -80,6 +92,6 @@ impl Rule for NoConstructorReturn {
         ).detail(
             constructor.range(),
             "The constructor is here:"
-        ).note("Returning a value from a constructor is ignored."))
+        ).note("Returning a value from a constructor may confuse users of the class."))
     }
 }

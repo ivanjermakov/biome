@@ -1,40 +1,41 @@
-use crate::{services::aria::Aria, JsRuleAction};
+use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
+use biome_aria_metadata::AriaRole;
 use biome_console::markup;
 use biome_deserialize_macros::Deserializable;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::jsx_ext::AnyJsxElement;
 use biome_rowan::{AstNode, BatchMutationExt};
 use serde::{Deserialize, Serialize};
 
-declare_rule! {
+declare_lint_rule! {
     /// Elements with ARIA roles must use a valid, non-abstract ARIA role.
     ///
     /// ## Examples
     ///
     /// ### Invalid
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <div role="datepicker"></div>
     /// ```
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <div role="range"></div>
     /// ```
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <div role=""></div>
     /// ```
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <Foo role="foo"></Foo>
     /// ```
     ///
     /// ### Valid
     ///
-    /// ```js
+    /// ```jsx
     /// <>
     ///   <div role="button"></div>
     ///   <div role={role}></div>
@@ -44,12 +45,11 @@ declare_rule! {
     ///
     /// ## Options
     ///
-    /// ```json
+    /// ```json,options
     /// {
-    ///     "//": "...",
     ///     "options": {
     ///         "allowInvalidRoles": ["invalid-role", "text"],
-    ///         "nonIgnoreDom": true
+    ///         "ignoreNonDom": true
     ///     }
     /// }
     /// ```
@@ -67,22 +67,24 @@ declare_rule! {
     pub UseValidAriaRole {
         version: "1.4.0",
         name: "useValidAriaRole",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("aria-role")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct ValidAriaRoleOptions {
-    pub allow_invalid_roles: Vec<String>,
+    pub allow_invalid_roles: Box<[Box<str>]>,
     pub ignore_non_dom: bool,
 }
 
 impl Rule for UseValidAriaRole {
-    type Query = Aria<AnyJsxElement>;
+    type Query = Ast<AnyJsxElement>;
     type State = ();
     type Signals = Option<Self::State>;
     type Options = Box<ValidAriaRoleOptions>;
@@ -90,7 +92,6 @@ impl Rule for UseValidAriaRole {
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
         let options = ctx.options();
-        let aria_roles = ctx.aria_roles();
 
         let ignore_non_dom = options.ignore_non_dom;
         let allowed_invalid_roles = &options.allow_invalid_roles;
@@ -101,12 +102,17 @@ impl Rule for UseValidAriaRole {
 
         let role_attribute = node.find_attribute_by_name("role")?;
         let role_attribute_static_value = role_attribute.as_static_value()?;
-        let role_attribute_value = role_attribute_static_value.text();
-        let mut role_attribute_value = role_attribute_value.split(' ');
+        let role_attribute_value = role_attribute_static_value.text().trim();
+        if role_attribute_value.is_empty() {
+            return Some(());
+        }
+        let mut role_attribute_value = role_attribute_value.split_ascii_whitespace();
 
         let is_valid = role_attribute_value.all(|val| {
-            let role_data = aria_roles.get_role(val);
-            allowed_invalid_roles.contains(&val.to_string()) || role_data.is_some()
+            AriaRole::from_roles(val).is_some()
+                || allowed_invalid_roles
+                    .iter()
+                    .any(|role| role.as_ref() == val)
         });
 
         if is_valid {
@@ -137,13 +143,13 @@ impl Rule for UseValidAriaRole {
         let mut mutation = ctx.root().begin();
         let role_attribute = node.find_attribute_by_name("role")?;
         mutation.remove_node(role_attribute);
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message:
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+
                 markup! { "Remove the invalid "<Emphasis>"role"</Emphasis>" attribute.\n Check the list of all "<Hyperlink href="https://www.w3.org/TR/wai-aria/#role_definitions">"valid"</Hyperlink>" role attributes." }
                     .to_owned(),
             mutation,
-        })
+        ))
     }
 }

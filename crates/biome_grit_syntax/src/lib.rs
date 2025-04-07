@@ -4,6 +4,7 @@
 
 #[macro_use]
 mod generated;
+pub mod file_source;
 mod syntax_ext;
 mod syntax_node;
 
@@ -12,8 +13,8 @@ pub use generated::*;
 pub use syntax_ext::*;
 pub use syntax_node::*;
 
-use biome_rowan::{AstNode, RawSyntaxKind, SyntaxKind};
 use GritSyntaxKind::*;
+use biome_rowan::{AstNode, RawSyntaxKind, SyntaxKind};
 
 impl From<u16> for GritSyntaxKind {
     fn from(d: u16) -> GritSyntaxKind {

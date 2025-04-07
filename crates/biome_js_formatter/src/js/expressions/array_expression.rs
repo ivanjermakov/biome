@@ -1,11 +1,11 @@
 use crate::prelude::*;
 
-use crate::parentheses::NeedsParentheses;
-use biome_formatter::{write, FormatRuleWithOptions};
+use biome_formatter::{Expand, FormatRuleWithOptions, write};
+use biome_js_syntax::JsArrayExpression;
+use biome_js_syntax::parentheses::NeedsParentheses;
 use biome_js_syntax::{
     AnyJsArrayElement, AnyJsExpression, JsArrayElementList, JsArrayExpressionFields,
 };
-use biome_js_syntax::{JsArrayExpression, JsSyntaxNode};
 use biome_rowan::SyntaxResult;
 
 #[derive(Debug, Clone, Default)]
@@ -44,7 +44,8 @@ impl FormatNodeRule<JsArrayExpression> for FormatJsArrayExpression {
         } else {
             let group_id = f.group_id("array");
 
-            let should_expand = !self.options.is_force_flat_mode && should_break(&elements)?;
+            let should_expand = (!self.options.is_force_flat_mode && should_break(&elements)?)
+                || f.options().expand() == Expand::Always;
             let elements = elements.format().with_options(Some(group_id));
 
             write!(
@@ -120,16 +121,5 @@ fn should_break(elements: &JsArrayElementList) -> SyntaxResult<bool> {
         }
 
         Ok(true)
-    }
-}
-
-impl NeedsParentheses for JsArrayExpression {
-    #[inline(always)]
-    fn needs_parentheses(&self) -> bool {
-        false
-    }
-    #[inline(always)]
-    fn needs_parentheses_with_parent(&self, _parent: &JsSyntaxNode) -> bool {
-        false
     }
 }

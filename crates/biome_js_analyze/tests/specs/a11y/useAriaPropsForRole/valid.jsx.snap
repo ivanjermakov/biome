@@ -1,6 +1,7 @@
 ---
 source: crates/biome_js_analyze/tests/spec_tests.rs
 expression: valid.jsx
+snapshot_kind: text
 ---
 # Input
 ```jsx
@@ -17,6 +18,5 @@ var a = <span role="combobox" aria-controls="true" aria-expanded="true"></span>;
 var a = <span role="menuitemcheckbox" aria-checked="true"></span>;
 var a = <span role="menuitemradio" aria-checked="true"></span>;
 var a = <Span role="menuitemradio" ></Span>;
+
 ```
-
-

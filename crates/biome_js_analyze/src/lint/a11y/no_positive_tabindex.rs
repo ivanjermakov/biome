@@ -1,10 +1,10 @@
+use crate::JsRuleAction;
 use crate::react::{ReactApiCall, ReactCreateElementCall};
 use crate::services::semantic::Semantic;
-use crate::JsRuleAction;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_factory::make::{jsx_string, jsx_string_literal};
 use biome_js_semantic::SemanticModel;
@@ -13,9 +13,9 @@ use biome_js_syntax::{
     AnyJsLiteralExpression, AnyJsxAttributeValue, JsCallExpression, JsNumberLiteralExpression,
     JsPropertyObjectMember, JsStringLiteralExpression, JsUnaryExpression, JsxAttribute, TextRange,
 };
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt};
+use biome_rowan::{AstNode, BatchMutationExt, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Prevent the usage of positive integers on `tabIndex` property
     ///
     /// Avoid positive `tabIndex` property values to synchronize the flow of the page with keyboard tab order.
@@ -51,8 +51,10 @@ declare_rule! {
     pub NoPositiveTabindex {
         version: "1.0.0",
         name: "noPositiveTabindex",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("tabindex-no-positive")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -108,7 +110,7 @@ impl AnyNumberLikeExpression {
             }
             AnyNumberLikeExpression::JsUnaryExpression(unary_expression) => {
                 if unary_expression.is_signed_numeric_literal().ok()? {
-                    return Some(unary_expression.text());
+                    return Some(unary_expression.to_trimmed_string());
                 }
             }
         }
@@ -138,12 +140,11 @@ impl Rule for NoPositiveTabindex {
             }
             TabindexProp::JsPropertyObjectMember(js_object_member) => {
                 let expression = js_object_member.value().ok()?;
-                let expression_syntax_node = expression.syntax();
+                let range = expression.range();
                 let expression_value =
-                    AnyNumberLikeExpression::cast_ref(expression_syntax_node)?.value()?;
-
+                    AnyNumberLikeExpression::cast(expression.into_syntax())?.value()?;
                 if !is_tabindex_valid(&expression_value) {
-                    return Some(expression_syntax_node.text_trimmed_range());
+                    return Some(range);
                 }
             }
         }
@@ -194,14 +195,13 @@ impl Rule for NoPositiveTabindex {
             }
         };
 
-        Some(JsRuleAction {
-            category: biome_analyze::ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message:
-                markup! { "Replace the "<Emphasis>"tableIndex"</Emphasis>" prop value with 0." }
-                    .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Replace the "<Emphasis>"tableIndex"</Emphasis>" prop value with 0." }
+                .to_owned(),
             mutation,
-        })
+        ))
     }
 }
 
@@ -215,7 +215,7 @@ fn attribute_has_valid_tabindex(jsx_any_attribute_value: &AnyJsxAttributeValue) 
         AnyJsxAttributeValue::JsxExpressionAttributeValue(value) => {
             let expression = value.expression().ok()?;
             let expression_value =
-                AnyNumberLikeExpression::cast_ref(expression.syntax())?.value()?;
+                AnyNumberLikeExpression::cast(expression.into_syntax())?.value()?;
 
             Some(is_tabindex_valid(&expression_value))
         }

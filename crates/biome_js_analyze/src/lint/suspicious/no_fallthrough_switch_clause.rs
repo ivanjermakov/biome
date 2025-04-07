@@ -1,19 +1,20 @@
 use std::collections::VecDeque;
 
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
 use biome_control_flow::{
-    builder::{BlockId, ROOT_BLOCK_ID},
     ExceptionHandlerKind, InstructionKind,
+    builder::{BlockId, ROOT_BLOCK_ID},
 };
+use biome_diagnostics::Severity;
 use biome_js_syntax::{JsDefaultClause, JsLanguage, JsSwitchStatement, JsSyntaxNode};
 use biome_rowan::{AstNode, AstNodeList, TextRange, WalkEvent};
 use roaring::RoaringBitmap;
 use rustc_hash::FxHashMap;
 
-use crate::{services::control_flow::AnyJsControlFlowRoot, ControlFlowGraph};
+use crate::{ControlFlowGraph, services::control_flow::AnyJsControlFlowRoot};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow fallthrough of `switch` clauses.
     ///
     /// Switch clauses in `switch` statements fall through by default.
@@ -57,24 +58,26 @@ declare_rule! {
     pub NoFallthroughSwitchClause {
         version: "1.0.0",
         name: "noFallthroughSwitchClause",
+        language: "js",
         sources: &[RuleSource::Eslint("no-fallthrough")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 impl Rule for NoFallthroughSwitchClause {
     type Query = ControlFlowGraph;
     type State = TextRange;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let cfg = ctx.query();
-        let mut fallthrough: Vec<TextRange> = vec![];
+        let mut fallthrough = Vec::new();
         // Return early if the graph doesn't contain any switch statements.
         // This avoids to allocate some memory.
         if !has_switch_statement(&cfg.node) {
-            return fallthrough;
+            return fallthrough.into_boxed_slice();
         }
         // block to process.
         let mut block_stack = vec![ROOT_BLOCK_ID];
@@ -153,7 +156,7 @@ impl Rule for NoFallthroughSwitchClause {
                         if is_switch && (conditional || has_default_clause) {
                             // Take the unconditional jump into account only if a default clause is present.
                             let Some(switch_clause) = switch_clauses.pop_front() else {
-                                unreachable!("Missing switch clause.")
+                                break;
                             };
                             block_to_switch_clause_range.insert(
                                 jump_block_id,
@@ -188,7 +191,7 @@ impl Rule for NoFallthroughSwitchClause {
             }
             switch_clauses.clear();
         }
-        fallthrough
+        fallthrough.into_boxed_slice()
     }
 
     fn diagnostic(

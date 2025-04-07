@@ -267,12 +267,7 @@ a {
 ```diff
 --- Prettier
 +++ Biome
-@@ -53,14 +53,14 @@
- }
- 
- .foo {
--  --paddingC: calc(var(--widthB) / 2);
-+  --paddingc: calc(var(--widthB) / 2);
+@@ -57,10 +57,10 @@
    content: attr(data-title);
    color: var(--main-bg-color);
    background-color: rgb(255, 0, 0);
@@ -293,14 +288,15 @@ a {
 -  prop12: 10px/8px;
 +  prop12: 10px / 8px;
    prop13: round(1.5) / 2 round(1.5) / 2 round(1.5) / 2 round(1.5) / 2;
--  prop14: 2 / round(1.5) 2 / round(1.5) 2 / round(1.5) 2 / round(1.5);
+   prop14: 2 / round(1.5) 2 / round(1.5) 2 / round(1.5) 2 / round(1.5);
 -  prop15: (round(1.5) / 2) (round(1.5) / 2) (round(1.5) / 2) (round(1.5) / 2);
 -  prop16: (2 / round(1.5)) (2 / round(1.5)) (2 / round(1.5)) (2 / round(1.5));
-+  prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
+-  prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
+-  prop27: 8px/2px 8px/1 1/2px 1/2;
 +  prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
 +  prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-   prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
-   prop27: 8px/2px 8px/1 1/2px 1/2;
++  prop26: 8px / 2px 8px / 1 1 / 2px 1 / 2;
++  prop27: 8px / 2px 8px / 1 1 / 2px 1 / 2;
    prop28: 8px / 2px 8px / 1 1 / 2px 1 / 2;
    prop29: (8px/2px) (8px/1) (1/2px) (1/2);
    prop30: (8px / 2px) (8px / 1) (1 / 2px) (1 / 2);
@@ -351,19 +347,6 @@ a {
    prop77: calc(-5px);
    prop78: calc(+5px);
    prop79: calc(-100px + 100px);
-@@ -152,9 +152,9 @@
- 
- .unicode-ranges {
-   /* <unicode-range> values */
--  unicode-range: U+26; /* single codepoint */
--  unicode-range: U+0-7F;
--  unicode-range: U+0025-00FF; /* codepoint range */
-+  unicode-range: u +26; /* single codepoint */
-+  unicode-range: u +0 -7f;
-+  unicode-range: u +0025 -00ff; /* codepoint range */
-   unicode-range: U+4??; /* wildcard range */
-   unicode-range: U+0025-00FF, U+4??; /* multiple values */
- }
 ```
 
 # Output
@@ -424,7 +407,7 @@ a {
 }
 
 .foo {
-  --paddingc: calc(var(--widthB) / 2);
+  --paddingC: calc(var(--widthB) / 2);
   content: attr(data-title);
   color: var(--main-bg-color);
   background-color: rgb(255, 0, 0);
@@ -442,11 +425,11 @@ a {
   prop11: (+1);
   prop12: 10px / 8px;
   prop13: round(1.5) / 2 round(1.5) / 2 round(1.5) / 2 round(1.5) / 2;
-  prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
+  prop14: 2 / round(1.5) 2 / round(1.5) 2 / round(1.5) 2 / round(1.5);
   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
-  prop27: 8px/2px 8px/1 1/2px 1/2;
+  prop26: 8px / 2px 8px / 1 1 / 2px 1 / 2;
+  prop27: 8px / 2px 8px / 1 1 / 2px 1 / 2;
   prop28: 8px / 2px 8px / 1 1 / 2px 1 / 2;
   prop29: (8px/2px) (8px/1) (1/2px) (1/2);
   prop30: (8px / 2px) (8px / 1) (1 / 2px) (1 / 2);
@@ -523,9 +506,9 @@ a {
 
 .unicode-ranges {
   /* <unicode-range> values */
-  unicode-range: u +26; /* single codepoint */
-  unicode-range: u +0 -7f;
-  unicode-range: u +0025 -00ff; /* codepoint range */
+  unicode-range: U+26; /* single codepoint */
+  unicode-range: U+0-7F;
+  unicode-range: U+0025-00FF; /* codepoint range */
   unicode-range: U+4??; /* wildcard range */
   unicode-range: U+0025-00FF, U+4??; /* multiple values */
 }
@@ -670,86 +653,6 @@ parens.css:119:11 parse ━━━━━━━━━━━━━━━━━━�
   - custom property
   - function
   
-parens.css:122:13 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Expected a number but instead found 'round'.
-  
-    120 │   prop12: 10px/8px;
-    121 │   prop13: round(1.5)/2 round(1.5) /2 round(1.5)/ 2 round(1.5) / 2;
-  > 122 │   prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
-        │             ^^^^^
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  
-  i Expected a number here.
-  
-    120 │   prop12: 10px/8px;
-    121 │   prop13: round(1.5)/2 round(1.5) /2 round(1.5)/ 2 round(1.5) / 2;
-  > 122 │   prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
-        │             ^^^^^
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  
-parens.css:122:27 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Expected a number but instead found 'round'.
-  
-    120 │   prop12: 10px/8px;
-    121 │   prop13: round(1.5)/2 round(1.5) /2 round(1.5)/ 2 round(1.5) / 2;
-  > 122 │   prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
-        │                           ^^^^^
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  
-  i Expected a number here.
-  
-    120 │   prop12: 10px/8px;
-    121 │   prop13: round(1.5)/2 round(1.5) /2 round(1.5)/ 2 round(1.5) / 2;
-  > 122 │   prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
-        │                           ^^^^^
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  
-parens.css:122:41 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Expected a number but instead found 'round'.
-  
-    120 │   prop12: 10px/8px;
-    121 │   prop13: round(1.5)/2 round(1.5) /2 round(1.5)/ 2 round(1.5) / 2;
-  > 122 │   prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
-        │                                         ^^^^^
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  
-  i Expected a number here.
-  
-    120 │   prop12: 10px/8px;
-    121 │   prop13: round(1.5)/2 round(1.5) /2 round(1.5)/ 2 round(1.5) / 2;
-  > 122 │   prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
-        │                                         ^^^^^
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  
-parens.css:122:56 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Expected a number but instead found 'round'.
-  
-    120 │   prop12: 10px/8px;
-    121 │   prop13: round(1.5)/2 round(1.5) /2 round(1.5)/ 2 round(1.5) / 2;
-  > 122 │   prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
-        │                                                        ^^^^^
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  
-  i Expected a number here.
-  
-    120 │   prop12: 10px/8px;
-    121 │   prop13: round(1.5)/2 round(1.5) /2 round(1.5)/ 2 round(1.5) / 2;
-  > 122 │   prop14: 2/round(1.5) 2 /round(1.5) 2/ round(1.5) 2 / round(1.5);
-        │                                                        ^^^^^
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  
 parens.css:123:11 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Unexpected value or character.
@@ -791,66 +694,6 @@ parens.css:124:11 parse ━━━━━━━━━━━━━━━━━━�
   - ratio
   - custom property
   - function
-  
-parens.css:125:29 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Expected a number but instead found '2'.
-  
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  > 125 │   prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
-        │                             ^
-    126 │   prop27: 8px/2px 8px/1 1/2px 1/2;
-    127 │   prop28: 8px / 2px 8px / 1 1 / 2px 1 / 2;
-  
-  i Expected a number here.
-  
-    123 │   prop15: (round(1.5)/2) (round(1.5) /2) (round(1.5)/ 2) (round(1.5) / 2);
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-  > 125 │   prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
-        │                             ^
-    126 │   prop27: 8px/2px 8px/1 1/2px 1/2;
-    127 │   prop28: 8px / 2px 8px / 1 1 / 2px 1 / 2;
-  
-parens.css:126:27 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Expected a number but instead found '2'.
-  
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-    125 │   prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
-  > 126 │   prop27: 8px/2px 8px/1 1/2px 1/2;
-        │                           ^
-    127 │   prop28: 8px / 2px 8px / 1 1 / 2px 1 / 2;
-    128 │   prop29: (8px/2px) (8px/1) (1/2px) (1/2);
-  
-  i Expected a number here.
-  
-    124 │   prop16: (2/round(1.5)) (2 /round(1.5)) (2/ round(1.5)) (2 / round(1.5));
-    125 │   prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
-  > 126 │   prop27: 8px/2px 8px/1 1/2px 1/2;
-        │                           ^
-    127 │   prop28: 8px / 2px 8px / 1 1 / 2px 1 / 2;
-    128 │   prop29: (8px/2px) (8px/1) (1/2px) (1/2);
-  
-parens.css:127:33 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Expected a number but instead found '2'.
-  
-    125 │   prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
-    126 │   prop27: 8px/2px 8px/1 1/2px 1/2;
-  > 127 │   prop28: 8px / 2px 8px / 1 1 / 2px 1 / 2;
-        │                                 ^
-    128 │   prop29: (8px/2px) (8px/1) (1/2px) (1/2);
-    129 │   prop30: (8px / 2px) (8px / 1) (1 / 2px) (1 / 2);
-  
-  i Expected a number here.
-  
-    125 │   prop26: 8px/2px 8px /1 1/ 2px 1 / 2;
-    126 │   prop27: 8px/2px 8px/1 1/2px 1/2;
-  > 127 │   prop28: 8px / 2px 8px / 1 1 / 2px 1 / 2;
-        │                                 ^
-    128 │   prop29: (8px/2px) (8px/1) (1/2px) (1/2);
-    129 │   prop30: (8px / 2px) (8px / 1) (1 / 2px) (1 / 2);
   
 parens.css:128:11 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1000,27 +843,6 @@ parens.css:137:11 parse ━━━━━━━━━━━━━━━━━━�
         │           ^^^^^
     138 │   prop40: --1;
     139 │   prop41: --(1);
-  
-  i Expected one of:
-  
-  - identifier
-  - string
-  - number
-  - dimension
-  - ratio
-  - custom property
-  - function
-  
-parens.css:138:11 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Unexpected value or character.
-  
-    136 │   prop38: ++1;
-    137 │   prop39: ++(1);
-  > 138 │   prop40: --1;
-        │           ^^^
-    139 │   prop41: --(1);
-    140 │   prop42: 1px+1px+1px+1px;
   
   i Expected one of:
   
@@ -1387,50 +1209,6 @@ parens.css:241:19 parse ━━━━━━━━━━━━━━━━━━�
   - ratio
   - custom property
   - function
-  
-parens.css:251:23 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × unexpected character `?`
-  
-    249 │     unicode-range: U+0-7F;
-    250 │     unicode-range: U+0025-00FF;        /* codepoint range */
-  > 251 │     unicode-range: U+4??;              /* wildcard range */
-        │                       ^
-    252 │     unicode-range: U+0025-00FF, U+4??; /* multiple values */
-    253 │ }
-  
-parens.css:251:24 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × unexpected character `?`
-  
-    249 │     unicode-range: U+0-7F;
-    250 │     unicode-range: U+0025-00FF;        /* codepoint range */
-  > 251 │     unicode-range: U+4??;              /* wildcard range */
-        │                        ^
-    252 │     unicode-range: U+0025-00FF, U+4??; /* multiple values */
-    253 │ }
-  
-parens.css:252:36 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × unexpected character `?`
-  
-    250 │     unicode-range: U+0025-00FF;        /* codepoint range */
-    251 │     unicode-range: U+4??;              /* wildcard range */
-  > 252 │     unicode-range: U+0025-00FF, U+4??; /* multiple values */
-        │                                    ^
-    253 │ }
-    254 │ 
-  
-parens.css:252:37 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × unexpected character `?`
-  
-    250 │     unicode-range: U+0025-00FF;        /* codepoint range */
-    251 │     unicode-range: U+4??;              /* wildcard range */
-  > 252 │     unicode-range: U+0025-00FF, U+4??; /* multiple values */
-        │                                     ^
-    253 │ }
-    254 │ 
   
 
 ```

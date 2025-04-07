@@ -1,6 +1,6 @@
-use crate::kind_src::KindsSrc;
-use crate::language_kind::LanguageKind;
 use crate::Result;
+use crate::language_kind::LanguageKind;
+use crate::{generate_nodes::should_token_be_quoted, kind_src::KindsSrc};
 use biome_string_case::Case;
 use proc_macro2::{Literal, Punct, Spacing};
 use quote::{format_ident, quote};
@@ -14,7 +14,7 @@ pub fn generate_syntax_kinds(grammar: KindsSrc, language_kind: LanguageKind) -> 
         if "{}[]()`".contains(token) {
             let c = token.chars().next().unwrap();
             quote! { #c }
-        } else if matches!(*token, "$=" | "$_") {
+        } else if should_token_be_quoted(token) {
             let token = Literal::string(token);
             quote! { #token }
         } else {
@@ -133,6 +133,18 @@ pub fn generate_syntax_kinds(grammar: KindsSrc, language_kind: LanguageKind) -> 
                 }
             }
         }
+        LanguageKind::Markdown => {
+            quote! {
+                pub const fn to_string(&self) -> Option<&'static str> {
+                    let tok = match self {
+                        #(#punctuation => #punctuation_strings,)*
+                        #(#full_keywords => #all_keyword_to_strings,)*
+                        _ => return None,
+                    };
+                    Some(tok)
+                }
+            }
+        }
         LanguageKind::Grit => {
             quote! {
                 pub const fn to_string(&self) -> Option<&'static str> {
@@ -178,7 +190,7 @@ pub fn generate_syntax_kinds(grammar: KindsSrc, language_kind: LanguageKind) -> 
                     let tok = match self {
                         #(#punctuation => #punctuation_strings,)*
                         #(#full_keywords => #all_keyword_to_strings,)*
-                        YAML_STRING_LITERAL => "string literal",
+                        YAML_STRING_VALUE => "string value",
                         _ => return None,
                     };
                     Some(tok)
@@ -188,7 +200,6 @@ pub fn generate_syntax_kinds(grammar: KindsSrc, language_kind: LanguageKind) -> 
     };
 
     let ast = quote! {
-        #![allow(clippy::all)]
         #![allow(bad_style, missing_docs, unreachable_pub)]
         /// The kind of syntax node, e.g. `IDENT`, `FUNCTION_KW`, or `FOR_STMT`.
         #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -217,24 +228,15 @@ pub fn generate_syntax_kinds(grammar: KindsSrc, language_kind: LanguageKind) -> 
 
         impl #syntax_kind {
             pub const fn is_punct(self) -> bool {
-                match self {
-                    #(#punctuation)|* => true,
-                    _ => false,
-                }
+                matches!(self, #(#punctuation)|*)
             }
 
             pub const fn is_literal(self) -> bool {
-                match self {
-                    #(#literals)|* => true,
-                    _ => false,
-                }
+                matches!(self, #(#literals)|*)
             }
 
             pub const fn is_list(self) -> bool {
-                match self {
-                    #(#lists)|* => true,
-                    _ => false,
-                }
+                matches!(self, #(#lists)|*)
             }
 
             pub fn from_keyword(ident: &str) -> Option<#syntax_kind> {

@@ -1,16 +1,14 @@
-use biome_console::{markup, Console, ConsoleExt};
-use biome_deserialize::json::deserialize_from_json_str;
+use crate::CliDiagnostic;
+use crate::diagnostics::MigrationDiagnostic;
+use biome_console::{Console, ConsoleExt, markup};
 use biome_deserialize::Merge;
+use biome_deserialize::json::deserialize_from_json_str;
 use biome_diagnostics::{DiagnosticExt, PrintDiagnostic};
 use biome_fs::{FileSystem, OpenOptions};
 use biome_json_parser::JsonParserOptions;
-use biome_service::DynRef;
+use camino::Utf8Path;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
-use std::vec;
-
-use crate::diagnostics::MigrationDiagnostic;
-use crate::CliDiagnostic;
 
 use super::eslint_eslint;
 use super::node;
@@ -24,7 +22,7 @@ use super::node;
 /// Note that we don't need to deserialise every existing rule option.
 /// We only need to deserialise options that have equivalent biome options.
 /// This greatly reduces the amount of work involved.
-
+///
 /// ESLint flat configuration filenames.
 ///
 /// See https://eslint.org/docs/latest/use/configure/configuration-files-new
@@ -42,7 +40,7 @@ const FLAT_CONFIG_FILES: [&str; 3] = [
 /// Order is important.
 /// It translates the priority of the files.
 /// For example, ESLint looks for `./.eslintrc.js` before looking for `./.eslintrc.json`.
-const LEGACY_CONFIG_FILES: [&str; 5] = [
+const LEGACY_CONFIG_FILES: [&str; 6] = [
     // Prefixed with `./` to ensure that it is loadable via Node.js's `import()`
     "./.eslintrc.js",
     // Prefixed with `./` to ensure that it is loadable via Node.js's `import()`
@@ -50,6 +48,7 @@ const LEGACY_CONFIG_FILES: [&str; 5] = [
     ".eslintrc.yaml",
     ".eslintrc.yml",
     ".eslintrc.json",
+    ".eslintrc",
 ];
 
 /// An ESLint config can be embedded in `package.json`
@@ -68,17 +67,17 @@ pub(crate) const IGNORE_FILE: &str = ".eslintignore";
 /// when no configuration file is found in the working directory.
 ///
 /// Deserialization errors are reported using `console`.
-/// Other errors (File Not found, unspported config format, ...) are directly returned.
+/// Other errors (File Not found, unsupported config format, ...) are directly returned.
 ///
 /// We extract the ESLint configuration from a JavaScript file, by invoking `node`.
 ///
-/// The `extends` field is recusively resolved.
+/// The `extends` field is recursively resolved.
 pub(crate) fn read_eslint_config(
-    fs: &DynRef<'_, dyn FileSystem>,
+    fs: &dyn FileSystem,
     console: &mut dyn Console,
 ) -> Result<Config, CliDiagnostic> {
     for config_path_str in FLAT_CONFIG_FILES {
-        let path = Path::new(config_path_str);
+        let path = Utf8Path::new(config_path_str);
         if fs.path_exists(path) {
             return load_flat_config_data(path, console).map(|data| Config {
                 path: config_path_str,
@@ -87,7 +86,7 @@ pub(crate) fn read_eslint_config(
         }
     }
     for config_path_str in LEGACY_CONFIG_FILES {
-        let path = Path::new(config_path_str);
+        let path = Utf8Path::new(config_path_str);
         if fs.path_exists(path) {
             return load_legacy_config_data(fs, path, console).map(|data| Config {
                 path: config_path_str,
@@ -96,13 +95,13 @@ pub(crate) fn read_eslint_config(
         }
     }
     // We don't report an error if ESLint config is not embedded in `PACKAGE_JSON`.
-    if let Ok(data) = load_legacy_config_data(fs, Path::new(PACKAGE_JSON), console) {
+    if let Ok(data) = load_legacy_config_data(fs, Utf8Path::new(PACKAGE_JSON), console) {
         return Ok(Config {
             path: PACKAGE_JSON,
             data: data.into(),
         });
     }
-    Err(CliDiagnostic::MigrateError(MigrationDiagnostic { reason: "The default ESLint configuration file `.eslintrc.*` was not found in the working directory.".to_string()}))
+    Err(CliDiagnostic::MigrateError(MigrationDiagnostic { reason: "The default ESLint configuration file `.eslintrc[.*]` was not found in the working directory.".to_string()}))
 }
 
 #[derive(Debug)]
@@ -116,17 +115,17 @@ pub(crate) struct Config {
 /// Load an ESlint Flat config
 /// See https://eslint.org/docs/latest/use/configure/configuration-files-new
 fn load_flat_config_data(
-    path: &Path,
+    path: &Utf8Path,
     console: &mut dyn Console,
 ) -> Result<eslint_eslint::FlatConfigData, CliDiagnostic> {
-    let node::Resolution { content, .. } = node::load_config(&path.to_string_lossy())?;
+    let node::Resolution { content, .. } = node::load_config(path.as_ref())?;
     let (deserialized, diagnostics) = deserialize_from_json_str::<eslint_eslint::FlatConfigData>(
         &content,
         JsonParserOptions::default(),
         "",
     )
     .consume();
-    let path_str = path.to_string_lossy();
+    let path_str = path.to_string();
     for diagnostic in diagnostics.into_iter().filter(|diag| {
         matches!(
             diag.severity(),
@@ -150,24 +149,36 @@ fn load_flat_config_data(
 /// Load an ESlint legacy config
 /// See https://eslint.org/docs/latest/use/configure/configuration-files
 fn load_legacy_config_data(
-    fs: &DynRef<'_, dyn FileSystem>,
-    path: &Path,
+    fs: &dyn FileSystem,
+    path: &Utf8Path,
     console: &mut dyn Console,
 ) -> Result<eslint_eslint::LegacyConfigData, CliDiagnostic> {
-    let (deserialized, diagnostics) = match path.extension().and_then(|file_ext| file_ext.to_str()) {
-        Some("json") => {
+    let (deserialized, diagnostics) = match path.extension() {
+        None | Some("json") => {
             let mut file = fs.open_with_options(path, OpenOptions::default().read(true))?;
             let mut content = String::new();
             file.read_to_string(&mut content)?;
             if path.file_name().is_some_and(|name| name == PACKAGE_JSON) {
-                let (deserialized, _) = deserialize_from_json_str::<eslint_eslint::EslintPackageJson>(
-                    &content,
-                    JsonParserOptions::default()
-                        .with_allow_trailing_commas()
-                        .with_allow_comments(),
-                    "",
-                ).consume();
-                (deserialized.and_then(|packagejson| packagejson.eslint_config), vec![])
+                let (deserialized, diagnostics) =
+                    deserialize_from_json_str::<eslint_eslint::EslintPackageJson>(
+                        &content,
+                        JsonParserOptions::default()
+                            .with_allow_trailing_commas()
+                            .with_allow_comments(),
+                        "",
+                    )
+                    .consume();
+                (
+                    deserialized.and_then(|mut packagejson| {
+                        if let Some(eslint_config) = packagejson.eslint_config.as_mut() {
+                            eslint_config
+                                .ignore_patterns
+                                .extend(packagejson.eslint_ignore);
+                        }
+                        packagejson.eslint_config
+                    }),
+                    diagnostics,
+                )
             } else {
                 deserialize_from_json_str::<eslint_eslint::LegacyConfigData>(
                     &content,
@@ -175,21 +186,28 @@ fn load_legacy_config_data(
                         .with_allow_trailing_commas()
                         .with_allow_comments(),
                     "",
-                ).consume()
+                )
+                .consume()
             }
-        },
+        }
         Some("js" | "cjs") => {
-            let node::Resolution { content, ..} = node::load_config(&path.to_string_lossy())?;
+            let node::Resolution { content, .. } = node::load_config(path.as_ref())?;
             deserialize_from_json_str::<eslint_eslint::LegacyConfigData>(
                 &content,
                 JsonParserOptions::default(),
                 "",
-            ).consume()
-        },
-        Some(ext) => return Err(CliDiagnostic::MigrateError(MigrationDiagnostic{ reason: format!("ESLint configuration ending with the extension `{ext}` are not supported.") })),
-        None => return Err(CliDiagnostic::MigrateError(MigrationDiagnostic{ reason: "The ESLint configuration format cannot be determined because the file has no extension.".to_string() })),
+            )
+            .consume()
+        }
+        Some(ext) => {
+            return Err(CliDiagnostic::MigrateError(MigrationDiagnostic {
+                reason: format!(
+                    "ESLint configuration ending with the extension `{ext}` are not supported."
+                ),
+            }));
+        }
     };
-    let path_str = path.to_string_lossy();
+    let path_str = path.to_string();
     for diagnostic in diagnostics.into_iter().filter(|diag| {
         matches!(
             diag.severity(),
@@ -259,17 +277,10 @@ fn load_eslint_extends_config(
             }
         };
         // load ESLint preset
-        let Ok(node::Resolution {
+        let node::Resolution {
             content,
             resolved_path,
-        }) = node::load_config(&module_name)
-        else {
-            return Err(CliDiagnostic::MigrateError(MigrationDiagnostic {
-                reason: format!(
-                    "The module '{rest}' cannot be loaded. Make sure that the module exists."
-                ),
-            }));
-        };
+        } = node::load_config(&module_name)?;
         let deserialized = deserialize_from_json_str::<eslint_eslint::PluginExport>(
             &content,
             JsonParserOptions::default(),
@@ -280,7 +291,9 @@ fn load_eslint_extends_config(
             let deserialized = deserialized.configs.remove(config_name);
             if deserialized.is_none() {
                 return Err(CliDiagnostic::MigrateError(MigrationDiagnostic {
-                    reason: format!("The ESLint configuration '{config_name}' cannot be extracted from the module '{module_name}'. Make sure that '{config_name}' is a valid configuration name.")
+                    reason: format!(
+                        "The ESLint configuration '{config_name}' cannot be extracted from the module '{module_name}'. Make sure that '{config_name}' is a valid configuration name."
+                    ),
                 }));
             }
             (module_name, resolved_path, deserialized)
@@ -295,17 +308,17 @@ fn load_eslint_extends_config(
         } else {
             EslintPackage::Config.resolve_name(name)
         };
-        let Ok(node::Resolution {
+        // Try to load `module_name` or else try to load diretcly `name`.
+        let node::Resolution {
             content,
             resolved_path,
-        }) = node::load_config(&module_name)
-        else {
-            return Err(CliDiagnostic::MigrateError(MigrationDiagnostic {
-                reason: format!(
-                    "The module '{module_name}' cannot be loaded. Make sure that the module exists."
-                ),
-            }));
-        };
+        } = node::load_config(&module_name).or_else(|err| {
+            if module_name != name {
+                node::load_config(name)
+            } else {
+                Err(err)
+            }
+        })?;
         let deserialized = deserialize_from_json_str::<eslint_eslint::LegacyConfigData>(
             &content,
             JsonParserOptions::default(),
@@ -316,7 +329,9 @@ fn load_eslint_extends_config(
     };
     let Some(mut deserialized) = deserialized else {
         return Err(CliDiagnostic::MigrateError(MigrationDiagnostic {
-            reason: format!("The ESLint configuration of the module '{specifier}' cannot be extracted. This is likely an internal error.")
+            reason: format!(
+                "The ESLint configuration of the module '{specifier}' cannot be extracted. This is likely an internal error."
+            ),
         }));
     };
     // Resolve relative path in `extends`.
@@ -371,12 +386,13 @@ impl EslintPackage {
             EslintPackage::Plugin => "eslint-plugin-",
         };
         if name.starts_with('@') {
-            // handle scoped module
-            if let Some((scope, scoped)) = name.split_once('/') {
-                if scoped.starts_with(artifact) || scoped == artifact.trim_end_matches('-') {
+            // handle scoped package
+            if let Some((scope, rest)) = name.split_once('/') {
+                let package = rest.split('/').next().unwrap_or(rest);
+                if rest.starts_with(artifact) || package == artifact.trim_end_matches('-') {
                     Cow::Borrowed(name)
                 } else {
-                    Cow::Owned(format!("{scope}/{artifact}{scoped}"))
+                    Cow::Owned(format!("{scope}/{artifact}{rest}"))
                 }
             } else {
                 let artifact = artifact.trim_end_matches('-');
@@ -387,5 +403,48 @@ impl EslintPackage {
         } else {
             Cow::Owned(format!("{artifact}{name}"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn eslint_package_resolve_name() {
+        assert_eq!(
+            EslintPackage::Config.resolve_name("@scope/package"),
+            "@scope/eslint-config-package"
+        );
+        assert_eq!(
+            EslintPackage::Config.resolve_name("@scope/eslint-config-package"),
+            "@scope/eslint-config-package"
+        );
+        assert_eq!(
+            EslintPackage::Config.resolve_name("@scope/eslint-config"),
+            "@scope/eslint-config"
+        );
+
+        assert_eq!(
+            EslintPackage::Config.resolve_name("@scope/package/path"),
+            "@scope/eslint-config-package/path"
+        );
+        assert_eq!(
+            EslintPackage::Config.resolve_name("@scope/eslint-config-package/path"),
+            "@scope/eslint-config-package/path"
+        );
+        assert_eq!(
+            EslintPackage::Config.resolve_name("@scope/eslint-config/path"),
+            "@scope/eslint-config/path"
+        );
+
+        assert_eq!(
+            EslintPackage::Config.resolve_name("package"),
+            "eslint-config-package"
+        );
+        assert_eq!(
+            EslintPackage::Config.resolve_name("eslint-config-package"),
+            "eslint-config-package"
+        );
     }
 }

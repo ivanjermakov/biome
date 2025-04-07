@@ -1,13 +1,13 @@
 use crate::util::TextRangeGritExt;
 use biome_grit_syntax::GritSyntaxNode;
-use grit_util::{AstCursor, AstNode as GritAstNode, ByteRange, CodeRange};
-use std::{borrow::Cow, ops::Deref, str::Utf8Error};
+use grit_util::{AstCursor, AstNode as GritAstNode, ByteRange, CodeRange, error::GritResult};
+use std::{borrow::Cow, ops::Deref};
 
 /// Wrapper around `GritSyntaxNode` as produced by our internal Grit parser.
 ///
 /// This enables us to implement the [`GritAstNode`] trait on Grit nodes, which
 /// offers a bunch of utilities used by our node compilers.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GritNode(GritSyntaxNode);
 
 impl Deref for GritNode {
@@ -71,7 +71,7 @@ impl GritAstNode for GritNode {
         self.0.prev_sibling().map(Into::into)
     }
 
-    fn text(&self) -> Result<Cow<str>, Utf8Error> {
+    fn text(&self) -> GritResult<Cow<str>> {
         Ok(Cow::Owned(self.0.text_trimmed().to_string()))
     }
 
@@ -92,12 +92,6 @@ impl GritAstNode for GritNode {
                 .map(|token| token.text().as_ptr() as usize)
                 .unwrap_or_default(),
         }
-    }
-
-    fn full_source(&self) -> &str {
-        // This should not be a problem anytime soon, though we may want to
-        // reconsider when we implement rewrites.
-        unimplemented!("Full source of file not available")
     }
 
     fn walk(&self) -> impl AstCursor<Node = Self> {
@@ -122,7 +116,7 @@ impl Iterator for AncestorIterator {
     type Item = GritNode;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let node = self.node.as_ref().cloned()?;
+        let node = self.node.clone()?;
         self.node = node.parent();
         Some(node)
     }
@@ -156,12 +150,16 @@ impl Iterator for ChildrenIterator {
 
 #[derive(Clone)]
 struct GritNodeCursor {
-    node: GritNode,
+    root: GritNode,
+    current: GritNode,
 }
 
 impl GritNodeCursor {
     fn new(node: &GritNode) -> Self {
-        Self { node: node.clone() }
+        Self {
+            root: node.clone(),
+            current: node.clone(),
+        }
     }
 }
 
@@ -169,9 +167,9 @@ impl AstCursor for GritNodeCursor {
     type Node = GritNode;
 
     fn goto_first_child(&mut self) -> bool {
-        match self.node.first_child() {
+        match self.current.first_child() {
             Some(child) => {
-                self.node = child.into();
+                self.current = child.into();
                 true
             }
             None => false,
@@ -179,9 +177,13 @@ impl AstCursor for GritNodeCursor {
     }
 
     fn goto_parent(&mut self) -> bool {
-        match self.node.parent() {
+        if self.current == self.root {
+            return false;
+        }
+
+        match self.current.parent() {
             Some(parent) => {
-                self.node = parent;
+                self.current = parent;
                 true
             }
             None => false,
@@ -189,9 +191,13 @@ impl AstCursor for GritNodeCursor {
     }
 
     fn goto_next_sibling(&mut self) -> bool {
-        match self.node.next_sibling() {
+        if self.current == self.root {
+            return false;
+        }
+
+        match self.current.next_sibling() {
             Some(sibling) => {
-                self.node = sibling;
+                self.current = sibling;
                 true
             }
             None => false,
@@ -199,6 +205,6 @@ impl AstCursor for GritNodeCursor {
     }
 
     fn node(&self) -> Self::Node {
-        self.node.clone()
+        self.current.clone()
     }
 }

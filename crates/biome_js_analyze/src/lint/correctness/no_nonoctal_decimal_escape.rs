@@ -1,17 +1,17 @@
 use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
-use biome_js_factory::make;
-use biome_js_syntax::JsStringLiteralExpression;
-use biome_rowan::{AstNode, BatchMutationExt, TextRange};
+use biome_diagnostics::Severity;
+use biome_js_syntax::{
+    JsLiteralMemberName, JsStringLiteralExpression, JsSyntaxKind, JsSyntaxToken,
+};
+use biome_rowan::{AstNode, BatchMutationExt, TextRange, declare_node_union};
 use rustc_hash::FxHashSet;
 use std::ops::Range;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow `\8` and `\9` escape sequences in string literals.
     ///
     /// Since ECMAScript 2021, the escape sequences \8 and \9 have been defined as non-octal decimal escape sequences.
@@ -56,8 +56,10 @@ declare_rule! {
     pub NoNonoctalDecimalEscape {
         version: "1.0.0",
         name: "noNonoctalDecimalEscape",
+        language: "js",
         sources: &[RuleSource::Eslint("no-nonoctal-decimal-escape")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -71,26 +73,26 @@ pub enum FixSuggestionKind {
 pub struct RuleState {
     kind: FixSuggestionKind,
     diagnostics_text_range: TextRange,
-    replace_from: String,
-    replace_to: String,
+    replace_from: Box<str>,
+    replace_to: Box<str>,
     replace_string_range: Range<usize>,
 }
 
 impl Rule for NoNonoctalDecimalEscape {
-    type Query = Ast<JsStringLiteralExpression>;
+    type Query = Ast<AnyJsStringLiteral>;
     type State = RuleState;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
-        let mut signals: Self::Signals = Vec::new();
-        let Some(token) = node.value_token().ok() else {
-            return signals;
+        let mut result = Vec::new();
+        let Some(token) = node.string_literal_token() else {
+            return result.into_boxed_slice();
         };
-        let text = token.text();
+        let text = token.text_trimmed();
         if !is_octal_escape_sequence(text) {
-            return signals;
+            return result.into_boxed_slice();
         }
         let matches = lex_escape_sequences(text);
 
@@ -133,11 +135,11 @@ impl Rule for NoNonoctalDecimalEscape {
                             previous_escape_range_start..*decimal_escape_string_end;
 
                         // \0\8 -> \u00008
-                        signals.push(RuleState {
+                        result.push(RuleState {
                             kind: FixSuggestionKind::Refactor,
                             diagnostics_text_range: unicode_escape_text_range,
-                            replace_from: format!("{previous_escape}{decimal_escape}"),
-                            replace_to: format!("{unicode_escape}{decimal_char}"),
+                            replace_from: format!("{previous_escape}{decimal_escape}").into(),
+                            replace_to: format!("{unicode_escape}{decimal_char}").into(),
                             replace_string_range,
                         });
                     }
@@ -147,20 +149,20 @@ impl Rule for NoNonoctalDecimalEscape {
                         continue;
                     };
                     // \8 -> \u0038
-                    signals.push(RuleState {
+                    result.push(RuleState {
                         kind: FixSuggestionKind::Refactor,
                         diagnostics_text_range: decimal_escape_range,
-                        replace_from: decimal_escape.to_string(),
-                        replace_to: decimal_char_unicode_escaped,
+                        replace_from: decimal_escape.clone().into_boxed_str(),
+                        replace_to: decimal_char_unicode_escaped.into_boxed_str(),
                         replace_string_range,
                     });
                 } else {
                     // \8 -> 8
-                    signals.push(RuleState {
+                    result.push(RuleState {
                         kind: FixSuggestionKind::Refactor,
                         diagnostics_text_range: decimal_escape_range,
-                        replace_from: decimal_escape.to_string(),
-                        replace_to: decimal_char.to_string(),
+                        replace_from: decimal_escape.clone().into_boxed_str(),
+                        replace_to: decimal_char.to_string().into_boxed_str(),
                         replace_string_range,
                     })
                 }
@@ -168,8 +170,8 @@ impl Rule for NoNonoctalDecimalEscape {
         }
 
         let mut seen = FxHashSet::default();
-        signals.retain(|rule_state| seen.insert(rule_state.diagnostics_text_range));
-        signals
+        result.retain(|rule_state| seen.insert(rule_state.diagnostics_text_range));
+        result.into_boxed_slice()
     }
 
     fn diagnostic(
@@ -204,27 +206,43 @@ impl Rule for NoNonoctalDecimalEscape {
     ) -> Option<JsRuleAction> {
         let mut mutation = ctx.root().begin();
         let node = ctx.query();
-        let prev_token = node.value_token().ok()?;
+        let prev_token = node.string_literal_token()?;
         let replaced = safe_replace_by_range(
-            prev_token.text().to_string(),
+            prev_token.text_trimmed().to_string(),
             replace_string_range.clone(),
             replace_to,
         )?;
 
-        let next_token = make::ident(&replaced);
+        let next_token = JsSyntaxToken::new_detached(prev_token.kind(), &replaced, [], []);
 
         mutation.replace_token(prev_token, next_token);
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: match kind {
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+             match kind {
 				FixSuggestionKind::Refactor => {
-					markup! ("Replace "<Emphasis>{replace_from}</Emphasis>" with "<Emphasis>{replace_to}</Emphasis>". This maintains the current functionality.").to_owned()
+					markup! ("Replace "<Emphasis>{replace_from.as_ref()}</Emphasis>" with "<Emphasis>{replace_to.as_ref()}</Emphasis>". This maintains the current functionality.").to_owned()
 				}
 			},
             mutation,
-        })
+        ))
+    }
+}
+
+declare_node_union! {
+    /// Any string literal excluding JsxString.
+    pub AnyJsStringLiteral = JsStringLiteralExpression | JsLiteralMemberName
+}
+impl AnyJsStringLiteral {
+    pub fn string_literal_token(&self) -> Option<JsSyntaxToken> {
+        match self {
+            AnyJsStringLiteral::JsStringLiteralExpression(node) => node.value_token().ok(),
+            AnyJsStringLiteral::JsLiteralMemberName(node) => node
+                .value()
+                .ok()
+                .filter(|token| token.kind() == JsSyntaxKind::JS_STRING_LITERAL),
+        }
     }
 }
 
@@ -293,6 +311,7 @@ fn lex_escape_sequences(input: &str) -> Vec<EscapeSequence> {
                         '9' => "\\9".to_string(),
                         _ => unreachable!(),
                     },
+                    // SAFETY: We tested `decimal_escape_start.is_some()`
                     decimal_escape_range: (decimal_escape_start.unwrap(), i + ch.len_utf8()),
                 });
                 decimal_escape_start = None;

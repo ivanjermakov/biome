@@ -1,14 +1,13 @@
 use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
-use biome_js_syntax::{jsx_ext::AnyJsxElement, JsxAttribute, JsxAttributeList};
+use biome_diagnostics::Severity;
+use biome_js_syntax::{JsxAttribute, JsxAttributeList, jsx_ext::AnyJsxElement};
 use biome_rowan::{AstNode, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce that the `accessKey` attribute is not used on any HTML element.
     ///
     /// The `accessKey` assigns a keyboard shortcut to the current element. However, the `accessKey` value
@@ -40,8 +39,10 @@ declare_rule! {
     pub NoAccessKey {
         version: "1.0.0",
         name: "noAccessKey",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("no-access-key")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -54,7 +55,7 @@ impl Rule for NoAccessKey {
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
-        if node.name_value_token()?.text_trimmed() != "accessKey" {
+        if node.name_value_token().ok()?.text_trimmed() != "accessKey" {
             return None;
         }
 
@@ -99,12 +100,11 @@ impl Rule for NoAccessKey {
         let node = ctx.query();
         let mut mutation = ctx.root().begin();
         mutation.remove_node(node.clone());
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove the "<Emphasis>"accessKey"</Emphasis>" attribute." }
-                .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the "<Emphasis>"accessKey"</Emphasis>" attribute." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

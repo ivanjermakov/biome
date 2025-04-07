@@ -1,15 +1,12 @@
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
-use biome_js_syntax::{AnyJsStatement, AnyJsSwitchClause, TriviaPieceKind, T};
+use biome_js_syntax::{AnyJsStatement, AnyJsSwitchClause, T, TriviaPieceKind};
 use biome_rowan::{AstNode, AstNodeList, BatchMutationExt};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforces switch clauses have a single statement, emits a quick fix wrapping the statements in a block.
     ///
     /// ## Examples
@@ -39,7 +36,9 @@ declare_rule! {
     pub UseSingleCaseStatement {
         version: "1.0.0",
         name: "useSingleCaseStatement",
+        language: "js",
         recommended: false,
+        deprecated: "Use the rule noSwitchDeclarations instead",
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -57,11 +56,7 @@ impl Rule for UseSingleCaseStatement {
             .iter()
             .filter(|stmt| !matches!(stmt, AnyJsStatement::JsBreakStatement(_)))
             .count();
-        if count > 1 {
-            Some(())
-        } else {
-            None
-        }
+        if count > 1 { Some(()) } else { None }
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, _: &Self::State) -> Option<RuleDiagnostic> {
@@ -94,11 +89,11 @@ impl Rule for UseSingleCaseStatement {
         let mut mutation = ctx.root().begin();
         mutation.replace_token_discard_trivia(colon_token, new_colon_token);
         mutation.replace_node_discard_trivia(consequent, new_consequent);
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Wrap the statements in a block." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Wrap the statements in a block." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

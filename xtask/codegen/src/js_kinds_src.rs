@@ -2,7 +2,7 @@
 //! Based on the rust analyzer parser and ast definitions
 
 use crate::kind_src::KindsSrc;
-use crate::language_kind::{LanguageKind, LANGUAGE_PREFIXES};
+use crate::language_kind::{LANGUAGE_PREFIXES, LanguageKind};
 use quote::format_ident;
 use std::collections::BTreeMap;
 
@@ -155,6 +155,7 @@ pub const JS_KINDS_SRC: KindsSrc = KindsSrc {
         "of",
         "out",
         "using",
+        "meta",
     ],
     literals: &[
         "JS_NUMBER_LITERAL",
@@ -178,11 +179,13 @@ pub const JS_KINDS_SRC: KindsSrc = KindsSrc {
         "COMMENT",
         "MULTILINE_COMMENT",
         "JS_SHEBANG",
+        "GRIT_METAVARIABLE",
     ],
     nodes: &[
         "JS_MODULE",
         "JS_MODULE_ITEM_LIST",
         "JS_SCRIPT",
+        "TS_DECLARATION_MODULE",
         "JS_EXPRESSION_SNIPPED",
         "JS_DIRECTIVE",
         "JS_DIRECTIVE_LIST",
@@ -426,6 +429,9 @@ pub const JS_KINDS_SRC: KindsSrc = KindsSrc {
         "TS_SETTER_SIGNATURE_TYPE_MEMBER",
         "TS_INDEX_SIGNATURE_TYPE_MEMBER",
         "TS_IMPORT_TYPE",
+        "TS_IMPORT_TYPE_ARGUMENTS",
+        "TS_IMPORT_TYPE_ASSERTION",
+        "TS_IMPORT_TYPE_ASSERTION_BLOCK",
         "TS_IMPORT_TYPE_QUALIFIER",
         "TS_ARRAY_TYPE",
         "TS_INDEXED_ACCESS_TYPE",
@@ -470,6 +476,7 @@ pub const JS_KINDS_SRC: KindsSrc = KindsSrc {
         "TS_ENUM_DECLARATION",
         "TS_ENUM_MEMBER_LIST",
         "TS_ENUM_MEMBER",
+        "TS_LITERAL_ENUM_MEMBER_NAME",
         "TS_IMPORT_EQUALS_DECLARATION",
         "TS_EXTERNAL_MODULE_REFERENCE",
         "TS_DECLARE_FUNCTION_DECLARATION",
@@ -509,7 +516,7 @@ pub const JS_KINDS_SRC: KindsSrc = KindsSrc {
         "JSX_SPREAD_CHILD",
         "JSX_STRING",
         // Grit metavariable
-        "JS_GRIT_METAVARIABLE",
+        "JS_METAVARIABLE",
         // bogus nodes JS
         "JS_BOGUS",
         "JS_BOGUS_EXPRESSION",
@@ -574,6 +581,7 @@ pub struct AstListSeparatorConfiguration {
 
 #[derive(Debug)]
 pub struct AstNodeSrc {
+    #[expect(dead_code)]
     pub documentation: Vec<String>,
     pub name: String,
     // pub traits: Vec<String>,
@@ -607,6 +615,7 @@ pub enum Field {
 
 #[derive(Debug, Clone)]
 pub struct AstEnumSrc {
+    #[expect(dead_code)]
     pub documentation: Vec<String>,
     pub name: String,
     // pub traits: Vec<String>,
@@ -683,6 +692,11 @@ impl Field {
                     ("$", LanguageKind::Graphql) => "dollar",
                     ("~=", _) => "whitespace_like",
                     (",", _) => "comma",
+                    ("---", LanguageKind::Yaml) => "dashdashdash",
+                    ("<!--", LanguageKind::Html) => "comment_start",
+                    ("-->", LanguageKind::Html) => "comment_end",
+                    ("<![CDATA[", LanguageKind::Html) => "cdata_start",
+                    ("]]>", LanguageKind::Html) => "cdata_end",
                     _ => name,
                 };
 
@@ -714,7 +728,7 @@ impl Field {
             }
         }
     }
-    #[allow(dead_code)]
+
     pub fn ty(&self) -> proc_macro2::Ident {
         match self {
             Field::Token { .. } => format_ident!("SyntaxToken"),

@@ -1,35 +1,30 @@
+use crate::WorkspaceError;
 use crate::file_handlers::{
-    javascript, AnalyzerCapabilities, Capabilities, CodeActionsParams, DebugCapabilities,
+    AnalyzerCapabilities, Capabilities, CodeActionsParams, DebugCapabilities, EnabledForPath,
     ExtensionHandler, FixAllParams, FormatterCapabilities, LintParams, LintResults, ParseResult,
-    ParserCapabilities,
+    ParserCapabilities, javascript,
 };
 use crate::settings::WorkspaceSettingsHandle;
-use crate::workspace::{
-    DocumentFileSource, FixFileResult, OrganizeImportsResult, PullActionsResult,
-};
-use crate::WorkspaceError;
+use crate::workspace::{DocumentFileSource, FixFileResult, PullActionsResult};
 use biome_formatter::Printed;
 use biome_fs::BiomePath;
-use biome_js_parser::{parse_js_with_cache, JsParserOptions};
-use biome_js_syntax::{EmbeddingKind, JsFileSource, Language, TextRange, TextSize};
+use biome_js_parser::{JsParserOptions, parse_js_with_cache};
+use biome_js_syntax::{EmbeddingKind, JsFileSource, TextRange, TextSize};
 use biome_parser::AnyParse;
 use biome_rowan::NodeCache;
-use lazy_static::lazy_static;
 use regex::{Match, Regex};
+use std::sync::LazyLock;
 use tracing::debug;
 
-use super::parse_lang_from_script_opening_tag;
+use super::{SearchCapabilities, parse_lang_from_script_opening_tag};
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct VueFileHandler;
 
-lazy_static! {
-    // https://regex101.com/r/E4n4hh/6
-    pub static ref VUE_FENCE: Regex = Regex::new(
-        r#"(?ixs)(?<opening><script(?:\s.*?)?>)\r?\n(?<script>(?U:.*))</script>"#
-    )
-    .unwrap();
-}
+// https://regex101.com/r/E4n4hh/6
+pub static VUE_FENCE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?ixs)(?<opening><script(?:\s.*?)?>)\r?\n(?<script>(?U:.*))</script>"#).unwrap()
+});
 
 impl VueFileHandler {
     /// It extracts the JavaScript/TypeScript code contained in the script block of a Vue file
@@ -72,14 +67,13 @@ impl VueFileHandler {
         VUE_FENCE
             .captures(text)
             .and_then(|captures| {
-                match parse_lang_from_script_opening_tag(captures.name("opening")?.as_str()) {
-                    Language::JavaScript => {
-                        Some(JsFileSource::js_module().with_embedding_kind(EmbeddingKind::Vue))
-                    }
-                    Language::TypeScript { .. } => {
-                        Some(JsFileSource::ts().with_embedding_kind(EmbeddingKind::Vue))
-                    }
-                }
+                let (language, variant) =
+                    parse_lang_from_script_opening_tag(captures.name("opening")?.as_str());
+                Some(
+                    JsFileSource::from(language)
+                        .with_variant(variant)
+                        .with_embedding_kind(EmbeddingKind::Vue),
+                )
             })
             .map_or(JsFileSource::js_module(), |fs| fs)
     }
@@ -88,6 +82,12 @@ impl VueFileHandler {
 impl ExtensionHandler for VueFileHandler {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            enabled_for_path: EnabledForPath {
+                formatter: Some(javascript::formatter_enabled),
+                search: Some(javascript::search_enabled),
+                assist: Some(javascript::assist_enabled),
+                linter: Some(javascript::linter_enabled),
+            },
             parser: ParserCapabilities { parse: Some(parse) },
             debug: DebugCapabilities {
                 debug_syntax_tree: None,
@@ -99,13 +99,14 @@ impl ExtensionHandler for VueFileHandler {
                 code_actions: Some(code_actions),
                 rename: None,
                 fix_all: Some(fix_all),
-                organize_imports: Some(organize_imports),
             },
             formatter: FormatterCapabilities {
                 format: Some(format),
                 format_range: Some(format_range),
                 format_on_type: Some(format_on_type),
             },
+            // TODO: We should be able to search JS portions already
+            search: SearchCapabilities { search: None },
         }
     }
 }
@@ -123,20 +124,14 @@ fn parse(
     debug!("Parsing file with language {:?}", file_source);
 
     let parse = parse_js_with_cache(script, file_source, JsParserOptions::default(), cache);
-    let root = parse.syntax();
-    let diagnostics = parse.into_diagnostics();
 
     ParseResult {
-        any_parse: AnyParse::new(
-            // SAFETY: the parser should always return a root node
-            root.as_send().unwrap(),
-            diagnostics,
-        ),
+        any_parse: parse.into(),
         language: Some(file_source.into()),
     }
 }
 
-#[tracing::instrument(level = "trace", skip(parse, settings))]
+#[tracing::instrument(level = "debug", skip(parse, settings))]
 fn format(
     biome_path: &BiomePath,
     document_file_source: &DocumentFileSource,
@@ -176,8 +171,4 @@ pub(crate) fn code_actions(params: CodeActionsParams) -> PullActionsResult {
 
 fn fix_all(params: FixAllParams) -> Result<FixFileResult, WorkspaceError> {
     javascript::fix_all(params)
-}
-
-fn organize_imports(parse: AnyParse) -> Result<OrganizeImportsResult, WorkspaceError> {
-    javascript::organize_imports(parse)
 }

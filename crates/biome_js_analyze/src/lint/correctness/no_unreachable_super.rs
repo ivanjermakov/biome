@@ -1,9 +1,10 @@
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
 use biome_control_flow::{
-    builder::{BlockId, ROOT_BLOCK_ID},
     ExceptionHandlerKind, InstructionKind,
+    builder::{BlockId, ROOT_BLOCK_ID},
 };
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsClass, AnyJsExpression, JsCallExpression, JsConstructorClassMember, JsSyntaxKind,
     JsThrowStatement, TextRange, WalkEvent,
@@ -13,7 +14,7 @@ use rustc_hash::FxHashSet;
 
 use crate::services::control_flow::{AnyJsControlFlowRoot, ControlFlowGraph};
 
-declare_rule! {
+declare_lint_rule! {
     /// Ensures the `super()` constructor is called exactly once on every code  path in a class constructor before `this` is accessed if the class has a superclass
     ///
     /// ## Examples
@@ -64,12 +65,13 @@ declare_rule! {
     pub NoUnreachableSuper {
         version: "1.0.0",
         name: "noUnreachableSuper",
+        language: "js",
         sources: &[RuleSource::Eslint("no-this-before-super")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
-#[allow(clippy::enum_variant_names)]
 pub enum RuleState {
     /// The constructor may call `super` multiple times
     DuplicateSuper { first: TextRange, second: TextRange },

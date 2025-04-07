@@ -1,12 +1,13 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_semantic::{Reference, ReferencesExtensions};
 use biome_js_syntax::AnyJsClass;
 
 use crate::services::semantic::Semantic;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow reassigning class members.
     ///
     /// A class declaration creates a variable that we can modify, however, the modification is a mistake in most cases.
@@ -68,15 +69,17 @@ declare_rule! {
     pub NoClassAssign {
         version: "1.0.0",
         name: "noClassAssign",
+        language: "js",
         sources: &[RuleSource::Eslint("no-class-assign")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 impl Rule for NoClassAssign {
     type Query = Semantic<AnyJsClass>;
     type State = Reference;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
@@ -85,11 +88,14 @@ impl Rule for NoClassAssign {
 
         if let Some(id) = node.id() {
             if let Some(id_binding) = id.as_js_identifier_binding() {
-                return id_binding.all_writes(model).collect();
+                return id_binding
+                    .all_writes(model)
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice();
             }
         }
 
-        Vec::new()
+        Vec::new().into_boxed_slice()
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, reference: &Self::State) -> Option<RuleDiagnostic> {

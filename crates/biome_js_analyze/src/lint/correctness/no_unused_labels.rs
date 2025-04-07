@@ -1,10 +1,10 @@
 use biome_analyze::context::RuleContext;
 use biome_analyze::{
-    declare_rule, ActionCategory, AddVisitor, FixKind, Phases, QueryMatch, Queryable, Rule,
-    RuleDiagnostic, RuleSource, ServiceBag, Visitor, VisitorContext,
+    AddVisitor, FixKind, Phases, QueryMatch, Queryable, Rule, RuleDiagnostic, RuleSource,
+    ServiceBag, Visitor, VisitorContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsStatement, JsBreakStatement, JsContinueStatement, JsFileSource, JsLabeledStatement,
     JsLanguage, TextRange, WalkEvent,
@@ -13,10 +13,10 @@ use biome_js_syntax::{
 use biome_rowan::{AstNode, BatchMutationExt, Language, SyntaxNode, SyntaxResult, TokenText};
 use rustc_hash::FxHashSet;
 
-use crate::services::control_flow::AnyJsControlFlowRoot;
 use crate::JsRuleAction;
+use crate::services::control_flow::AnyJsControlFlowRoot;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow unused labels.
     ///
     /// Labels that are declared and never used are most likely an error due to incomplete refactoring.
@@ -62,9 +62,11 @@ declare_rule! {
     pub NoUnusedLabels {
         version: "1.0.0",
         name: "noUnusedLabels",
+        language: "js",
         sources: &[RuleSource::Eslint("no-unused-labels")],
         recommended: true,
-        fix_kind: FixKind::Unsafe,
+        severity: Severity::Warning,
+        fix_kind: FixKind::Safe,
     }
 }
 
@@ -195,12 +197,12 @@ impl Rule for NoUnusedLabels {
         let body = unused_label.body().ok()?;
         let mut mutation = ctx.root().begin();
         mutation.replace_node(unused_label.clone().into(), body);
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! {"Remove the unused "<Emphasis>"label"</Emphasis>"."}.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {"Remove the unused "<Emphasis>"label"</Emphasis>"."}.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

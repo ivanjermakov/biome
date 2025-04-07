@@ -1,22 +1,23 @@
 use biome_analyze::RuleSource;
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
-    inner_string_text, AnyJsArrayAssignmentPatternElement, AnyJsArrayElement, AnyJsAssignment,
-    AnyJsAssignmentPattern, AnyJsExpression, AnyJsLiteralExpression, AnyJsName,
-    AnyJsObjectAssignmentPatternMember, AnyJsObjectMember, JsAssignmentExpression,
-    JsAssignmentOperator, JsComputedMemberAssignment, JsComputedMemberExpression,
-    JsIdentifierAssignment, JsLanguage, JsName, JsPrivateName, JsReferenceIdentifier,
-    JsStaticMemberAssignment, JsStaticMemberExpression, JsSyntaxToken,
+    AnyJsArrayAssignmentPatternElement, AnyJsArrayElement, AnyJsAssignment, AnyJsAssignmentPattern,
+    AnyJsExpression, AnyJsLiteralExpression, AnyJsName, AnyJsObjectAssignmentPatternMember,
+    AnyJsObjectMember, JsAssignmentExpression, JsAssignmentOperator, JsComputedMemberAssignment,
+    JsComputedMemberExpression, JsIdentifierAssignment, JsLanguage, JsName, JsPrivateName,
+    JsReferenceIdentifier, JsStaticMemberAssignment, JsStaticMemberExpression, JsSyntaxToken,
+    inner_string_text,
 };
 use biome_rowan::{
-    declare_node_union, AstNode, AstSeparatedList, AstSeparatedListNodesIterator, SyntaxError,
-    SyntaxResult, TextRange,
+    AstNode, AstSeparatedList, AstSeparatedListNodesIterator, SyntaxError, SyntaxResult, TextRange,
+    declare_node_union,
 };
 use std::collections::VecDeque;
 use std::iter::FusedIterator;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow assignments where both sides are exactly the same.
     ///
     /// Self assignments have no effect, so probably those are an error due to incomplete refactoring.
@@ -66,18 +67,20 @@ declare_rule! {
     pub NoSelfAssign {
         version: "1.0.0",
         name: "noSelfAssign",
+        language: "js",
         sources: &[
             RuleSource::Eslint("no-self-assign"),
             RuleSource::Clippy("self_assignment"),
         ],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 impl Rule for NoSelfAssign {
     type Query = Ast<JsAssignmentExpression>;
     type State = IdentifiersLike;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
@@ -85,8 +88,7 @@ impl Rule for NoSelfAssign {
         let left = node.left().ok();
         let right = node.right().ok();
         let operator = node.operator().ok();
-
-        let mut state = vec![];
+        let mut result = vec![];
         if let Some(operator) = operator {
             if matches!(
                 operator,
@@ -97,12 +99,12 @@ impl Rule for NoSelfAssign {
             ) {
                 if let (Some(left), Some(right)) = (left, right) {
                     if let Ok(pair) = AnyAssignmentLike::try_from((left, right)) {
-                        compare_assignment_like(pair, &mut state);
+                        compare_assignment_like(pair, &mut result);
                     }
                 }
             }
         }
-        state
+        result.into_boxed_slice()
     }
 
     fn diagnostic(_: &RuleContext<Self>, identifier_like: &Self::State) -> Option<RuleDiagnostic> {
@@ -120,7 +122,10 @@ impl Rule for NoSelfAssign {
                 markup! {
                     "This is where is assigned."
                 },
-            ),
+            )
+            .note(markup! {
+             "Self assignments have no effect and can be removed."
+            }),
         )
     }
 }

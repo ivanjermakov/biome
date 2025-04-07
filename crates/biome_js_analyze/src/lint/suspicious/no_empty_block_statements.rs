@@ -1,11 +1,14 @@
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{
+    Ast, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
+};
 use biome_console::markup;
 use biome_js_syntax::{
-    JsBlockStatement, JsFunctionBody, JsStaticInitializationBlockClassMember, JsSwitchStatement,
+    AnyJsConstructorParameter, JsBlockStatement, JsConstructorClassMember, JsFunctionBody,
+    JsStaticInitializationBlockClassMember, JsSwitchStatement,
 };
-use biome_rowan::{declare_node_union, AstNode, AstNodeList};
+use biome_rowan::{AstNode, AstNodeList, SyntaxNodeCast, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow empty block statements and static blocks.
     ///
     /// Empty static blocks and block statements, while not technically errors, usually occur due to refactoring that wasn’t completed. They can cause confusion when reading code.
@@ -54,6 +57,7 @@ declare_rule! {
     pub NoEmptyBlockStatements {
         version: "1.3.0",
         name: "noEmptyBlockStatements",
+        language: "js",
         sources: &[
             RuleSource::Eslint("no-empty"),
             RuleSource::Eslint("no-empty-static-block"),
@@ -78,8 +82,10 @@ impl Rule for NoEmptyBlockStatements {
         let query = ctx.query();
         let is_empty = is_empty(query);
         let has_comments = query.syntax().has_comments_descendants();
+        let is_constructor_with_ts_param_props_or_private =
+            is_constructor_with_ts_param_props_or_private(query);
 
-        (is_empty && !has_comments).then_some(())
+        (is_empty && !has_comments && !is_constructor_with_ts_param_props_or_private).then_some(())
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, _: &Self::State) -> Option<RuleDiagnostic> {
@@ -107,4 +113,34 @@ fn is_empty(query: &Query) -> bool {
         JsStaticInitializationBlockClassMember(block) => block.statements().len() == 0,
         JsSwitchStatement(statement) => statement.cases().len() == 0,
     }
+}
+
+/// Check if the function is a constructor with TypeScript parameter properties, or a private/protected constructor.
+///
+/// https://www.typescriptlang.org/docs/handbook/2/classes.html#parameter-properties
+fn is_constructor_with_ts_param_props_or_private(query: &Query) -> bool {
+    let Query::JsFunctionBody(body) = query else {
+        return false;
+    };
+
+    let Some(constructor) = body
+        .syntax()
+        .parent()
+        .and_then(|node| node.cast::<JsConstructorClassMember>())
+    else {
+        return false;
+    };
+
+    let Ok(params) = constructor.parameters() else {
+        return false;
+    };
+    let is_param_props = params
+        .parameters()
+        .into_iter()
+        .any(|param| matches!(param, Ok(AnyJsConstructorParameter::TsPropertyParameter(_))));
+    let is_private = constructor
+        .modifiers()
+        .into_iter()
+        .any(|modifier| modifier.is_private() || modifier.is_protected());
+    is_param_props || is_private
 }

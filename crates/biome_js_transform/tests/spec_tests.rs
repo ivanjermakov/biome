@@ -1,7 +1,7 @@
 use biome_analyze::{AnalysisFilter, AnalyzerTransformation, ControlFlow, Never, RuleFilter};
 use biome_js_formatter::context::JsFormatOptions;
 use biome_js_formatter::format_node;
-use biome_js_parser::{parse, JsParserOptions};
+use biome_js_parser::{JsParserOptions, parse};
 use biome_js_syntax::{JsFileSource, JsLanguage};
 use biome_rowan::AstNode;
 use biome_test_utils::{
@@ -10,23 +10,26 @@ use biome_test_utils::{
     write_transformation_snapshot,
 };
 
-use std::{ffi::OsStr, fs::read_to_string, path::Path, slice};
+use camino::Utf8Path;
+use std::ops::Deref;
+use std::{fs::read_to_string, slice};
 
 tests_macros::gen_tests! {"tests/specs/**/*.{cjs,js,jsx,tsx,ts,json,jsonc}", crate::run_test, "module"}
 
 fn run_test(input: &'static str, _: &str, _: &str, _: &str) {
     register_leak_checker();
 
-    let input_file = Path::new(input);
-    let file_name = input_file.file_name().and_then(OsStr::to_str).unwrap();
+    let input_file = Utf8Path::new(input);
+    let file_name = input_file.file_name().unwrap();
 
     let rule_folder = input_file.parent().unwrap();
-    let rule = rule_folder.file_name().unwrap().to_str().unwrap();
+    let rule = rule_folder.file_name().unwrap();
 
     if rule == "specs" {
         panic!("the test file must be placed in the {rule}/<group-name>/<rule-name>/ directory");
     }
-    if biome_js_transform::metadata()
+    if biome_js_transform::METADATA
+        .deref()
         .find_rule("transformations", rule)
         .is_none()
     {
@@ -43,7 +46,7 @@ fn run_test(input: &'static str, _: &str, _: &str, _: &str) {
     let extension = input_file.extension().unwrap_or_default();
 
     let input_code = read_to_string(input_file)
-        .unwrap_or_else(|err| panic!("failed to read {:?}: {:?}", input_file, err));
+        .unwrap_or_else(|err| panic!("failed to read {input_file:?}: {err:?}"));
     let quantity_diagnostics = if let Some(scripts) = scripts_from_json(extension, &input_code) {
         for script in scripts {
             analyze_and_snap(
@@ -85,14 +88,13 @@ fn run_test(input: &'static str, _: &str, _: &str, _: &str) {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn analyze_and_snap(
     snapshot: &mut String,
     input_code: &str,
     source_type: JsFileSource,
     filter: AnalysisFilter,
     file_name: &str,
-    input_file: &Path,
+    input_file: &Utf8Path,
     parser_options: JsParserOptions,
 ) -> usize {
     let parsed = parse(input_code, source_type, parser_options.clone());
@@ -136,7 +138,7 @@ pub(crate) fn analyze_and_snap(
 }
 
 fn check_transformation(
-    path: &Path,
+    path: &Utf8Path,
     source: &str,
     source_type: JsFileSource,
     transformation: &AnalyzerTransformation<JsLanguage>,
@@ -158,10 +160,7 @@ fn check_transformation(
     assert_eq!(new_tree.to_string(), output);
 
     if has_bogus_nodes_or_empty_slots(&new_tree) {
-        panic!(
-            "modified tree has bogus nodes or empty slots:\n{new_tree:#?} \n\n {}",
-            new_tree
-        )
+        panic!("modified tree has bogus nodes or empty slots:\n{new_tree:#?} \n\n {new_tree}")
     }
 
     // Checks the returned tree contains no missing children node

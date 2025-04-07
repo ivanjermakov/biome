@@ -1,13 +1,51 @@
 use biome_rowan::FileSourceError;
-use std::{ffi::OsStr, path::Path};
+use biome_string_case::StrLikeExtension;
+use camino::Utf8Path;
+use core::str;
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(
     Debug, Clone, Default, Copy, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct JsonFileSource {
     allow_trailing_commas: bool,
     allow_comments: bool,
+    variant: JsonFileVariant,
+}
+
+/// It represents the extension of the file
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(
+    Debug, Clone, Default, Copy, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum JsonFileVariant {
+    #[default]
+    Standard,
+    Jsonc,
+}
+
+impl Display for JsonFileVariant {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JsonFileVariant::Standard => write!(f, "json"),
+            JsonFileVariant::Jsonc => write!(f, "jsonc"),
+        }
+    }
+}
+
+impl FromStr for JsonFileVariant {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "json" => Ok(JsonFileVariant::Standard),
+            "jsonc" => Ok(JsonFileVariant::Jsonc),
+            _ => Err(()),
+        }
+    }
 }
 
 impl JsonFileSource {
@@ -62,10 +100,22 @@ impl JsonFileSource {
         // Uses `strip-json-comments`, which doesn't allow trailing commas by default
         // https://github.com/jshint/jshint/blob/0a5644f8f529e252e7dd0c0d54334ae435b13de0/src/cli.js#L538
         ".jshintrc",
+        // Uses `strip-json-comments`, which doesn't allow trailing commas by default
+        // https://github.com/jestjs/jest/blob/bd1c6db7c15c23788ca3e09c919138e48dd3b28a/packages/jest-config/src/readConfigFileAndSetRootDir.ts#L46
+        "jest.config.json",
         // Just strip comments
         // https://github.com/palantir/tslint/blob/285fc1db18d1fd24680d6a2282c6445abf1566ee/src/configuration.ts#L268
         "tslint.json",
+        // Just strip comments
+        // https://github.com/vercel/turbo/blob/0f327961157a5ab07bbb353ac6ecb9a9df7e29b3/crates/turborepo-lib/src/turbo_json/mod.rs#L963
+        "turbo.json",
     ];
+
+    // Well-known folder where file with the `.json` extension support comments
+    // but no trailing commas.
+    // This list should be SORTED!
+    const WELL_KNOWN_JSON_ALLOW_COMMENTS_DIRECTORIES: &'static [&'static str] =
+        &[".vscode", ".zed"];
 
     // Well-known JSON-like files that support comments and trailing commas
     // This list should be SORTED!
@@ -126,32 +176,38 @@ impl JsonFileSource {
         Self {
             allow_comments: false,
             allow_trailing_commas: false,
+            variant: JsonFileVariant::Standard,
         }
     }
 
-    pub fn json_allow_comments() -> Self {
+    pub fn json_allow_comments(extension: &str) -> Self {
         Self {
             allow_comments: true,
             allow_trailing_commas: false,
+            variant: JsonFileVariant::from_str(extension).unwrap_or_default(),
         }
     }
 
-    pub fn json_allow_comments_and_trailing_commas() -> Self {
+    pub fn json_allow_comments_and_trailing_commas(extension: &str) -> Self {
         Self {
             allow_comments: true,
             allow_trailing_commas: true,
+            variant: JsonFileVariant::from_str(extension).unwrap_or_default(),
         }
     }
 
+    #[must_use]
     pub fn with_allow_trailing_commas(mut self) -> Self {
         self.allow_trailing_commas = true;
         self
     }
 
+    #[must_use]
     pub fn allow_trailing_commas(&self) -> bool {
         self.allow_trailing_commas
     }
 
+    #[must_use]
     pub fn with_allow_comments(mut self) -> Self {
         self.allow_comments = true;
         self
@@ -159,6 +215,10 @@ impl JsonFileSource {
 
     pub fn allow_comments(&self) -> bool {
         self.allow_comments
+    }
+
+    pub fn variant(&self) -> JsonFileVariant {
+        self.variant
     }
 
     pub fn is_well_known_json_file(file_name: &str) -> bool {
@@ -173,28 +233,51 @@ impl JsonFileSource {
             .is_ok()
     }
 
+    pub fn is_well_known_json_allow_comments_directory(dirname: &str) -> bool {
+        // Note: we don't use a binary search because the slice has only a few elements.
+        Self::WELL_KNOWN_JSON_ALLOW_COMMENTS_DIRECTORIES.contains(&dirname)
+    }
+
     pub fn is_well_known_json_allow_comments_and_trailing_commas_file(filename: &str) -> bool {
+        // handle all `tsconfig.*.json` files
+        // this is a common naming convention for projects that have multiple tsconfig files
+        if filename.starts_with("tsconfig.") && filename.ends_with(".json") {
+            return true;
+        }
+
         Self::WELL_KNOWN_JSON_ALLOW_COMMENTS_AND_TRAILING_COMMAS_FILES
             .binary_search(&filename)
             .is_ok()
     }
 
     /// Try to return the JSON file source corresponding to this file name from well-known files
-    pub fn try_from_well_known(file_name: &str) -> Result<Self, FileSourceError> {
+    pub fn try_from_well_known(path: &Utf8Path) -> Result<Self, FileSourceError> {
+        let file_name = path.file_name().ok_or(FileSourceError::MissingFileName)?;
+        let Some(extension) = path.extension() else {
+            return Err(FileSourceError::MissingFileExtension);
+        };
         if Self::is_well_known_json_allow_comments_and_trailing_commas_file(file_name) {
-            return Ok(Self::json_allow_comments_and_trailing_commas());
+            return Ok(Self::json_allow_comments_and_trailing_commas(extension));
         }
         if Self::is_well_known_json_allow_comments_file(file_name) {
-            return Ok(Self::json_allow_comments());
+            return Ok(Self::json_allow_comments(extension));
+        }
+        if let Some(camino::Utf8Component::Normal(parent_dir)) = path.components().rev().nth(1) {
+            if Self::is_well_known_json_allow_comments_directory(parent_dir)
+                && file_name.ends_with(".json")
+            {
+                return Ok(Self::json_allow_comments(extension));
+            }
         }
         if Self::is_well_known_json_file(file_name) {
             return Ok(Self::json());
         }
-        Err(FileSourceError::UnknownFileName(file_name.into()))
+        Err(FileSourceError::UnknownFileName)
     }
 
     /// Try to return the JSON file source corresponding to this file extension
     pub fn try_from_extension(extension: &str) -> Result<Self, FileSourceError> {
+        // We assume the file extension is normalized to lowercase
         match extension {
             // https://github.com/github-linguist/linguist/blob/4ac734c15a96f9e16fd12330d0cb8de82274f700/lib/linguist/languages.yml#L3183-L3202
             // https://www.w3.org/TR/json-ld/#application-ld-json
@@ -215,11 +298,8 @@ impl JsonFileSource {
             | "sublime-theme"
             | "sublime-workspace"
             | "sublime_metrics"
-            | "sublime_session" => Ok(Self::json_allow_comments_and_trailing_commas()),
-            _ => Err(FileSourceError::UnknownExtension(
-                Default::default(),
-                extension.into(),
-            )),
+            | "sublime_session" => Ok(Self::json_allow_comments_and_trailing_commas(extension)),
+            _ => Err(FileSourceError::UnknownExtension),
         }
     }
 
@@ -235,34 +315,26 @@ impl JsonFileSource {
     pub fn try_from_language_id(language_id: &str) -> Result<Self, FileSourceError> {
         match language_id {
             "json" => Ok(Self::json()),
-            "jsonc" | "snippets" => Ok(Self::json_allow_comments_and_trailing_commas()),
-            _ => Err(FileSourceError::UnknownLanguageId(language_id.into())),
+            "jsonc" | "snippets" => Ok(Self::json_allow_comments_and_trailing_commas(language_id)),
+            _ => Err(FileSourceError::UnknownLanguageId),
         }
     }
 }
 
-impl TryFrom<&Path> for JsonFileSource {
+impl TryFrom<&Utf8Path> for JsonFileSource {
     type Error = FileSourceError;
 
-    fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        let file_name = path
-            .file_name()
-            .and_then(OsStr::to_str)
-            .ok_or_else(|| FileSourceError::MissingFileName(path.into()))?;
-
-        if let Ok(file_source) = Self::try_from_well_known(file_name) {
+    fn try_from(path: &Utf8Path) -> Result<Self, Self::Error> {
+        if let Ok(file_source) = Self::try_from_well_known(path) {
             return Ok(file_source);
         }
 
+        let Some(extension) = path.extension() else {
+            return Err(FileSourceError::MissingFileExtension);
+        };
         // We assume the file extensions are case-insensitive
         // and we use the lowercase form of them for pattern matching
-        let extension = &path
-            .extension()
-            .and_then(OsStr::to_str)
-            .map(str::to_lowercase)
-            .ok_or_else(|| FileSourceError::MissingFileExtension(path.into()))?;
-
-        Self::try_from_extension(extension)
+        Self::try_from_extension(&extension.to_ascii_lowercase_cow())
     }
 }
 
@@ -276,6 +348,9 @@ fn test_order() {
         assert!(items[0] < items[1], "{} < {}", items[0], items[1]);
     }
     for items in JsonFileSource::WELL_KNOWN_JSON_FILES.windows(2) {
+        assert!(items[0] < items[1], "{} < {}", items[0], items[1]);
+    }
+    for items in JsonFileSource::WELL_KNOWN_JSON_ALLOW_COMMENTS_DIRECTORIES.windows(2) {
         assert!(items[0] < items[1], "{} < {}", items[0], items[1]);
     }
 }

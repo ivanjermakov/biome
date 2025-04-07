@@ -1,5 +1,8 @@
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{
+    Ast, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
+};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsAssignmentPattern, AnyJsBindingPattern, AnyJsOptionalChainExpression,
     JsArrayAssignmentPatternElement, JsAssignmentExpression, JsAwaitExpression, JsCallExpression,
@@ -9,9 +12,9 @@ use biome_js_syntax::{
     JsParenthesizedExpression, JsSequenceExpression, JsSpread, JsStaticMemberExpression,
     JsTemplateExpression, JsVariableDeclarator, JsWithStatement,
 };
-use biome_rowan::{declare_node_union, AstNode, TextRange};
+use biome_rowan::{AstNode, TextRange, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of optional chaining in contexts where the undefined value is not allowed.
     ///
     /// The optional chaining (?.) expression can short-circuit with a return value of undefined.
@@ -64,8 +67,10 @@ declare_rule! {
     pub NoUnsafeOptionalChaining {
         version: "1.0.0",
         name: "noUnsafeOptionalChaining",
+        language: "js",
         sources: &[RuleSource::Eslint("no-unsafe-optional-chaining")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

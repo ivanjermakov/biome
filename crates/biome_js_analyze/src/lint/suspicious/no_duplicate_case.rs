@@ -1,10 +1,11 @@
 use crate::utils::is_node_equal;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
+use biome_diagnostics::Severity;
 use biome_js_syntax::{AnyJsExpression, AnyJsSwitchClause, JsSwitchStatement};
 use biome_rowan::{AstNode, TextRange};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow duplicate case labels.
     ///
     /// If a switch statement has duplicate test expressions in case clauses, it is likely that a programmer copied a case clause but forgot to change the test expression.
@@ -83,15 +84,17 @@ declare_rule! {
     pub NoDuplicateCase {
         version: "1.0.0",
         name: "noDuplicateCase",
+        language: "js",
         sources: &[RuleSource::Eslint("no-duplicate-case")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 impl Rule for NoDuplicateCase {
     type Query = Ast<JsSwitchStatement>;
     type State = (TextRange, TextRange);
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
@@ -112,7 +115,7 @@ impl Rule for NoDuplicateCase {
                 }
             }
         }
-        signals
+        signals.into_boxed_slice()
     }
 
     fn diagnostic(_: &RuleContext<Self>, state: &Self::State) -> Option<RuleDiagnostic> {

@@ -23,10 +23,15 @@ impl FormatRule<AnyCssAtRule> for FormatAnyCssAtRule {
             AnyCssAtRule::CssMediaAtRule(node) => node.format().fmt(f),
             AnyCssAtRule::CssNamespaceAtRule(node) => node.format().fmt(f),
             AnyCssAtRule::CssPageAtRule(node) => node.format().fmt(f),
+            AnyCssAtRule::CssPositionTryAtRule(node) => node.format().fmt(f),
             AnyCssAtRule::CssPropertyAtRule(node) => node.format().fmt(f),
             AnyCssAtRule::CssScopeAtRule(node) => node.format().fmt(f),
             AnyCssAtRule::CssStartingStyleAtRule(node) => node.format().fmt(f),
             AnyCssAtRule::CssSupportsAtRule(node) => node.format().fmt(f),
+            AnyCssAtRule::CssUnknownBlockAtRule(node) => node.format().fmt(f),
+            AnyCssAtRule::CssUnknownValueAtRule(node) => node.format().fmt(f),
+            AnyCssAtRule::CssValueAtRule(node) => node.format().fmt(f),
+            AnyCssAtRule::CssViewTransitionAtRule(node) => node.format().fmt(f),
         }
     }
 }

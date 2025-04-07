@@ -1,17 +1,18 @@
-use crate::react::{is_react_call_api, ReactLibrary};
+use crate::react::{ReactLibrary, is_react_call_api};
 use crate::services::semantic::Semantic;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsExpression, AnyJsFunction, AnyJsMemberExpression, AnyJsTemplateElement,
     JsBinaryExpression, JsCallArgumentList, JsCallArguments, JsCallExpression, JsFormalParameter,
     JsObjectExpression, JsObjectMemberList, JsParameterList, JsParameters, JsPropertyObjectMember,
     JsReferenceIdentifier, JsxAttribute,
 };
-use biome_rowan::{declare_node_union, AstNode, TextRange};
+use biome_rowan::{AstNode, TextRange, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Discourage the usage of Array index in keys.
     ///
     /// > We don’t recommend using indexes for keys if the order of items may change.
@@ -66,8 +67,10 @@ declare_rule! {
     pub NoArrayIndexKey {
         version: "1.0.0",
         name: "noArrayIndexKey",
+        language: "jsx",
         sources: &[RuleSource::EslintReact("no-array-index-key")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -249,7 +252,7 @@ impl Rule for NoArrayIndexKey {
 /// and check if the method called by this function belongs to an array method
 /// and if the parameter is an array index
 ///
-/// ```js
+/// ```jsx
 /// Array.map((_, index) => {
 ///     return <Component key={index} />
 /// })
@@ -262,7 +265,7 @@ fn is_array_method_index(
     call_expression: &JsCallExpression,
 ) -> Option<bool> {
     let member_expression =
-        AnyJsMemberExpression::cast_ref(call_expression.callee().ok()?.syntax())?;
+        AnyJsMemberExpression::cast(call_expression.callee().ok()?.into_syntax())?;
     let name = member_expression.member_name()?;
     let name = name.text();
     if matches!(

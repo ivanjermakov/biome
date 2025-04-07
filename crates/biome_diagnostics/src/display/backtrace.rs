@@ -97,8 +97,8 @@ impl schemars::JsonSchema for Backtrace {
         String::from("Backtrace")
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        <Vec<SerializedFrame>>::json_schema(gen)
+    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        <Vec<SerializedFrame>>::json_schema(generator)
     }
 }
 
@@ -159,7 +159,7 @@ impl NativeBacktrace {
             frame.symbols().iter().any(|symbol| {
                 symbol
                     .addr()
-                    .map_or(false, |addr| addr as usize == self.top_frame)
+                    .is_some_and(|addr| addr as usize == self.top_frame)
             })
         });
 
@@ -173,7 +173,7 @@ impl NativeBacktrace {
             frame.symbols().iter().any(|symbol| {
                 symbol
                     .addr()
-                    .map_or(false, |addr| addr as usize == self.bottom_frame)
+                    .is_some_and(|addr| addr as usize == self.bottom_frame)
             })
         });
 
@@ -209,7 +209,7 @@ thread_local! {
 /// On the main thread:
 /// ```
 /// # use biome_diagnostics::set_bottom_frame;
-/// # #[allow(clippy::needless_doctest_main)]
+/// # #[expect(clippy::needless_doctest_main)]
 /// pub fn main() {
 ///     set_bottom_frame(main as usize);
 ///
@@ -275,11 +275,11 @@ pub(super) fn print_backtrace(
 
                 if let Some(lineno) = symbol.lineno() {
                     // SAFETY: Writing a `u32` to a string should not fail
-                    write!(text, ":{}", lineno).unwrap();
+                    write!(text, ":{lineno}").unwrap();
 
                     if let Some(colno) = symbol.colno() {
                         // SAFETY: Writing a `u32` to a string should not fail
-                        write!(text, ":{}", colno).unwrap();
+                        write!(text, ":{colno}").unwrap();
                     }
                 }
 

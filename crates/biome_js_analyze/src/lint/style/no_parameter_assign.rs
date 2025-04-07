@@ -1,11 +1,12 @@
 use crate::services::semantic::Semantic;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_semantic::{AllBindingWriteReferencesIter, Reference, ReferencesExtensions};
-use biome_js_syntax::{AnyJsBinding, AnyJsBindingPattern, AnyJsFormalParameter, AnyJsParameter};
+use biome_js_syntax::{JsIdentifierBinding, binding_ext::AnyJsBindingDeclaration};
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow reassigning `function` parameters.
     ///
     /// Assignment to a `function` parameters can be misleading and confusing,
@@ -56,24 +57,31 @@ declare_rule! {
     pub NoParameterAssign {
         version: "1.0.0",
         name: "noParameterAssign",
+        language: "js",
         sources: &[RuleSource::Eslint("no-param-reassign")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
     }
 }
 
 impl Rule for NoParameterAssign {
-    type Query = Semantic<AnyJsParameter>;
+    type Query = Semantic<JsIdentifierBinding>;
     type State = Reference;
     type Signals = AllBindingWriteReferencesIter;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
-        let param = ctx.query();
-        let model = ctx.model();
-        if let Some(AnyJsBindingPattern::AnyJsBinding(AnyJsBinding::JsIdentifierBinding(binding))) =
-            binding_of(param)
-        {
-            return binding.all_writes(model);
+        let binding = ctx.query();
+        if let Some(declaration) = binding.declaration() {
+            if matches!(
+                declaration,
+                AnyJsBindingDeclaration::JsFormalParameter(_)
+                    | AnyJsBindingDeclaration::JsRestParameter(_)
+                    | AnyJsBindingDeclaration::JsArrowFunctionExpression(_)
+                    | AnyJsBindingDeclaration::TsPropertyParameter(_)
+            ) {
+                return binding.all_writes(ctx.model());
+            }
         }
         // Empty iterator that conforms to `AllBindingWriteReferencesIter` type.
         std::iter::successors(None, |_| None)
@@ -99,16 +107,5 @@ impl Rule for NoParameterAssign {
                 "Use a local variable instead."
             }),
         )
-    }
-}
-
-fn binding_of(param: &AnyJsParameter) -> Option<AnyJsBindingPattern> {
-    match param {
-        AnyJsParameter::AnyJsFormalParameter(formal_param) => match &formal_param {
-            AnyJsFormalParameter::JsBogusParameter(_) => None,
-            AnyJsFormalParameter::JsFormalParameter(param) => param.binding().ok(),
-        },
-        AnyJsParameter::JsRestParameter(param) => param.binding().ok(),
-        AnyJsParameter::TsThisParameter(_) => None,
     }
 }

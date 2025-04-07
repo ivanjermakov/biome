@@ -1,29 +1,26 @@
 use crate::parser::{
+    GraphqlParser,
     directive::DirectiveList,
     parse_description,
     parse_error::{
         expected_named_type, expected_operation_type, expected_root_operation_type_definition,
+        expected_schema_extension,
     },
     r#type::parse_named_type,
-    value::is_at_string,
-    GraphqlParser,
 };
 use biome_graphql_syntax::{
     GraphqlSyntaxKind::{self, *},
     T,
 };
 use biome_parser::{
-    parse_lists::ParseNodeList, parse_recovery::ParseRecovery, parsed_syntax::ParsedSyntax,
-    prelude::ParsedSyntax::*, Parser,
+    CompletedMarker, Parser, parse_lists::ParseNodeList, parse_recovery::ParseRecovery,
+    parsed_syntax::ParsedSyntax, prelude::ParsedSyntax::*, token_source::TokenSource,
 };
 
 use super::{is_at_definition, operation::OPERATION_TYPE};
 
 #[inline]
 pub(crate) fn parse_schema_definition(p: &mut GraphqlParser) -> ParsedSyntax {
-    if !is_at_schema_definition(p) {
-        return Absent;
-    }
     let m = p.start();
     // description is optional
     parse_description(p).ok();
@@ -31,11 +28,39 @@ pub(crate) fn parse_schema_definition(p: &mut GraphqlParser) -> ParsedSyntax {
     p.bump(T![schema]);
 
     DirectiveList.parse_list(p);
+    parse_root_operation_types(p);
+
+    Present(m.complete(p, GRAPHQL_SCHEMA_DEFINITION))
+}
+
+/// Must only be called if the next 2 token is `extend` and `schema`, otherwise it will panic.
+#[inline]
+pub(crate) fn parse_schema_extension(p: &mut GraphqlParser) -> ParsedSyntax {
+    let m = p.start();
+
+    p.bump(T![extend]);
+    p.bump(T![schema]);
+
+    let pos = p.source().position();
+    DirectiveList.parse_list(p);
+    let directive_empty = p.source().position() == pos;
+
+    if is_at_root_operation_types(p) {
+        parse_root_operation_types(p);
+    } else if directive_empty {
+        p.error(expected_schema_extension(p, p.cur_range()));
+    }
+
+    Present(m.complete(p, GRAPHQL_SCHEMA_EXTENSION))
+}
+
+#[inline]
+fn parse_root_operation_types(p: &mut GraphqlParser) -> CompletedMarker {
+    let m = p.start();
     p.expect(T!['{']);
     RootOperationTypeDefinitionList.parse_list(p);
     p.expect(T!['}']);
-
-    Present(m.complete(p, GRAPHQL_SCHEMA_DEFINITION))
+    m.complete(p, GRAPHQL_ROOT_OPERATION_TYPES)
 }
 
 #[derive(Default)]
@@ -107,8 +132,11 @@ fn parse_root_operation_type_definition(p: &mut GraphqlParser) -> ParsedSyntax {
 }
 
 #[inline]
-pub(crate) fn is_at_schema_definition(p: &mut GraphqlParser<'_>) -> bool {
-    p.at(T![schema]) || (is_at_string(p) && p.nth_at(1, T![schema]))
+fn is_at_root_operation_types(p: &mut GraphqlParser<'_>) -> bool {
+    p.at(T!['{'])
+        // Must have a colon to be recognized as a root operation type definition
+        // else it's likely a new operation definition
+        || (p.at_ts(OPERATION_TYPE) && p.nth_at(1, T![:]))
 }
 
 #[inline]

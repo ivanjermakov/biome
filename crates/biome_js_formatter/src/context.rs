@@ -1,18 +1,19 @@
-pub mod trailing_comma;
+pub mod trailing_commas;
 
 use crate::comments::{FormatJsLeadingComment, JsCommentStyle, JsComments};
 use biome_deserialize_macros::{Deserializable, Merge};
 use biome_formatter::printer::PrinterOptions;
 use biome_formatter::{
-    AttributePosition, CstFormatContext, FormatContext, FormatElement, FormatOptions, IndentStyle,
-    IndentWidth, LineEnding, LineWidth, QuoteStyle, TransformSourceMap,
+    AttributePosition, BracketSameLine, BracketSpacing, CstFormatContext, Expand, FormatContext,
+    FormatElement, FormatOptions, IndentStyle, IndentWidth, LineEnding, LineWidth, QuoteStyle,
+    TransformSourceMap,
 };
 use biome_js_syntax::{AnyJsFunctionBody, JsFileSource, JsLanguage};
 use std::fmt;
 use std::fmt::Debug;
 use std::rc::Rc;
 use std::str::FromStr;
-pub use trailing_comma::TrailingComma;
+pub use trailing_commas::TrailingCommas;
 
 #[derive(Debug, Clone)]
 pub struct JsFormatContext {
@@ -129,7 +130,7 @@ impl CstFormatContext for JsFormatContext {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct JsFormatOptions {
     /// The indent style.
     indent_style: IndentStyle,
@@ -153,7 +154,7 @@ pub struct JsFormatOptions {
     quote_properties: QuoteProperties,
 
     /// Print trailing commas wherever possible in multi-line comma-separated syntactic structures. Defaults to "all".
-    trailing_comma: TrailingComma,
+    trailing_commas: TrailingCommas,
 
     /// Whether the formatter prints semicolons for all statements, class members, and type members or only when necessary because of [ASI](https://tc39.es/ecma262/multipage/ecmascript-language-lexical-grammar.html#sec-automatic-semicolon-insertion).
     semicolons: Semicolons,
@@ -172,6 +173,9 @@ pub struct JsFormatOptions {
 
     /// Attribute position style. By default auto.
     attribute_position: AttributePosition,
+
+    /// Whether to expand object and array literals to multiple lines. Defaults to "auto".
+    expand: Expand,
 }
 
 impl JsFormatOptions {
@@ -185,12 +189,13 @@ impl JsFormatOptions {
             quote_style: QuoteStyle::default(),
             jsx_quote_style: QuoteStyle::default(),
             quote_properties: QuoteProperties::default(),
-            trailing_comma: TrailingComma::default(),
+            trailing_commas: TrailingCommas::default(),
             semicolons: Semicolons::default(),
             arrow_parentheses: ArrowParentheses::default(),
             bracket_spacing: BracketSpacing::default(),
             bracket_same_line: BracketSameLine::default(),
             attribute_position: AttributePosition::default(),
+            expand: Expand::default(),
         }
     }
 
@@ -244,8 +249,8 @@ impl JsFormatOptions {
         self
     }
 
-    pub fn with_trailing_comma(mut self, trailing_comma: TrailingComma) -> Self {
-        self.trailing_comma = trailing_comma;
+    pub fn with_trailing_commas(mut self, trailing_commas: TrailingCommas) -> Self {
+        self.trailing_commas = trailing_commas;
         self
     }
 
@@ -256,6 +261,11 @@ impl JsFormatOptions {
 
     pub fn with_attribute_position(mut self, attribute_position: AttributePosition) -> Self {
         self.attribute_position = attribute_position;
+        self
+    }
+
+    pub fn with_expand(mut self, expand: Expand) -> Self {
+        self.expand = expand;
         self
     }
 
@@ -299,11 +309,16 @@ impl JsFormatOptions {
         self.quote_properties = quote_properties;
     }
 
-    pub fn set_trailing_comma(&mut self, trailing_comma: TrailingComma) {
-        self.trailing_comma = trailing_comma;
+    pub fn set_trailing_commas(&mut self, trailing_commas: TrailingCommas) {
+        self.trailing_commas = trailing_commas;
     }
+
     pub fn set_attribute_position(&mut self, attribute_position: AttributePosition) {
         self.attribute_position = attribute_position;
+    }
+
+    pub fn set_expand(&mut self, expand: Expand) {
+        self.expand = expand;
     }
 
     pub fn set_semicolons(&mut self, semicolons: Semicolons) {
@@ -338,8 +353,8 @@ impl JsFormatOptions {
         self.source_type
     }
 
-    pub fn trailing_comma(&self) -> TrailingComma {
-        self.trailing_comma
+    pub fn trailing_commas(&self) -> TrailingCommas {
+        self.trailing_commas
     }
 
     pub fn semicolons(&self) -> Semicolons {
@@ -352,6 +367,10 @@ impl JsFormatOptions {
 
     pub fn attribute_position(&self) -> AttributePosition {
         self.attribute_position
+    }
+
+    pub fn expand(&self) -> Expand {
+        self.expand
     }
 }
 
@@ -372,39 +391,37 @@ impl FormatOptions for JsFormatOptions {
         self.line_ending
     }
 
-    fn attribute_position(&self) -> AttributePosition {
-        self.attribute_position
-    }
-
     fn as_print_options(&self) -> PrinterOptions {
         PrinterOptions::from(self)
     }
 }
 
 impl fmt::Display for JsFormatOptions {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Indent style: {}", self.indent_style)?;
         writeln!(f, "Indent width: {}", self.indent_width.value())?;
         writeln!(f, "Line ending: {}", self.line_ending)?;
-        writeln!(f, "Line width: {}", self.line_width.get())?;
+        writeln!(f, "Line width: {}", self.line_width.value())?;
         writeln!(f, "Quote style: {}", self.quote_style)?;
         writeln!(f, "JSX quote style: {}", self.jsx_quote_style)?;
         writeln!(f, "Quote properties: {}", self.quote_properties)?;
-        writeln!(f, "Trailing comma: {}", self.trailing_comma)?;
+        writeln!(f, "Trailing commas: {}", self.trailing_commas)?;
         writeln!(f, "Semicolons: {}", self.semicolons)?;
         writeln!(f, "Arrow parentheses: {}", self.arrow_parentheses)?;
         writeln!(f, "Bracket spacing: {}", self.bracket_spacing.value())?;
         writeln!(f, "Bracket same line: {}", self.bracket_same_line.value())?;
-        writeln!(f, "Attribute Position: {}", self.attribute_position)
+        writeln!(f, "Attribute Position: {}", self.attribute_position)?;
+        writeln!(f, "Expand lists: {}", self.expand)
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserializable, Eq, Hash, Merge, PartialEq)]
 #[cfg_attr(
     feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema),
+    derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum QuoteProperties {
     #[default]
     AsNeeded,
@@ -416,8 +433,8 @@ impl FromStr for QuoteProperties {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "as-needed" | "AsNeeded" => Ok(Self::AsNeeded),
-            "preserve" | "Preserve" => Ok(Self::Preserve),
+            "as-needed" => Ok(Self::AsNeeded),
+            "preserve" => Ok(Self::Preserve),
             // TODO: replace this error with a diagnostic
             _ => Err("Value not supported for QuoteProperties"),
         }
@@ -425,7 +442,7 @@ impl FromStr for QuoteProperties {
 }
 
 impl fmt::Display for QuoteProperties {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             QuoteProperties::AsNeeded => write!(f, "As needed"),
             QuoteProperties::Preserve => write!(f, "Preserve"),
@@ -436,9 +453,10 @@ impl fmt::Display for QuoteProperties {
 #[derive(Clone, Copy, Debug, Default, Deserializable, Eq, Hash, Merge, PartialEq)]
 #[cfg_attr(
     feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema),
+    derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum Semicolons {
     #[default]
     Always,
@@ -460,15 +478,17 @@ impl FromStr for Semicolons {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "as-needed" | "AsNeeded" => Ok(Self::AsNeeded),
-            "always" | "Always" => Ok(Self::Always),
-            _ => Err("Value not supported for Semicolons. Supported values are 'as-needed' and 'always'."),
+            "as-needed" => Ok(Self::AsNeeded),
+            "always" => Ok(Self::Always),
+            _ => Err(
+                "Value not supported for Semicolons. Supported values are 'as-needed' and 'always'.",
+            ),
         }
     }
 }
 
 impl fmt::Display for Semicolons {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Semicolons::AsNeeded => write!(f, "As needed"),
             Semicolons::Always => write!(f, "Always"),
@@ -479,9 +499,10 @@ impl fmt::Display for Semicolons {
 #[derive(Clone, Copy, Debug, Default, Deserializable, Eq, Hash, Merge, PartialEq)]
 #[cfg_attr(
     feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema),
+    derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum ArrowParentheses {
     #[default]
     Always,
@@ -504,66 +525,20 @@ impl FromStr for ArrowParentheses {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "as-needed" | "AsNeeded" => Ok(Self::AsNeeded),
-            "always" | "Always" => Ok(Self::Always),
-            _ => Err("Value not supported for Arrow parentheses. Supported values are 'as-needed' and 'always'."),
+            "as-needed" => Ok(Self::AsNeeded),
+            "always" => Ok(Self::Always),
+            _ => Err(
+                "Value not supported for Arrow parentheses. Supported values are 'as-needed' and 'always'.",
+            ),
         }
     }
 }
 
 impl fmt::Display for ArrowParentheses {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ArrowParentheses::AsNeeded => write!(f, "As needed"),
             ArrowParentheses::Always => write!(f, "Always"),
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Merge, PartialEq)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema),
-    serde(rename_all = "camelCase")
-)]
-pub struct BracketSpacing(bool);
-
-impl BracketSpacing {
-    /// Return the boolean value for this [BracketSpacing]
-    pub fn value(&self) -> bool {
-        self.0
-    }
-}
-
-impl Default for BracketSpacing {
-    fn default() -> Self {
-        Self(true)
-    }
-}
-
-impl From<bool> for BracketSpacing {
-    fn from(value: bool) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Merge, PartialEq)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema),
-    serde(rename_all = "camelCase")
-)]
-pub struct BracketSameLine(bool);
-
-impl BracketSameLine {
-    /// Return the boolean value for this [BracketSameLine]
-    pub fn value(&self) -> bool {
-        self.0
-    }
-}
-
-impl From<bool> for BracketSameLine {
-    fn from(value: bool) -> Self {
-        Self(value)
     }
 }

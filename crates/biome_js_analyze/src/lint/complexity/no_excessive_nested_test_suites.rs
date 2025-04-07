@@ -1,12 +1,13 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, AddVisitor, Phases, QueryMatch, Queryable, Rule,
-    RuleDiagnostic, RuleSource, RuleSourceKind, ServiceBag, Visitor, VisitorContext,
+    AddVisitor, Phases, QueryMatch, Queryable, Rule, RuleDiagnostic, RuleDomain, RuleSource,
+    RuleSourceKind, ServiceBag, Visitor, VisitorContext, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_js_syntax::{JsCallExpression, JsLanguage};
-use biome_rowan::{AstNode, Language, SyntaxNode, TextRange, WalkEvent};
+use biome_diagnostics::Severity;
+use biome_js_syntax::{JsCallExpression, JsLanguage, JsStaticMemberExpression};
+use biome_rowan::{AstNode, Language, SyntaxNode, SyntaxNodeOptionExt, TextRange, WalkEvent};
 
-declare_rule! {
+declare_lint_rule! {
     /// This rule enforces a maximum depth to nested `describe()` in test files.
     ///
     /// To improve code clarity in your tests, the rule limits nested `describe` to 5.
@@ -54,9 +55,12 @@ declare_rule! {
     pub NoExcessiveNestedTestSuites {
         version: "1.6.0",
         name: "noExcessiveNestedTestSuites",
+        language: "js",
         recommended: true,
+        severity: Severity::Error,
         sources: &[RuleSource::EslintJest("max-nested-describe")],
         source_kind: RuleSourceKind::SameLogic,
+        domains: &[RuleDomain::Test],
     }
 }
 
@@ -116,7 +120,7 @@ impl Visitor for NestedTestVisitor {
             WalkEvent::Enter(node) => {
                 if let Some(node) = JsCallExpression::cast_ref(node) {
                     if let Ok(callee) = node.callee() {
-                        if callee.contains_describe_call() {
+                        if callee.contains_describe_call() && !is_member(&node) {
                             self.curr_count += 1;
                             if self.curr_count == self.max_count + 1 {
                                 ctx.match_query(NestedTest(node.clone()));
@@ -128,7 +132,7 @@ impl Visitor for NestedTestVisitor {
             WalkEvent::Leave(node) => {
                 if let Some(node) = JsCallExpression::cast_ref(node) {
                     if let Ok(callee) = node.callee() {
-                        if callee.contains_describe_call() {
+                        if callee.contains_describe_call() && !is_member(&node) {
                             self.curr_count -= 1;
                         }
                     }
@@ -136,6 +140,25 @@ impl Visitor for NestedTestVisitor {
             }
         }
     }
+}
+
+/// Determines whether or not the call expression is for a function that is a member of another object.
+///
+/// ```js
+/// const foo = {
+///   bar() {}
+/// }
+/// foo.bar(); // bar is a member of foo
+/// ```
+fn is_member(call: &JsCallExpression) -> bool {
+    call.syntax()
+        .parent()
+        .kind()
+        .is_some_and(JsStaticMemberExpression::can_cast)
+        || call
+            .callee()
+            .map(|callee| callee.syntax().kind())
+            .is_ok_and(JsStaticMemberExpression::can_cast)
 }
 
 // Declare a query match struct type containing a JavaScript function node

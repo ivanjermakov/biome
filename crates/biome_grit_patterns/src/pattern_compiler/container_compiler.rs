@@ -2,7 +2,7 @@ use super::{
     compilation_context::NodeCompilationContext, list_index_compiler::ListIndexCompiler,
     map_accessor_compiler::MapAccessorCompiler, variable_compiler::VariableCompiler,
 };
-use crate::{grit_context::GritQueryContext, CompileError};
+use crate::{CompileError, grit_context::GritQueryContext};
 use biome_grit_syntax::{AnyGritContainer, GritSyntaxKind};
 use grit_pattern_matcher::pattern::Container;
 
@@ -21,7 +21,7 @@ impl ContainerCompiler {
                 MapAccessorCompiler::from_node(accessor, context)?,
             ))),
             AnyGritContainer::GritVariable(variable) => Ok(Container::Variable(
-                VariableCompiler::from_node(variable, context)?,
+                VariableCompiler::from_node(variable, context),
             )),
             AnyGritContainer::GritBogusContainer(_) => Err(CompileError::UnexpectedKind(
                 GritSyntaxKind::GRIT_BOGUS_CONTAINER.into(),

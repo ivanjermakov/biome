@@ -1,15 +1,13 @@
 use crate::services::semantic::Semantic;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_semantic::ReferencesExtensions;
-use biome_js_syntax::{
-    JsDefaultImportSpecifier, JsIdentifierAssignment, JsIdentifierBinding, JsNamedImportSpecifier,
-    JsNamespaceImportSpecifier, JsShorthandNamedImportSpecifier,
-};
+use biome_js_syntax::{AnyJsImportSpecifier, JsIdentifierAssignment, JsIdentifierBinding};
 
-use biome_rowan::{declare_node_union, AstNode};
+use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     ///  Disallow assigning to imported bindings
     ///
     /// ## Examples
@@ -52,40 +50,46 @@ declare_rule! {
     pub NoImportAssign {
         version: "1.0.0",
         name: "noImportAssign",
+        language: "js",
         sources: &[RuleSource::Eslint("no-import-assign")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 impl Rule for NoImportAssign {
-    type Query = Semantic<AnyJsImportLike>;
+    type Query = Semantic<AnyJsImportSpecifier>;
     /// The first element of the tuple is the invalid `JsIdentifierAssignment`, the second element of the tuple is the imported `JsIdentifierBinding`.
     type State = (JsIdentifierAssignment, JsIdentifierBinding);
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
-    fn run(ctx: &RuleContext<Self>) -> Vec<Self::State> {
+    fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let label_statement = ctx.query();
-        let mut invalid_assign_list = vec![];
+        let mut invalid_assign_list = Vec::new();
         let local_name_binding = match label_statement {
             // `import {x as xx} from 'y'`
             //          ^^^^^^^
-            AnyJsImportLike::JsNamedImportSpecifier(specifier) => specifier.local_name().ok(),
+            AnyJsImportSpecifier::JsNamedImportSpecifier(specifier) => specifier.local_name().ok(),
             // `import {x} from 'y'`
             //          ^
-            AnyJsImportLike::JsShorthandNamedImportSpecifier(specifier) => {
+            AnyJsImportSpecifier::JsShorthandNamedImportSpecifier(specifier) => {
                 specifier.local_name().ok()
             }
             // `import * as xxx from 'y'`
             //         ^^^^^^^^
             // `import a, * as b from 'y'`
             //            ^^^^^^
-            AnyJsImportLike::JsNamespaceImportSpecifier(specifier) => specifier.local_name().ok(),
+            AnyJsImportSpecifier::JsNamespaceImportSpecifier(specifier) => {
+                specifier.local_name().ok()
+            }
             // `import xx from 'y'`
             //         ^^
             // `import a, * as b from 'y'`
             //         ^
-            AnyJsImportLike::JsDefaultImportSpecifier(specifier) => specifier.local_name().ok(),
+            AnyJsImportSpecifier::JsDefaultImportSpecifier(specifier) => {
+                specifier.local_name().ok()
+            }
         };
         local_name_binding
             .and_then(|binding| {
@@ -93,13 +97,14 @@ impl Rule for NoImportAssign {
                 let model = ctx.model();
                 for reference in ident_binding.all_writes(model) {
                     invalid_assign_list.push((
-                        JsIdentifierAssignment::cast(reference.syntax().clone())?,
+                        JsIdentifierAssignment::cast_ref(reference.syntax())?,
                         ident_binding.clone(),
                     ));
                 }
                 Some(invalid_assign_list)
             })
             .unwrap_or_default()
+            .into_boxed_slice()
     }
 
     fn diagnostic(_: &RuleContext<Self>, state: &Self::State) -> Option<RuleDiagnostic> {
@@ -123,8 +128,4 @@ impl Rule for NoImportAssign {
             ),
         )
     }
-}
-
-declare_node_union! {
-    pub AnyJsImportLike = JsNamedImportSpecifier | JsShorthandNamedImportSpecifier | JsNamespaceImportSpecifier | JsDefaultImportSpecifier
 }

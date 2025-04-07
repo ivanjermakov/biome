@@ -1,22 +1,19 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{
-    declare_rule, ActionCategory, Ast, FixKind, Rule, RuleAction, RuleDiagnostic, RuleSource,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsStatement, JsDoWhileStatement, JsElseClause, JsForInStatement, JsForOfStatement,
     JsForStatement, JsIfStatement, JsLanguage, JsSyntaxTrivia, JsWhileStatement, JsWithStatement,
-    TriviaPieceKind, T,
+    T, TriviaPieceKind,
 };
 
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt, SyntaxTriviaPiece};
+use biome_rowan::{AstNode, BatchMutationExt, SyntaxTriviaPiece, declare_node_union};
 
 use crate::JsRuleAction;
 use crate::{use_block_statements_diagnostic, use_block_statements_replace_body};
 
-declare_rule! {
+declare_lint_rule! {
     /// Requires following curly brace conventions.
     ///
     /// JavaScript allows the omission of curly braces when a block contains only one statement. However, it is considered by many to be best practice to never omit curly braces around blocks, even when they are optional, because it can lead to bugs and reduces code clarity.
@@ -68,6 +65,7 @@ declare_rule! {
     pub UseBlockStatements {
         version: "1.0.0",
         name: "useBlockStatements",
+        language: "js",
         sources: &[RuleSource::Eslint("curly")],
         recommended: false,
         fix_kind: FixKind::Unsafe,
@@ -153,7 +151,7 @@ impl Rule for UseBlockStatements {
                     .syntax()
                     .first_token()
                     .and_then(|token| token.prev_token())
-                    .map_or(false, |token| {
+                    .is_some_and(|token| {
                         token
                             .trailing_trivia()
                             .pieces()
@@ -218,10 +216,8 @@ impl Rule for UseBlockStatements {
 
                     r_curly_token.with_leading_trivia(leading_trivia)
                 } else {
-                    let has_trailing_single_line_comments = stmt
-                        .syntax()
-                        .last_trailing_trivia()
-                        .map_or(false, |trivia| {
+                    let has_trailing_single_line_comments =
+                        stmt.syntax().last_trailing_trivia().is_some_and(|trivia| {
                             trivia
                                 .pieces()
                                 .any(|trivia| trivia.kind() == TriviaPieceKind::SingleLineComment)
@@ -283,12 +279,12 @@ impl Rule for UseBlockStatements {
                 }
             },
         };
-        Some(RuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Wrap the statement with a `JsBlockStatement`" }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Wrap the statement with a `JsBlockStatement`" }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

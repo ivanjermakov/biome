@@ -1,18 +1,18 @@
-use crate::parser::{parse_name, GraphqlParser};
 use biome_graphql_syntax::{
     GraphqlSyntaxKind::{self, *},
     T,
 };
 use biome_parser::{
-    parse_lists::ParseNodeList, parse_recovery::ParseRecovery, parsed_syntax::ParsedSyntax,
-    prelude::ParsedSyntax::*, Parser,
+    Parser, parse_lists::ParseNodeList, parse_recovery::ParseRecovery, parsed_syntax::ParsedSyntax,
+    prelude::ParsedSyntax::*,
 };
 
 use super::{
-    definitions::is_at_selection_set_end,
+    GraphqlParser,
     directive::is_at_directive,
-    is_at_name,
+    is_nth_at_name,
     parse_error::{expected_argument, expected_value},
+    parse_literal_name,
     value::parse_value,
 };
 
@@ -24,7 +24,7 @@ impl ParseRecovery for ArgumentListParseRecovery {
     const RECOVERED_KIND: Self::Kind = GRAPHQL_ARGUMENT;
 
     fn is_at_recovered(&self, p: &mut Self::Parser<'_>) -> bool {
-        is_at_name(p) || is_at_argument_list_end(p)
+        is_nth_at_name(p, 0) || is_at_argument_list_end(p)
     }
 }
 
@@ -70,14 +70,14 @@ pub(crate) fn parse_arguments(p: &mut GraphqlParser) -> ParsedSyntax {
 
 #[inline]
 fn parse_argument(p: &mut GraphqlParser) -> ParsedSyntax {
-    if !is_at_name(p) {
+    if !is_nth_at_name(p, 0) {
         return Absent;
     }
 
     let m = p.start();
 
     // name is checked for in `is_at_name`
-    parse_name(p).ok();
+    parse_literal_name(p).ok();
     p.expect(T![:]);
     parse_value(p).or_add_diagnostic(p, expected_value);
 
@@ -90,8 +90,10 @@ fn parse_argument(p: &mut GraphqlParser) -> ParsedSyntax {
 #[inline]
 pub(crate) fn is_at_argument_list_end(p: &mut GraphqlParser<'_>) -> bool {
     p.at(T![')'])
-    // also handle the start of a selection set
-    || is_at_selection_set_end(p)
+    // at the start af a new arguments list
+    || p.at(T!['('])
     // at the start of a new directive
     || is_at_directive(p)
+    // if we can't find any of the above, we can't be sure if we're outside of
+    // an argument list
 }

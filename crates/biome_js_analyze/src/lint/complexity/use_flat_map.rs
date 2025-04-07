@@ -1,13 +1,13 @@
 use crate::JsRuleAction;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make::{ident, js_name};
 use biome_js_syntax::{AnyJsExpression, AnyJsMemberExpression, AnyJsName, JsCallExpression};
 use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Promotes the use of `.flatMap()` when `map().flat()` are used together.
     ///
     /// ## Examples
@@ -34,11 +34,13 @@ declare_rule! {
     pub UseFlatMap {
         version: "1.0.0",
         name: "useFlatMap",
+        language: "js",
         sources: &[
             RuleSource::EslintUnicorn("prefer-array-flat-map"),
             RuleSource::Clippy("map_flatten"),
         ],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Safe,
     }
 }
@@ -68,7 +70,7 @@ impl Rule for UseFlatMap {
             }
         }
         let flat_member_expression =
-            AnyJsMemberExpression::cast_ref(flat_call.callee().ok()?.syntax())?;
+            AnyJsMemberExpression::cast(flat_call.callee().ok()?.into_syntax())?;
         if flat_member_expression.member_name()?.text() == "flat" {
             let Ok(AnyJsExpression::JsCallExpression(map_call)) = flat_member_expression.object()
             else {
@@ -76,7 +78,7 @@ impl Rule for UseFlatMap {
             };
             let map_call_arguments = map_call.arguments().ok()?.args();
             let map_member_expression =
-                AnyJsMemberExpression::cast_ref(map_call.callee().ok()?.syntax())?;
+                AnyJsMemberExpression::cast(map_call.callee().ok()?.into_syntax())?;
             if map_member_expression.member_name()?.text() == "map" && map_call_arguments.len() == 1
             {
                 return Some(map_call);
@@ -119,12 +121,11 @@ impl Rule for UseFlatMap {
 
         mutation.replace_node(node.clone(), flat_map_call);
 
-        Some(JsRuleAction {
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {"Replace the chain with "<Emphasis>".flatMap()"</Emphasis>"."}.to_owned(),
             mutation,
-            message: markup! {"Replace the chain with "<Emphasis>".flatMap()"</Emphasis>"."}
-                .to_owned(),
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-        })
+        ))
     }
 }

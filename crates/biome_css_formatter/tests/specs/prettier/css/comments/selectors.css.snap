@@ -1,8 +1,8 @@
 ---
 source: crates/biome_formatter_test/src/snapshot_builder.rs
 info: css/comments/selectors.css
+snapshot_kind: text
 ---
-
 # Input
 
 ```css
@@ -195,7 +195,7 @@ input:not(/* comment 125 */[/* comment 126 */disabled/* comment 127 */]/* commen
  /* comment 8 */ {
    /* comment 9 */
    /* comment 10 */
-@@ -28,150 +26,143 @@
+@@ -28,150 +26,142 @@
  } /* comment 13 */
  /* comment 14 */
  
@@ -226,62 +226,58 @@ input:not(/* comment 125 */[/* comment 126 */disabled/* comment 127 */]/* commen
 -/* comment 27 */
 -.element
 -/* comment 28 */ {
-+.element/* comment 27 */
-+  .element /* comment 28 */
++.element /* comment 27 */ .element /* comment 28 */
 +{
  }
  
 -/* comment 29 */
 -.element /* comment 30 */ > /* comment 31 */ .element /* comment 32 */ {
-+/* comment 29 */ .element /* comment 30 */
-+  > /* comment 31 */ .element /* comment 32 */ {
++/* comment 29 */ .element
++> /* comment 30 */ /* comment 31 */ .element /* comment 32 */ {
  }
  /* comment 33 */
  .element
 -/* comment 34 */
 ->
--/* comment 35 */
++> /* comment 34 */
+ /* comment 35 */
 -.element
 -/* comment 36 */ {
-+  > /* comment 34 */
-+  /* comment 35 */
-+  .element /* comment 36 */
++.element /* comment 36 */
 +{
  }
  
 -/* comment 37 */
 -.element /* comment 38 */ + /* comment 39 */ .element /* comment 40 */ {
-+/* comment 37 */ .element /* comment 38 */
-+  + /* comment 39 */ .element /* comment 40 */ {
++/* comment 37 */ .element
+++ /* comment 38 */ /* comment 39 */ .element /* comment 40 */ {
  }
  /* comment 41 */
  .element
 -/* comment 42 */
 -+
--/* comment 43 */
+++ /* comment 42 */
+ /* comment 43 */
 -.element
 -/* comment 44 */ {
-+  + /* comment 42 */
-+  /* comment 43 */
-+  .element /* comment 44 */
++.element /* comment 44 */
 +{
  }
  
 -/* comment 45 */
 -.element /* comment 46 */ ~ /* comment 47 */ .element /* comment 48 */ {
-+/* comment 45 */ .element /* comment 46 */
-+  ~ /* comment 47 */ .element /* comment 48 */ {
++/* comment 45 */ .element
++~ /* comment 46 */ /* comment 47 */ .element /* comment 48 */ {
  }
  /* comment 49 */
  .element
 -/* comment 50 */
 -~
--/* comment 51 */
++~ /* comment 50 */
+ /* comment 51 */
 -.element
 -/* comment 52 */ {
-+  ~ /* comment 50 */
-+  /* comment 51 */
-+  .element /* comment 52 */
++.element /* comment 52 */
 +{
  }
  
@@ -413,7 +409,7 @@ input:not(/* comment 125 */[/* comment 126 */disabled/* comment 127 */]/* commen
        /* comment 144 */
        color: white;
        /* comment 145 */
-@@ -179,8 +170,7 @@
+@@ -179,8 +169,7 @@
      /* comment 147 */
    } /* comment 148 */
  
@@ -423,7 +419,7 @@ input:not(/* comment 125 */[/* comment 126 */disabled/* comment 127 */]/* commen
      /* comment 151 */
      display: block;
      /* comment 152 */
-@@ -189,11 +179,9 @@
+@@ -189,11 +178,9 @@
  } /* comment 155 */
  
  @media (max-width: 500px) {
@@ -437,40 +433,39 @@ input:not(/* comment 125 */[/* comment 126 */disabled/* comment 127 */]/* commen
        /* comment 161 */
      } /* comment 162 */
      /* comment 163 */
-@@ -201,30 +189,35 @@
+@@ -201,30 +188,33 @@
    /* comment 165 */
  } /* comment 166 */
  
 -/* comment 167 */
 -article /* comment 168 */ :--heading /* comment 169 */ + /* comment 170 */ p /* comment 171 */ {
-+/* comment 167 */ article
-+  /* comment 168 */ :--heading /* comment 169 */
-+  + /* comment 170 */ p /* comment 171 */ {
++/* comment 167 */ article /* comment 168 */ :--heading
++  + /* comment 169 */ /* comment 170 */ p /* comment 171 */ {
  }
  
 -/* comment 172 */
 -.foo /* comment 173 */ :global /* comment 174 */.bar /* comment 175 */ {
-+/* comment 172 */ .foo
-+  /* comment 173 */ :global
++/* comment 172 */ .foo /* comment 173 */ :global
 +  /* comment 174 */ .bar /* comment 175 */ {
  }
 -/* comment 176 */
 -.foo /* comment 177 */ :global(/* comment 178 */.bar/* comment 179 */) /* comment 180 */ .baz /* comment 181 */ {
-+/* comment 176 */ .foo
-+  /* comment 177 */ :global(/* comment 178 */ .bar /* comment 179 */)
++/* comment 176 */ .foo /* comment 177 */ :global(
++    /* comment 178 */ .bar /* comment 179 */
++  )
 +  /* comment 180 */ .baz /* comment 181 */ {
  }
  
 -/* comment 182 */
 -.foo /* comment 183 */ :local /* comment 184 */ .bar /* comment 185 */ {
-+/* comment 182 */ .foo
-+  /* comment 183 */ :local
++/* comment 182 */ .foo /* comment 183 */ :local
 +  /* comment 184 */ .bar /* comment 185 */ {
  }
 -/* comment 186 */
 -.foo /* comment 187 */ :local(/* comment 188 */.foo/* comment 189 */) /* comment 190 */ .bar /* comment 191 */ {
-+/* comment 186 */ .foo
-+  /* comment 187 */ :local(/* comment 188 */ .foo /* comment 189 */)
++/* comment 186 */ .foo /* comment 187 */ :local(
++    /* comment 188 */ .foo /* comment 189 */
++  )
 +  /* comment 190 */ .bar /* comment 191 */ {
  }
  
@@ -478,16 +473,12 @@ input:not(/* comment 125 */[/* comment 126 */disabled/* comment 127 */]/* commen
  :root {
 -  /* comments 192 */
 -  --centered/* comments 193 */ : /* comments 194 */ {
--    display: flex;
--    align-items: center;
--    justify-content: center;
--  };
 +  /* comments 192 */ --centered /* comments 193 */ : /* comments 194 */ {
-+        display: flex;
-+  align-items: center;
-+  justify-content: center;
-+}
-+;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+-  };
++  }
  }
 ```
 
@@ -536,41 +527,40 @@ input:not(/* comment 125 */[/* comment 126 */disabled/* comment 127 */]/* commen
 /* comment 23 */ .element /* comment 24 */ .element /* comment 25 */ {
 }
 /* comment 26 */
-.element/* comment 27 */
-  .element /* comment 28 */
+.element /* comment 27 */ .element /* comment 28 */
 {
 }
 
-/* comment 29 */ .element /* comment 30 */
-  > /* comment 31 */ .element /* comment 32 */ {
+/* comment 29 */ .element
+> /* comment 30 */ /* comment 31 */ .element /* comment 32 */ {
 }
 /* comment 33 */
 .element
-  > /* comment 34 */
-  /* comment 35 */
-  .element /* comment 36 */
+> /* comment 34 */
+/* comment 35 */
+.element /* comment 36 */
 {
 }
 
-/* comment 37 */ .element /* comment 38 */
-  + /* comment 39 */ .element /* comment 40 */ {
+/* comment 37 */ .element
++ /* comment 38 */ /* comment 39 */ .element /* comment 40 */ {
 }
 /* comment 41 */
 .element
-  + /* comment 42 */
-  /* comment 43 */
-  .element /* comment 44 */
++ /* comment 42 */
+/* comment 43 */
+.element /* comment 44 */
 {
 }
 
-/* comment 45 */ .element /* comment 46 */
-  ~ /* comment 47 */ .element /* comment 48 */ {
+/* comment 45 */ .element
+~ /* comment 46 */ /* comment 47 */ .element /* comment 48 */ {
 }
 /* comment 49 */
 .element
-  ~ /* comment 50 */
-  /* comment 51 */
-  .element /* comment 52 */
+~ /* comment 50 */
+/* comment 51 */
+.element /* comment 52 */
 {
 }
 
@@ -685,37 +675,35 @@ input:not(
   /* comment 165 */
 } /* comment 166 */
 
-/* comment 167 */ article
-  /* comment 168 */ :--heading /* comment 169 */
-  + /* comment 170 */ p /* comment 171 */ {
+/* comment 167 */ article /* comment 168 */ :--heading
+  + /* comment 169 */ /* comment 170 */ p /* comment 171 */ {
 }
 
-/* comment 172 */ .foo
-  /* comment 173 */ :global
+/* comment 172 */ .foo /* comment 173 */ :global
   /* comment 174 */ .bar /* comment 175 */ {
 }
-/* comment 176 */ .foo
-  /* comment 177 */ :global(/* comment 178 */ .bar /* comment 179 */)
+/* comment 176 */ .foo /* comment 177 */ :global(
+    /* comment 178 */ .bar /* comment 179 */
+  )
   /* comment 180 */ .baz /* comment 181 */ {
 }
 
-/* comment 182 */ .foo
-  /* comment 183 */ :local
+/* comment 182 */ .foo /* comment 183 */ :local
   /* comment 184 */ .bar /* comment 185 */ {
 }
-/* comment 186 */ .foo
-  /* comment 187 */ :local(/* comment 188 */ .foo /* comment 189 */)
+/* comment 186 */ .foo /* comment 187 */ :local(
+    /* comment 188 */ .foo /* comment 189 */
+  )
   /* comment 190 */ .bar /* comment 191 */ {
 }
 
 /* custom properties set & @apply rule */
 :root {
   /* comments 192 */ --centered /* comments 193 */ : /* comments 194 */ {
-        display: flex;
-  align-items: center;
-  justify-content: center;
-}
-;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 ```
 
@@ -809,58 +797,69 @@ selectors.css:152:75 parse ━━━━━━━━━━━━━━━━━�
     151 │ :root {
   > 152 │     /* comments 192 */ --centered /* comments 193 */ : /* comments 194 */ {
         │                                                                           ^
-  > 153 │         display: flex;
-        │         ^^^^^^^^^^^^^
+    153 │         display: flex;
     154 │         align-items: center;
-    155 │         justify-content: center;
   
   i Expected one of:
   
-  - identifier
-  - string
-  - number
-  - dimension
-  - ratio
-  - custom property
-  - function
-  
-selectors.css:156:6 parse ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Expected a qualified rule, or an at rule but instead found ';
-    }'.
-  
-    154 │         align-items: center;
-    155 │         justify-content: center;
-  > 156 │     };
-        │      ^
-  > 157 │ }
-        │ ^
-    158 │ 
-  
-  i Expected a qualified rule, or an at rule here.
-  
-    154 │         align-items: center;
-    155 │         justify-content: center;
-  > 156 │     };
-        │      ^
-  > 157 │ }
-        │ ^
-    158 │ 
+  - hover
+  - focus
+  - active
+  - first-child
+  - last-child
+  - nth-child
+  - nth-last-child
+  - first-of-type
+  - last-of-type
+  - nth-of-type
+  - nth-last-of-type
+  - only-child
+  - only-of-type
+  - checked
+  - disabled
+  - enabled
+  - required
+  - optional
+  - valid
+  - invalid
+  - in-range
+  - out-of-range
+  - read-only
+  - read-write
+  - placeholder-shown
+  - default
+  - checked
+  - indeterminate
+  - blank
+  - empty
+  - root
+  - target
+  - lang
+  - not
+  - is
+  - where
+  - fullscreen
+  - link
+  - visited
+  - any-link
+  - local-link
+  - scope
+  - current
+  - past
+  - future
   
 
 ```
 
 # Lines exceeding max width of 80 characters
 ```
-   81: /* comment 53 */ .element /* comment 54 */ >>> /* comment 55 */ .element /* comment 56 */ {}
-   93: a[/* comment 63 */ target /* comment 64 */=/* comment 65 */ "_blank" /* comment 66 */] {
-   95: a[/* comment 67 */ target /* comment 68 */~=/* comment 69 */ "_blank" /* comment 70 */] {
-   97: a[/* comment 71 */ target /* comment 72 */|=/* comment 73 */ "_blank" /* comment 74 */] {
-   99: a[/* comment 75 */ target /* comment 76 */^=/* comment 77 */ "_blank" /* comment 78 */] {
-  101: a[/* comment 79 */ target /* comment 80 */$=/* comment 81 */ "_blank" /* comment 82 */] {
-  103: a[/* comment 83 */ target /* comment 84 */*=/* comment 85 */ "_blank" /* comment 86 */] {
-  106: [/* comment 87 */ foo /* comment 88 */| /* comment 89 */att /* comment 90 */=/* comment 91 */ "val" /* comment 92 */] {
-  151:     /* comment 125 */ [/* comment 126 */ disabled /* comment 127 */] /* comment 128 */
+   80: /* comment 53 */ .element /* comment 54 */ >>> /* comment 55 */ .element /* comment 56 */ {}
+   92: a[/* comment 63 */ target /* comment 64 */=/* comment 65 */ "_blank" /* comment 66 */] {
+   94: a[/* comment 67 */ target /* comment 68 */~=/* comment 69 */ "_blank" /* comment 70 */] {
+   96: a[/* comment 71 */ target /* comment 72 */|=/* comment 73 */ "_blank" /* comment 74 */] {
+   98: a[/* comment 75 */ target /* comment 76 */^=/* comment 77 */ "_blank" /* comment 78 */] {
+  100: a[/* comment 79 */ target /* comment 80 */$=/* comment 81 */ "_blank" /* comment 82 */] {
+  102: a[/* comment 83 */ target /* comment 84 */*=/* comment 85 */ "_blank" /* comment 86 */] {
+  105: [/* comment 87 */ foo /* comment 88 */| /* comment 89 */att /* comment 90 */=/* comment 91 */ "val" /* comment 92 */] {
+  150:     /* comment 125 */ [/* comment 126 */ disabled /* comment 127 */] /* comment 128 */
 ```
-
-

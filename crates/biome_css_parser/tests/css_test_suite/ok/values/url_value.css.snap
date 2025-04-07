@@ -2,7 +2,6 @@
 source: crates/biome_css_parser/tests/spec_test.rs
 expression: snapshot
 ---
-
 ## Input
 
 ```css
@@ -59,7 +58,7 @@ CssRoot {
         CssQualifiedRule {
             prelude: CssSelectorList [
                 CssCompoundSelector {
-                    nesting_selector_token: missing (optional),
+                    nesting_selectors: CssNestedSelectorList [],
                     simple_selector: CssTypeSelector {
                         namespace: missing (optional),
                         ident: CssIdentifier {
@@ -487,7 +486,7 @@ CssRoot {
                     CssDeclarationWithSemicolon {
                         declaration: CssDeclaration {
                             property: CssGenericProperty {
-                                name: CssIdentifier {
+                                name: CssDashedIdentifier {
                                     value_token: IDENT@769..777 "--foo" [Newline("\n"), Newline("\n"), Whitespace("\t")] [],
                                 },
                                 colon_token: COLON@777..779 ":" [] [Whitespace(" ")],
@@ -743,7 +742,7 @@ CssRoot {
     0: CSS_QUALIFIED_RULE@0..1290
       0: CSS_SELECTOR_LIST@0..4
         0: CSS_COMPOUND_SELECTOR@0..4
-          0: (empty)
+          0: CSS_NESTED_SELECTOR_LIST@0..0
           1: CSS_TYPE_SELECTOR@0..4
             0: (empty)
             1: CSS_IDENTIFIER@0..4
@@ -1035,7 +1034,7 @@ CssRoot {
           15: CSS_DECLARATION_WITH_SEMICOLON@769..816
             0: CSS_DECLARATION@769..815
               0: CSS_GENERIC_PROPERTY@769..815
-                0: CSS_IDENTIFIER@769..777
+                0: CSS_DASHED_IDENTIFIER@769..777
                   0: IDENT@769..777 "--foo" [Newline("\n"), Newline("\n"), Whitespace("\t")] []
                 1: COLON@777..779 ":" [] [Whitespace(" ")]
                 2: CSS_GENERIC_COMPONENT_VALUE_LIST@779..815
@@ -1201,5 +1200,3 @@ CssRoot {
   2: EOF@1290..1291 "" [Newline("\n")] []
 
 ```
-
-

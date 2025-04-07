@@ -1,32 +1,38 @@
-use biome_rowan::TextRange;
-use grit_pattern_matcher::pattern::VariableSourceLocations;
+#![allow(clippy::needless_lifetimes)]
+use grit_pattern_matcher::pattern::VariableSource;
+use grit_util::ByteRange;
 
-use crate::{diagnostics::CompilerDiagnostic, grit_target_language::GritTargetLanguage};
-use std::{collections::BTreeMap, path::Path};
+use crate::{
+    diagnostics::CompilerDiagnostic, grit_built_in_functions::BuiltIns,
+    grit_target_language::GritTargetLanguage,
+};
+use camino::Utf8Path;
+use std::collections::BTreeMap;
 
 pub(crate) struct CompilationContext<'a> {
     /// Path of the source file being compiled.
-    pub source_path: Option<&'a Path>,
+    pub source_path: Option<&'a Utf8Path>,
 
     /// The target language being matched on.
     pub lang: GritTargetLanguage,
 
+    pub built_ins: &'a BuiltIns,
     pub pattern_definition_info: BTreeMap<String, DefinitionInfo>,
     pub predicate_definition_info: BTreeMap<String, DefinitionInfo>,
     pub function_definition_info: BTreeMap<String, DefinitionInfo>,
 }
 
 impl<'a> CompilationContext<'a> {
-    pub(crate) fn new(source_path: &'a Path, lang: GritTargetLanguage) -> Self {
-        let mut this = Self::new_anonymous(lang);
-        this.source_path = Some(source_path);
-        this
-    }
-
-    pub(crate) fn new_anonymous(lang: GritTargetLanguage) -> Self {
+    #[cfg(test)]
+    pub(crate) fn new(
+        source_path: Option<&'a Utf8Path>,
+        lang: GritTargetLanguage,
+        built_ins: &'a BuiltIns,
+    ) -> Self {
         Self {
-            source_path: None,
+            source_path,
             lang,
+            built_ins,
             pattern_definition_info: Default::default(),
             predicate_definition_info: Default::default(),
             function_definition_info: Default::default(),
@@ -45,7 +51,7 @@ pub(crate) struct NodeCompilationContext<'a> {
     /// The outer vector can be index using `scope_index`, while the individual
     /// variables in a scope can be indexed using the indices stored in `vars`
     /// and `global_vars`.
-    pub vars_array: &'a mut Vec<Vec<VariableSourceLocations>>,
+    pub vars_array: &'a mut Vec<Vec<VariableSource>>,
 
     /// Index of the local scope.
     ///
@@ -65,7 +71,7 @@ impl<'a> NodeCompilationContext<'a> {
     pub(crate) fn new(
         compilation_context: &'a CompilationContext,
         vars: &'a mut BTreeMap<String, usize>,
-        vars_array: &'a mut Vec<Vec<VariableSourceLocations>>,
+        vars_array: &'a mut Vec<Vec<VariableSource>>,
         global_vars: &'a mut BTreeMap<String, usize>,
         diagnostics: &'a mut Vec<CompilerDiagnostic>,
     ) -> Self {
@@ -79,6 +85,10 @@ impl<'a> NodeCompilationContext<'a> {
         }
     }
 
+    pub(crate) fn get_pattern_definition(&self, name: &str) -> Option<&DefinitionInfo> {
+        self.compilation.pattern_definition_info.get(name)
+    }
+
     pub(crate) fn log(&mut self, diagnostic: CompilerDiagnostic) {
         self.diagnostics.push(diagnostic);
     }
@@ -86,5 +96,5 @@ impl<'a> NodeCompilationContext<'a> {
 
 pub(crate) struct DefinitionInfo {
     pub(crate) index: usize,
-    pub(crate) parameters: Vec<(String, TextRange)>,
+    pub(crate) parameters: Vec<(String, ByteRange)>,
 }

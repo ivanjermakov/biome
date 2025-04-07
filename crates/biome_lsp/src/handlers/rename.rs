@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 
-use crate::converters::from_proto;
+use crate::diagnostics::LspError;
 use crate::{session::Session, utils};
 use anyhow::{Context, Result};
+use biome_lsp_converters::from_proto;
 use tower_lsp::lsp_types::{RenameParams, WorkspaceEdit};
-use tracing::trace;
 
 #[tracing::instrument(level = "debug", skip(session), err)]
-pub(crate) fn rename(session: &Session, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+pub(crate) fn rename(
+    session: &Session,
+    params: RenameParams,
+) -> Result<Option<WorkspaceEdit>, LspError> {
     let url = params.text_document_position.text_document.uri;
-    let biome_path = session.file_path(&url)?;
-
-    trace!("Renaming...");
+    let path = session.file_path(&url)?;
 
     let doc = session.document(&url)?;
     let position_encoding = session.position_encoding();
@@ -30,7 +31,8 @@ pub(crate) fn rename(session: &Session, params: RenameParams) -> Result<Option<W
     let result = session
         .workspace
         .rename(biome_service::workspace::RenameParams {
-            path: biome_path,
+            project_key: doc.project_key,
+            path,
             symbol_at: cursor_range,
             new_name: params.new_name,
         })?;

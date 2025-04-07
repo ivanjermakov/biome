@@ -1,12 +1,12 @@
 //! Implementation of [DeserializableValue] for the JSON data format.
 use crate::{
-    Deserializable, DeserializableValue, DeserializationDiagnostic, DeserializationVisitor,
-    Deserialized, Text, TextNumber, VisitableType,
+    DefaultDeserializationContext, Deserializable, DeserializableValue, DeserializationContext,
+    DeserializationVisitor, Deserialized, TextNumber, diagnostics::DeserializableType,
 };
 use biome_diagnostics::{DiagnosticExt, Error};
-use biome_json_parser::{parse_json, JsonParserOptions};
+use biome_json_parser::{JsonParserOptions, parse_json};
 use biome_json_syntax::{AnyJsonValue, JsonMemberName, JsonRoot, T};
-use biome_rowan::{AstNode, AstSeparatedList};
+use biome_rowan::{AstNode, AstSeparatedList, Text, TokenText};
 
 /// It attempts to parse and deserialize a source file in JSON. Diagnostics from the parse phase
 /// are consumed and joined with the diagnostics emitted during the deserialization.
@@ -37,13 +37,13 @@ use biome_rowan::{AstNode, AstSeparatedList};
 pub fn deserialize_from_json_str<Output: Deserializable>(
     source: &str,
     options: JsonParserOptions,
-    name: &str,
+    id: &str,
 ) -> Deserialized<Output> {
     let parse = parse_json(source, options);
     let Deserialized {
         diagnostics,
         deserialized,
-    } = deserialize_from_json_ast::<Output>(&parse.tree(), name);
+    } = deserialize_from_json_ast::<Output>(&parse.tree(), id);
     let errors = parse
         .into_diagnostics()
         .into_iter()
@@ -63,18 +63,18 @@ pub fn deserialize_from_str<Output: Deserializable>(source: &str) -> Deserialize
 
 /// Attempts to deserialize a JSON AST, given the `Output`.
 ///
-/// `name` corresponds to the name used in a diagnostic to designate the deserialized value.
+/// `id` corresponds to the identifier of the deserialized value.
 pub fn deserialize_from_json_ast<Output: Deserializable>(
     parse: &JsonRoot,
-    name: &str,
+    id: &str,
 ) -> Deserialized<Output> {
-    let mut diagnostics = vec![];
+    let mut ctx = DefaultDeserializationContext::new(id);
     let deserialized = parse
         .value()
         .ok()
-        .and_then(|value| Output::deserialize(&value, name, &mut diagnostics));
+        .and_then(|value| Output::deserialize(&mut ctx, &value, ""));
     Deserialized {
-        diagnostics: diagnostics.into_iter().map(Error::from).collect::<Vec<_>>(),
+        diagnostics: ctx.diagnostics,
         deserialized,
     }
 }
@@ -86,15 +86,15 @@ impl DeserializableValue for AnyJsonValue {
 
     fn deserialize<V: DeserializationVisitor>(
         &self,
+        ctx: &mut impl DeserializationContext,
         visitor: V,
         name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
     ) -> Option<V::Output> {
         let range = AstNode::range(self);
         match self {
             AnyJsonValue::JsonArrayValue(array) => {
                 let items = array.elements().iter().map(|x| x.ok());
-                visitor.visit_array(items, range, name, diagnostics)
+                visitor.visit_array(ctx, items, range, name)
             }
             AnyJsonValue::JsonBogusValue(_) => {
                 // The parser should emit an error about this node
@@ -103,38 +103,134 @@ impl DeserializableValue for AnyJsonValue {
             }
             AnyJsonValue::JsonBooleanValue(value) => {
                 let value = value.value_token().ok()?;
-                visitor.visit_bool(value.kind() == T![true], range, name, diagnostics)
+                visitor.visit_bool(ctx, value.kind() == T![true], range, name)
             }
-            AnyJsonValue::JsonNullValue(_) => visitor.visit_null(range, name, diagnostics),
+            AnyJsonValue::JsonNullValue(_) => visitor.visit_null(ctx, range, name),
             AnyJsonValue::JsonNumberValue(value) => {
                 let value = value.value_token().ok()?;
                 let token_text = value.token_text_trimmed();
-                visitor.visit_number(TextNumber(token_text), range, name, diagnostics)
+                visitor.visit_number(ctx, TextNumber(token_text), range, name)
             }
             AnyJsonValue::JsonObjectValue(object) => {
                 let members = object.json_member_list().iter().map(|member| {
                     let member = member.ok()?;
                     Some((member.name().ok()?, member.value().ok()?))
                 });
-                visitor.visit_map(members, range, name, diagnostics)
+                visitor.visit_map(ctx, members, range, name)
             }
             AnyJsonValue::JsonStringValue(value) => {
-                let value = value.inner_string_text().ok()?;
-                visitor.visit_str(Text(value), range, name, diagnostics)
+                let value = unescape_json_string(value.inner_string_text().ok()?);
+                visitor.visit_str(ctx, value, range, name)
             }
         }
     }
 
-    fn visitable_type(&self) -> Option<VisitableType> {
+    fn visitable_type(&self) -> Option<DeserializableType> {
         match self {
-            AnyJsonValue::JsonArrayValue(_) => Some(VisitableType::ARRAY),
+            AnyJsonValue::JsonArrayValue(_) => Some(DeserializableType::Array),
             AnyJsonValue::JsonBogusValue(_) => None,
-            AnyJsonValue::JsonBooleanValue(_) => Some(VisitableType::BOOL),
-            AnyJsonValue::JsonNullValue(_) => Some(VisitableType::NULL),
-            AnyJsonValue::JsonNumberValue(_) => Some(VisitableType::NUMBER),
-            AnyJsonValue::JsonObjectValue(_) => Some(VisitableType::MAP),
-            AnyJsonValue::JsonStringValue(_) => Some(VisitableType::STR),
+            AnyJsonValue::JsonBooleanValue(_) => Some(DeserializableType::Bool),
+            AnyJsonValue::JsonNullValue(_) => Some(DeserializableType::Null),
+            AnyJsonValue::JsonNumberValue(_) => Some(DeserializableType::Number),
+            AnyJsonValue::JsonObjectValue(_) => Some(DeserializableType::Map),
+            AnyJsonValue::JsonStringValue(_) => Some(DeserializableType::Str),
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Deserializable for serde_json::Value {
+    fn deserialize(
+        ctx: &mut impl DeserializationContext,
+        value: &impl DeserializableValue,
+        name: &str,
+    ) -> Option<Self> {
+        struct Visitor;
+        impl DeserializationVisitor for Visitor {
+            type Output = serde_json::Value;
+            const EXPECTED_TYPE: crate::DeserializableTypes = crate::DeserializableTypes::all();
+            fn visit_null(
+                self,
+                _ctx: &mut impl DeserializationContext,
+                _range: biome_rowan::TextRange,
+                _name: &str,
+            ) -> Option<Self::Output> {
+                Some(serde_json::Value::Null)
+            }
+
+            fn visit_bool(
+                self,
+                _ctx: &mut impl DeserializationContext,
+                value: bool,
+                _range: biome_rowan::TextRange,
+                _name: &str,
+            ) -> Option<Self::Output> {
+                Some(serde_json::Value::Bool(value))
+            }
+
+            fn visit_number(
+                self,
+                ctx: &mut impl DeserializationContext,
+                value: TextNumber,
+                _range: biome_rowan::TextRange,
+                _name: &str,
+            ) -> Option<Self::Output> {
+                match serde_json::from_str(value.text()) {
+                    Ok(num) => Some(serde_json::Value::Number(num)),
+                    Err(err) => {
+                        ctx.report(crate::DeserializationDiagnostic::new(err.to_string()));
+                        None
+                    }
+                }
+            }
+
+            fn visit_str(
+                self,
+                _ctx: &mut impl DeserializationContext,
+                value: Text,
+                _range: biome_rowan::TextRange,
+                _name: &str,
+            ) -> Option<Self::Output> {
+                Some(serde_json::Value::String(value.text().to_string()))
+            }
+
+            fn visit_array(
+                self,
+                ctx: &mut impl DeserializationContext,
+                values: impl Iterator<Item = Option<impl DeserializableValue>>,
+                _range: biome_rowan::TextRange,
+                _name: &str,
+            ) -> Option<Self::Output> {
+                Some(serde_json::Value::Array(
+                    values
+                        .filter_map(|value| Deserializable::deserialize(ctx, &value?, ""))
+                        .collect(),
+                ))
+            }
+
+            fn visit_map(
+                self,
+                ctx: &mut impl DeserializationContext,
+                members: impl Iterator<
+                    Item = Option<(impl DeserializableValue, impl DeserializableValue)>,
+                >,
+                _range: biome_rowan::TextRange,
+                _name: &str,
+            ) -> Option<Self::Output> {
+                Some(serde_json::Value::Object(
+                    members
+                        .filter_map(|entry| {
+                            let (key, value) = entry?;
+                            let key = Deserializable::deserialize(ctx, &key, "")?;
+                            let value = value.deserialize(ctx, Visitor, "")?;
+                            Some((key, value))
+                        })
+                        .collect(),
+                ))
+            }
+        }
+
+        value.deserialize(ctx, Visitor, name)
     }
 }
 
@@ -145,16 +241,91 @@ impl DeserializableValue for JsonMemberName {
 
     fn deserialize<V: DeserializationVisitor>(
         &self,
+        ctx: &mut impl DeserializationContext,
         visitor: V,
         name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
     ) -> Option<V::Output> {
-        let value = self.inner_string_text().ok()?;
-        visitor.visit_str(Text(value), AstNode::range(self), name, diagnostics)
+        let value = unescape_json_string(self.inner_string_text().ok()?);
+        visitor.visit_str(ctx, value, AstNode::range(self), name)
     }
 
-    fn visitable_type(&self) -> Option<VisitableType> {
-        Some(VisitableType::STR)
+    fn visitable_type(&self) -> Option<DeserializableType> {
+        Some(DeserializableType::Str)
+    }
+}
+
+/// Returns `text` with escape sequences processed.
+///
+/// If nothing is escaped, `text` is returned without any allocation. If at
+/// least one character is escaped, then a string is allocated and holds the
+/// unescaped string.
+///
+/// This function must be called on the `inner_string_text()` of a token,
+/// meaning the outer quotes are already expected to be trimmed.
+pub fn unescape_json_string(text: TokenText) -> Text {
+    enum State {
+        Normal,
+        Escaped,
+        EscapedUnicode(u8, char),
+    }
+
+    match text.find('\\') {
+        Some(index) => {
+            let mut state = State::Escaped;
+            let mut string = text[..index].to_string();
+            string.reserve(usize::from(text.len()) - string.len());
+            for c in text[(index + 1)..].chars() {
+                match state {
+                    State::Escaped => {
+                        let escaped = match c {
+                            'b' => '\u{0008}',
+                            'f' => '\u{000c}',
+                            'n' => '\n',
+                            'r' => '\r',
+                            't' => '\t',
+                            'u' => {
+                                state = State::EscapedUnicode(0, '\0');
+                                continue;
+                            }
+                            c => c,
+                        };
+                        string.push(escaped);
+                        state = State::Normal;
+                    }
+                    State::EscapedUnicode(digit, char) => {
+                        let value = if c.is_ascii_digit() {
+                            c as u32 - '0' as u32
+                        } else if ('a'..='f').contains(&c) {
+                            c as u32 - 'a' as u32 + 10
+                        } else if ('A'..='F').contains(&c) {
+                            c as u32 - 'A' as u32 + 10
+                        } else {
+                            string.push(c);
+                            state = State::Normal;
+                            continue;
+                        };
+
+                        let char = match (16 * char as u32 + value).try_into() {
+                            Ok(char) => char,
+                            Err(_) => {
+                                state = State::Normal;
+                                continue;
+                            }
+                        };
+                        if digit == 3 {
+                            string.push(char);
+                            state = State::Normal;
+                        } else {
+                            state = State::EscapedUnicode(digit + 1, char);
+                        }
+                    }
+                    State::Normal if c == '\\' => state = State::Escaped,
+                    State::Normal => string.push(c),
+                }
+            }
+            Text::Owned(string)
+        }
+        None => Text::Borrowed(text),
     }
 }
 
@@ -162,12 +333,11 @@ impl DeserializableValue for JsonMemberName {
 mod tests {
     use std::{
         collections::{BTreeMap, HashMap, HashSet},
-        num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize},
+        num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroUsize},
     };
 
     use super::*;
     use biome_json_parser::JsonParserOptions;
-    use indexmap::{IndexMap, IndexSet};
 
     #[test]
     fn test_unit() {
@@ -188,12 +358,12 @@ mod tests {
         }
         impl Deserializable for Name {
             fn deserialize(
+                ctx: &mut impl DeserializationContext,
                 _value: &impl DeserializableValue,
                 name: &str,
-                _diagnostics: &mut Vec<DeserializationDiagnostic>,
             ) -> Option<Self> {
                 Some(Name {
-                    name: name.to_string(),
+                    name: ctx.id().unwrap_or(name).to_string(),
                 })
             }
         }
@@ -611,20 +781,29 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "indexmap")]
     fn test_index_set() {
         let source = r#"[0, 1]"#;
         let Deserialized {
             deserialized,
             diagnostics,
-        } = deserialize_from_json_str::<IndexSet<u8>>(source, JsonParserOptions::default(), "");
+        } = deserialize_from_json_str::<indexmap::IndexSet<u8>>(
+            source,
+            JsonParserOptions::default(),
+            "",
+        );
         assert!(diagnostics.is_empty());
-        assert_eq!(deserialized.unwrap(), IndexSet::from([0, 1]));
+        assert_eq!(deserialized.unwrap(), indexmap::IndexSet::from([0, 1]));
 
         let source = "0";
         let Deserialized {
             deserialized,
             diagnostics,
-        } = deserialize_from_json_str::<IndexSet<u8>>(source, JsonParserOptions::default(), "");
+        } = deserialize_from_json_str::<indexmap::IndexSet<u8>>(
+            source,
+            JsonParserOptions::default(),
+            "",
+        );
         assert!(!diagnostics.is_empty());
         assert!(deserialized.is_none());
     }
@@ -690,12 +869,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "indexmap")]
     fn test_index_map() {
         let source = r#"{ "a": 0, "b": 1 }"#;
         let Deserialized {
             deserialized,
             diagnostics,
-        } = deserialize_from_json_str::<IndexMap<String, u8>>(
+        } = deserialize_from_json_str::<indexmap::IndexMap<String, u8>>(
             source,
             JsonParserOptions::default(),
             "",
@@ -703,14 +883,14 @@ mod tests {
         assert!(diagnostics.is_empty());
         assert_eq!(
             deserialized.unwrap(),
-            IndexMap::from([("a".to_string(), 0), ("b".to_string(), 1)])
+            indexmap::IndexMap::from([("a".to_string(), 0), ("b".to_string(), 1)])
         );
 
         let source = "0";
         let Deserialized {
             deserialized,
             diagnostics,
-        } = deserialize_from_json_str::<IndexMap<String, u8>>(
+        } = deserialize_from_json_str::<indexmap::IndexMap<String, u8>>(
             source,
             JsonParserOptions::default(),
             "",

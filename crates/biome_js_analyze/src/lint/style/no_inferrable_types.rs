@@ -1,10 +1,8 @@
 use crate::JsRuleAction;
 use biome_analyze::RuleSource;
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsExpression, AnyTsPropertyAnnotation, AnyTsVariableAnnotation, JsFormalParameter,
     JsInitializerClause, JsPropertyClassMember, JsSyntaxKind, JsVariableDeclaration,
@@ -15,7 +13,7 @@ use biome_js_syntax::{AnyJsLiteralExpression, AnyTsType};
 use biome_rowan::AstNode;
 use biome_rowan::BatchMutationExt;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow type annotations for variables, parameters, and class properties initialized with a literal expression.
     ///
     /// TypeScript is able to infer the types of parameters, properties, and variables from their default or initial values.
@@ -98,8 +96,10 @@ declare_rule! {
     pub NoInferrableTypes {
         version: "1.0.0",
         name: "noInferrableTypes",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("no-inferrable-types")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Safe,
     }
 }
@@ -197,12 +197,12 @@ impl Rule for NoInferrableTypes {
         mutation.replace_token_discard_trivia(prev_token, new_prev_token);
         mutation.replace_token_discard_trivia(next_token, new_next_token);
         mutation.remove_node(annotation.clone());
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Remove the type annotation." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the type annotation." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

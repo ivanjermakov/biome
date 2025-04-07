@@ -1,15 +1,14 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{AnyJsModuleItem, JsExport, JsModuleItemList, JsSyntaxToken};
 use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow empty exports that don't change anything in a module file.
     ///
     /// An empty `export {}` is sometimes useful to turn a file that would otherwise be a script into a module.
@@ -45,8 +44,10 @@ declare_rule! {
     pub NoUselessEmptyExport {
         version: "1.0.0",
         name: "noUselessEmptyExport",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("no-useless-empty-export")],
         recommended: true,
+        severity: Severity::Information,
         fix_kind: FixKind::Safe,
     }
 }
@@ -102,12 +103,12 @@ impl Rule for NoUselessEmptyExport {
     fn action(ctx: &RuleContext<Self>, _: &Self::State) -> Option<JsRuleAction> {
         let mut mutation = ctx.root().begin();
         mutation.remove_node(ctx.query().clone());
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Remove this useless empty export." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove this useless empty export." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

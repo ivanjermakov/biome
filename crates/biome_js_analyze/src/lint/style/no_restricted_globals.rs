@@ -1,6 +1,6 @@
 use crate::services::semantic::SemanticServices;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
 use biome_deserialize_macros::Deserializable;
 use biome_js_semantic::{Binding, BindingExtensions};
@@ -8,8 +8,10 @@ use biome_js_syntax::{AnyJsIdentifierUsage, TextRange};
 use biome_rowan::AstNode;
 use serde::{Deserialize, Serialize};
 
-declare_rule! {
+declare_lint_rule! {
     /// This rule allows you to specify global variable names that you don’t want to use in your application.
+    ///
+    /// References to the global identifiers `error` and `event` are always disallowed by this rule.
     ///
     /// > Disallowing usage of specific global variables can be useful if you want to allow a set of
     /// global variables by enabling an environment, but still want to disallow some of those.
@@ -33,9 +35,8 @@ declare_rule! {
     /// Use the options to specify additional globals that you want to restrict in your
     /// source code.
     ///
-    /// ```json
+    /// ```json,options
     /// {
-    ///     "//": "...",
     ///     "options": {
     ///         "deniedGlobals": ["$", "MooTools"]
     ///     }
@@ -48,6 +49,7 @@ declare_rule! {
     pub NoRestrictedGlobals {
         version: "1.0.0",
         name: "noRestrictedGlobals",
+        language: "js",
         sources: &[RuleSource::Eslint("no-restricted-globals")],
         recommended: false,
     }
@@ -58,17 +60,17 @@ const RESTRICTED_GLOBALS: [&str; 2] = ["event", "error"];
 /// Options for the rule `noRestrictedGlobals`.
 #[derive(Clone, Debug, Default, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct RestrictedGlobalsOptions {
     /// A list of names that should trigger the rule
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub denied_globals: Vec<String>,
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    pub denied_globals: Box<[Box<str>]>,
 }
 
 impl Rule for NoRestrictedGlobals {
     type Query = SemanticServices;
-    type State = (TextRange, String);
-    type Signals = Vec<Self::State>;
+    type State = (TextRange, Box<str>);
+    type Signals = Box<[Self::State]>;
     type Options = Box<RestrictedGlobalsOptions>;
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
@@ -102,9 +104,10 @@ impl Rule for NoRestrictedGlobals {
                 let denied_globals: Vec<_> =
                     options.denied_globals.iter().map(AsRef::as_ref).collect();
                 is_restricted(text, &binding, denied_globals.as_slice())
-                    .map(|text| (token.text_trimmed_range(), text))
+                    .map(|text| (token.text_trimmed_range(), text.into_boxed_str()))
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
     }
 
     fn diagnostic(_ctx: &RuleContext<Self>, (span, text): &Self::State) -> Option<RuleDiagnostic> {
@@ -113,7 +116,7 @@ impl Rule for NoRestrictedGlobals {
                 rule_category!(),
                 *span,
                 markup! {
-                    "Do not use the global variable "<Emphasis>{text}</Emphasis>"."
+                    "Do not use the global variable "<Emphasis>{text.as_ref()}</Emphasis>"."
                 },
             )
             .note(markup! {

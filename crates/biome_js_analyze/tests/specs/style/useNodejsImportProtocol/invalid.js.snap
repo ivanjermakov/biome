@@ -1,9 +1,10 @@
 ---
 source: crates/biome_js_analyze/tests/spec_tests.rs
 expression: invalid.js
+snapshot_kind: text
 ---
 # Input
-```jsx
+```js
 import assert from "assert";
 import assert_strict from "assert/strict";
 import async_hooks from "async_hooks";
@@ -1595,5 +1596,3 @@ invalid.js:65:26 lint/style/useNodejsImportProtocol  FIXABLE  ━━━━━━
   
 
 ```
-
-

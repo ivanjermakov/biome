@@ -1,9 +1,10 @@
 ---
 source: crates/biome_js_analyze/tests/spec_tests.rs
 expression: invalid.js
+snapshot_kind: text
 ---
 # Input
-```jsx
+```js
 a;
 const a = 0;
 
@@ -29,7 +30,7 @@ function g(a = a) {}
 ```
 invalid.js:1:1 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This variable is used before its declaration.
+  × This variable is used before its declaration.
   
   > 1 │ a;
       │ ^
@@ -50,7 +51,7 @@ invalid.js:1:1 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━
 ```
 invalid.js:4:11 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This variable is used before its declaration.
+  × This variable is used before its declaration.
   
     2 │ const a = 0;
     3 │ 
@@ -72,15 +73,12 @@ invalid.js:4:11 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━�
 ```
 
 ```
-invalid.js:4:13 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+invalid.js:6:1 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This variable is used before its declaration.
+  × This variable is used before its declaration.
   
-    2 │ const a = 0;
-    3 │ 
-  > 4 │ const b = b;
-      │             
-  > 5 │ 
+    4 │ const b = b;
+    5 │ 
   > 6 │ c;
       │ ^
     7 │ let c;
@@ -100,7 +98,7 @@ invalid.js:4:13 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━�
 ```
 invalid.js:9:9 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This variable is used before its declaration.
+  × This variable is used before its declaration.
   
      7 │ let c;
      8 │ 
@@ -122,15 +120,12 @@ invalid.js:9:9 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━
 ```
 
 ```
-invalid.js:9:11 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+invalid.js:11:1 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This variable is used before its declaration.
+  × This variable is used before its declaration.
   
-     7 │ let c;
-     8 │ 
-   > 9 │ let d = d;
-       │           
-  > 10 │ 
+     9 │ let d = d;
+    10 │ 
   > 11 │ e;
        │ ^
     12 │ var e;
@@ -150,7 +145,7 @@ invalid.js:9:11 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━�
 ```
 invalid.js:16:16 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This parameter is used before its declaration.
+  × This parameter is used before its declaration.
   
     14 │ var f = f;
     15 │ 
@@ -174,7 +169,7 @@ invalid.js:16:16 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━�
 ```
 invalid.js:18:16 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This parameter is used before its declaration.
+  × This parameter is used before its declaration.
   
     16 │ function f(a = b, b = 0) {}
     17 │ 
@@ -192,5 +187,3 @@ invalid.js:18:16 lint/correctness/noInvalidUseBeforeDeclaration ━━━━━�
   
 
 ```
-
-

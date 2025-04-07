@@ -1,19 +1,19 @@
-use crate::services::semantic::Semantic;
-use biome_analyze::RuleSource;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic};
-use biome_console::{markup, MarkupBuf};
+use biome_analyze::{Ast, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
+use biome_console::{MarkupBuf, markup};
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsArrayElement, AnyJsAssignment, AnyJsAssignmentPattern, AnyJsCallArgument,
-    AnyJsClassMemberName, AnyJsDeclarationClause, AnyJsExportClause, AnyJsExportNamedSpecifier,
-    AnyJsExpression, AnyJsObjectMemberName, AnyJsTemplateElement, JsMethodObjectMember,
+    AnyJsDeclarationClause, AnyJsExportClause, AnyJsExportNamedSpecifier, AnyJsExpression,
+    AnyJsObjectMemberName, AnyJsTemplateElement, ClassMemberName, JsMethodObjectMember,
 };
 use biome_js_syntax::{
     AnyJsClassMember, AnyJsObjectMember, JsAssignmentExpression, JsCallExpression,
     JsComputedMemberName, JsExport,
 };
-use biome_rowan::{declare_node_union, AstNode, AstSeparatedList, TextRange};
+use biome_rowan::{AstNode, AstSeparatedList, TextRange, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow `then` property.
     ///
     /// When combining objects with a `then` method (thenable objects) with await expressions or dynamic imports, caution is necessary.
@@ -86,8 +86,10 @@ declare_rule! {
     pub NoThenProperty {
         version: "1.5.0",
         name: "noThenProperty",
+        language: "js",
         sources: &[RuleSource::EslintUnicorn("no-thenable")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -128,7 +130,7 @@ impl RuleState {
     }
 }
 impl Rule for NoThenProperty {
-    type Query = Semantic<NoThenPropertyQuery>;
+    type Query = Ast<NoThenPropertyQuery>;
     type State = RuleState;
     type Signals = Option<Self::State>;
     type Options = ();
@@ -175,7 +177,7 @@ fn process_js_object_member(node: &AnyJsObjectMember) -> Option<RuleState> {
             }
         }
         AnyJsObjectMember::JsMethodObjectMember(node) => {
-            return process_js_method_object_member(node)
+            return process_js_method_object_member(node);
         }
         _ => return None,
     };
@@ -187,7 +189,7 @@ fn process_js_method_object_member(node: &JsMethodObjectMember) -> Option<RuleSt
     match member_name {
         AnyJsObjectMemberName::JsComputedMemberName(expr) => match expr.expression().ok()? {
             AnyJsExpression::AnyJsLiteralExpression(lit) => {
-                if lit.value_token().ok()?.text() == "then" {
+                if lit.value_token().ok()?.text_trimmed() == "then" {
                     return Some(RuleState {
                         range: node.name().ok()?.range(),
                         message: NoThenPropertyMessage::Object,
@@ -197,7 +199,7 @@ fn process_js_method_object_member(node: &JsMethodObjectMember) -> Option<RuleSt
             AnyJsExpression::JsTemplateExpression(lit) => {
                 for l in lit.elements() {
                     if let AnyJsTemplateElement::JsTemplateChunkElement(chunk) = l {
-                        if chunk.template_chunk_token().ok()?.text() == "then" {
+                        if chunk.template_chunk_token().ok()?.text_trimmed() == "then" {
                             return Some(RuleState {
                                 range: node.name().ok()?.range(),
                                 message: NoThenPropertyMessage::Object,
@@ -216,48 +218,20 @@ fn process_js_method_object_member(node: &JsMethodObjectMember) -> Option<RuleSt
                 });
             }
         }
+        _ => return None,
     }
     None
 }
 
 fn process_js_class_member(node: &AnyJsClassMember) -> Option<RuleState> {
-    if let Some(AnyJsClassMemberName::JsPrivateClassMemberName(_)) = node.name().ok()? {
-        return None;
-    }
-    match node {
-        AnyJsClassMember::JsGetterClassMember(node) => {
-            if node.name().ok()?.name()? == "then" {
-                return Some(RuleState {
-                    range: node.name().ok()?.range(),
-                    message: NoThenPropertyMessage::Class,
-                });
-            }
+    let any_class_member_name = node.name().ok()??;
+    if let Some(ClassMemberName::Public(name)) = any_class_member_name.name() {
+        if name == "then" {
+            return Some(RuleState {
+                range: any_class_member_name.range(),
+                message: NoThenPropertyMessage::Class,
+            });
         }
-        AnyJsClassMember::JsMethodClassMember(node) => {
-            if node.name().ok()?.name()? == "then" {
-                return Some(RuleState {
-                    range: node.name().ok()?.range(),
-                    message: NoThenPropertyMessage::Class,
-                });
-            }
-        }
-        AnyJsClassMember::JsPropertyClassMember(node) => {
-            if node.name().ok()?.name()? == "then" {
-                return Some(RuleState {
-                    range: node.name().ok()?.range(),
-                    message: NoThenPropertyMessage::Class,
-                });
-            }
-        }
-        AnyJsClassMember::JsSetterClassMember(node) => {
-            if node.name().ok()?.name()? == "then" {
-                return Some(RuleState {
-                    range: node.name().ok()?.range(),
-                    message: NoThenPropertyMessage::Class,
-                });
-            }
-        }
-        _ => return None,
     }
     None
 }
@@ -265,7 +239,7 @@ fn process_js_class_member(node: &AnyJsClassMember) -> Option<RuleState> {
 fn process_js_computed_member_name(node: &JsComputedMemberName) -> Option<RuleState> {
     match node.expression().ok()? {
         AnyJsExpression::AnyJsLiteralExpression(expr) => {
-            if expr.value_token().ok()?.text() == "\"then\"" {
+            if expr.value_token().ok()?.text_trimmed() == "\"then\"" {
                 return Some(RuleState {
                     range: expr.range(),
                     message: NoThenPropertyMessage::Object,
@@ -275,7 +249,7 @@ fn process_js_computed_member_name(node: &JsComputedMemberName) -> Option<RuleSt
         AnyJsExpression::JsTemplateExpression(lit) => {
             for l in lit.elements() {
                 if let AnyJsTemplateElement::JsTemplateChunkElement(chunk) = l {
-                    if chunk.template_chunk_token().ok()?.text() == "then" {
+                    if chunk.template_chunk_token().ok()?.text_trimmed() == "then" {
                         return Some(RuleState {
                             range: chunk.range(),
                             message: NoThenPropertyMessage::Object,
@@ -293,7 +267,9 @@ fn process_js_assignment_expr(node: &JsAssignmentExpression) -> Option<RuleState
     match node.left().ok()? {
         AnyJsAssignmentPattern::AnyJsAssignment(assignment) => match assignment {
             AnyJsAssignment::JsComputedMemberAssignment(c) => {
-                if c.member().ok()?.text() == "\"then\"" || c.member().ok()?.text() == "`then`" {
+                if c.member().ok()?.to_trimmed_string() == "\"then\""
+                    || c.member().ok()?.to_trimmed_string() == "`then`"
+                {
                     return Some(RuleState {
                         range: node.left().ok()?.range(),
                         message: NoThenPropertyMessage::Object,
@@ -301,7 +277,7 @@ fn process_js_assignment_expr(node: &JsAssignmentExpression) -> Option<RuleState
                 }
             }
             AnyJsAssignment::JsStaticMemberAssignment(m) => {
-                if m.member().ok()?.text() == "then" {
+                if m.member().ok()?.to_trimmed_string() == "then" {
                     return Some(RuleState {
                         range: node.left().ok()?.range(),
                         message: NoThenPropertyMessage::Object,
@@ -325,8 +301,8 @@ fn process_js_call_expr(node: &JsCallExpression) -> Option<RuleState> {
                 return None;
             }
 
-            let callee = m.object().ok()?.text();
-            let member = m.member().ok()?.text();
+            let callee = m.object().ok()?.to_trimmed_string();
+            let member = m.member().ok()?.to_trimmed_string();
 
             let args = node.arguments().ok()?.args();
             let first = args.iter().next()?.ok()?;
@@ -347,7 +323,9 @@ fn process_js_call_expr(node: &JsCallExpression) -> Option<RuleState> {
                                     AnyJsExpression::JsArrayExpression(arg),
                                 ) => {
                                     let key = arg.elements().first()?.ok()?;
-                                    if key.text() == "\"then\"" || key.text() == "`then`" {
+                                    if key.to_trimmed_string() == "\"then\""
+                                        || key.to_trimmed_string() == "`then`"
+                                    {
                                         return Some(RuleState {
                                             range: key.range(),
                                             message: NoThenPropertyMessage::Object,
@@ -372,7 +350,9 @@ fn process_js_call_expr(node: &JsCallExpression) -> Option<RuleState> {
                     return None;
                 }
                 let second = args.iter().nth(1)?.ok()?;
-                if second.text() == "\"then\"" || second.text() == "`then`" {
+                if second.to_trimmed_string() == "\"then\""
+                    || second.to_trimmed_string() == "`then`"
+                {
                     return Some(RuleState {
                         range: second.range(),
                         message: NoThenPropertyMessage::Object,
@@ -400,7 +380,7 @@ fn process_js_export_named_clause(node: &JsExport) -> Option<RuleState> {
                         }
                     }
                     AnyJsExportNamedSpecifier::JsExportNamedSpecifier(name) => {
-                        if name.exported_name().ok()?.text() == "then" {
+                        if name.exported_name().ok()?.to_trimmed_string() == "then" {
                             return Some(RuleState {
                                 range: name.exported_name().ok()?.range(),
                                 message: NoThenPropertyMessage::Export,
@@ -416,7 +396,7 @@ fn process_js_export_named_clause(node: &JsExport) -> Option<RuleState> {
             let decls = node.declaration().ok()?;
             for d in decls.declarators().iter() {
                 let id = d.ok()?.id().ok()?;
-                if id.text() == "then" {
+                if id.to_trimmed_string() == "then" {
                     return Some(RuleState {
                         range: id.range(),
                         message: NoThenPropertyMessage::Object,

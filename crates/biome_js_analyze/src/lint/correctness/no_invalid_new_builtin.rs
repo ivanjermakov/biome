@@ -1,17 +1,14 @@
-use crate::{services::semantic::Semantic, JsRuleAction};
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
-};
+use crate::{JsRuleAction, services::semantic::Semantic};
+use biome_analyze::{FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
-    global_identifier, static_value::StaticValue, AnyJsExpression, JsCallExpression,
-    JsNewExpression,
+    AnyJsExpression, JsCallExpression, JsNewExpression, global_identifier,
+    static_value::StaticValue,
 };
-use biome_rowan::{chain_trivia_pieces, AstNode, BatchMutationExt};
+use biome_rowan::{AstNode, BatchMutationExt, chain_trivia_pieces};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow `new` operators with global non-constructor functions.
     ///
     /// Some global functions cannot be called using the new operator and
@@ -52,11 +49,9 @@ declare_rule! {
     pub NoInvalidNewBuiltin {
         version: "1.3.0",
         name: "noInvalidNewBuiltin",
-        // TODO: Remove this source once `useConsistentBuiltinInstantiation` is stable
-        sources: &[RuleSource::Eslint("no-new-native-nonconstructor")],
-        recommended: true,
-        // TODO: Deprecate this source once `useConsistentBuiltinInstantiation` is stable
-        //deprecated: "Use the rule useConsistentBuiltinInstantiation instead.",
+        language: "js",
+        recommended: false,
+        deprecated: "Use the rule noInvalidBuiltinInstantiation instead.",
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -97,12 +92,12 @@ impl Rule for NoInvalidNewBuiltin {
             node.clone().into(),
             call_expression.into(),
         );
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove "<Emphasis>"new"</Emphasis>"." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove "<Emphasis>"new"</Emphasis>"." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

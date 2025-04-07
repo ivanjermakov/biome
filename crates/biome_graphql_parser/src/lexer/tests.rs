@@ -1,5 +1,5 @@
 #![cfg(test)]
-#![allow(unused_mut, unused_variables, unused_assignments)]
+#![expect(unused_mut, unused_variables)]
 
 use super::{GraphqlLexer, TextSize};
 use biome_graphql_syntax::GraphqlSyntaxKind::{self, EOF};
@@ -85,12 +85,7 @@ fn losslessness(string: String) -> bool {
     });
     let token_ranges = receiver
         .recv_timeout(Duration::from_secs(2))
-        .unwrap_or_else(|_| {
-            panic!(
-                "Lexer is infinitely recursing with this code: ->{}<-",
-                string
-            )
-        });
+        .unwrap_or_else(|_| panic!("Lexer is infinitely recursing with this code: ->{string}<-"));
 
     let mut new_str = String::with_capacity(string.len());
     let mut idx = TextSize::from(0);
@@ -219,11 +214,10 @@ fn string() {
         WHITESPACE:1,
     }
 
-    // invalid escape sequence
+    // unescaped backslash
     assert_lex! {
-        r#"""" \" \r \n \"" """ "#,
-        ERROR_TOKEN:20,
-        WHITESPACE:1,
+        r#"""" \" \r \n \"" """"#,
+        GRAPHQL_STRING_LITERAL:20,
     }
 
     // empty
@@ -312,31 +306,31 @@ fn comment() {
 fn name() {
     assert_lex! {
         r#"asciiIdentifier"#,
-        GRAPHQL_NAME:15,
+        IDENT:15,
     }
 
     assert_lex! {
         r#"with_underscore_here"#,
-        GRAPHQL_NAME:20,
+        IDENT:20,
     }
 
     assert_lex! {
         r#"with_unicodeà"#,
-        GRAPHQL_NAME:12,
+        IDENT:12,
         ERROR_TOKEN:2,
     }
 
     assert_lex! {
         r#"ᨀwith_unicodeàç"#,
         ERROR_TOKEN:3,
-        GRAPHQL_NAME:12,
+        IDENT:12,
         ERROR_TOKEN:2,
         ERROR_TOKEN:2,
     }
 
     assert_lex! {
         r#"field }"#,
-        GRAPHQL_NAME:5,
+        IDENT:5,
         WHITESPACE:1,
         R_CURLY:1,
     }

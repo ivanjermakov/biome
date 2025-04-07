@@ -1,6 +1,6 @@
 use std::io;
 
-use biome_console::{markup, ConsoleExt, EnvConsole};
+use biome_console::{ConsoleExt, EnvConsole, markup};
 use biome_diagnostics::{
     Advices, Diagnostic, Location, LogCategory, PrintDiagnostic, Resource, SourceCode, Visit,
 };
@@ -64,7 +64,7 @@ struct LintVerboseAdvices {
 impl Advices for LintVerboseAdvices {
     fn record(&self, visitor: &mut dyn Visit) -> io::Result<()> {
         visitor.record_log(LogCategory::Info, &"Apply this fix using `--apply`:")?;
-        visitor.record_command(&format!("biome check --apply {}", self.path))
+        visitor.record_command(&format!("biome check --write {}", self.path))
     }
 }
 

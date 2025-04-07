@@ -1,20 +1,21 @@
 /// Parse all inpul value
 /// https://spec.graphql.org/October2021/#sec-Input-Values
-use crate::parser::{parse_name, GraphqlParser};
+use crate::parser::GraphqlParser;
 use biome_graphql_syntax::{
     GraphqlSyntaxKind::{self, *},
     T,
 };
 use biome_parser::{
-    parse_lists::ParseNodeList, parse_recovery::ParseRecovery, parsed_syntax::ParsedSyntax,
-    prelude::ParsedSyntax::*, token_set, Parser, TokenSet,
+    Parser, TokenSet, parse_lists::ParseNodeList, parse_recovery::ParseRecovery,
+    parsed_syntax::ParsedSyntax, prelude::ParsedSyntax::*, token_set,
 };
 
 use super::{
     argument::is_at_argument_list_end,
-    is_at_name,
+    is_nth_at_name,
     parse_error::{expected_object_field, expected_value},
-    variable::{is_at_variable, parse_variable},
+    parse_literal_name,
+    variable::{is_at_variable, parse_variable_reference},
 };
 
 const BOOLEAN_VALUE_SET: TokenSet<GraphqlSyntaxKind> = token_set![TRUE_KW, FALSE_KW];
@@ -65,7 +66,7 @@ impl ParseRecovery for ObjectValueMemberListParseRecovery {
     const RECOVERED_KIND: Self::Kind = GRAPHQL_OBJECT_FIELD;
 
     fn is_at_recovered(&self, p: &mut Self::Parser<'_>) -> bool {
-        is_at_name(p) || is_at_object_end(p)
+        is_nth_at_name(p, 0) || is_at_object_end(p)
     }
 }
 
@@ -114,7 +115,7 @@ pub(crate) fn parse_default_value(p: &mut GraphqlParser) -> ParsedSyntax {
 #[inline]
 pub(crate) fn parse_value(p: &mut GraphqlParser) -> ParsedSyntax {
     if is_at_variable(p) {
-        parse_variable(p)
+        parse_variable_reference(p)
     } else if is_at_int(p) {
         parse_int(p)
     } else if is_at_float(p) {
@@ -187,12 +188,12 @@ fn parse_null(p: &mut GraphqlParser) -> ParsedSyntax {
 }
 
 #[inline]
-pub(crate) fn parse_enum_value(p: &mut GraphqlParser) -> ParsedSyntax {
+fn parse_enum_value(p: &mut GraphqlParser) -> ParsedSyntax {
     if !is_at_enum(p) {
         return Absent;
     }
     let m = p.start();
-    parse_name(p).ok();
+    parse_literal_name(p).ok();
     Present(m.complete(p, GRAPHQL_ENUM_VALUE))
 }
 
@@ -226,14 +227,14 @@ fn parse_object_field(p: &mut GraphqlParser) -> ParsedSyntax {
         return Absent;
     }
     let m = p.start();
-    parse_name(p).ok();
+    parse_literal_name(p).ok();
     p.expect(T![:]);
     parse_value(p).or_add_diagnostic(p, expected_value);
     Present(m.complete(p, GRAPHQL_OBJECT_FIELD))
 }
 
 #[inline]
-fn is_at_value(p: &GraphqlParser) -> bool {
+fn is_at_value(p: &mut GraphqlParser) -> bool {
     is_at_variable(p)
         || is_at_int(p)
         || is_at_float(p)
@@ -270,9 +271,10 @@ fn is_at_null(p: &GraphqlParser) -> bool {
     p.at(T![null])
 }
 
+/// https://spec.graphql.org/October2021/#EnumValue
 #[inline]
-fn is_at_enum(p: &GraphqlParser) -> bool {
-    is_at_name(p)
+fn is_at_enum(p: &mut GraphqlParser) -> bool {
+    is_nth_at_name(p, 0) && !p.at(TRUE_KW) && !p.at(FALSE_KW) && !p.at(T![null])
 }
 
 #[inline]
@@ -295,8 +297,8 @@ fn is_at_object(p: &GraphqlParser) -> bool {
 }
 
 #[inline]
-fn is_at_object_field(p: &GraphqlParser) -> bool {
-    is_at_name(p)
+fn is_at_object_field(p: &mut GraphqlParser) -> bool {
+    is_nth_at_name(p, 0)
 }
 
 #[inline]

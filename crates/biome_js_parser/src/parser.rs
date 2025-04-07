@@ -41,7 +41,7 @@ pub struct JsParser<'source> {
 impl<'source> JsParser<'source> {
     /// Creates a new parser that parses the `source`.
     pub fn new(source: &'source str, source_type: JsFileSource, options: JsParserOptions) -> Self {
-        let source = JsTokenSource::from_str(source);
+        let source = JsTokenSource::from_str(source, options.clone());
 
         JsParser {
             state: JsParserState::new(&source_type),
@@ -217,8 +217,8 @@ pub struct JsParserCheckpoint {
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::*;
     use crate::JsParserOptions;
+    use crate::prelude::*;
     use biome_js_syntax::{JsFileSource, JsSyntaxKind};
 
     #[test]

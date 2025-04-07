@@ -3,14 +3,15 @@ use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{Context, Ok, Result};
 use biome_string_case::Case;
-use proc_macro2::{Punct, Spacing, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use xtask::{glue::fs2, project_root};
+use xtask::{glue::fs2, project_root, reformat};
 
 pub fn generate_analyzer() -> Result<()> {
     generate_js_analyzer()?;
     generate_json_analyzer()?;
     generate_css_analyzer()?;
+    generate_graphql_analyzer()?;
     Ok(())
 }
 
@@ -18,22 +19,19 @@ fn generate_js_analyzer() -> Result<()> {
     let base_path = project_root().join("crates/biome_js_analyze/src");
     let mut analyzers = BTreeMap::new();
     generate_category("lint", &mut analyzers, &base_path)?;
-
-    let mut assists = BTreeMap::new();
-    generate_category("assists", &mut assists, &base_path)?;
-
-    let mut syntax = BTreeMap::new();
-    generate_category("syntax", &mut syntax, &base_path)?;
+    generate_category("assist", &mut analyzers, &base_path)?;
+    generate_category("syntax", &mut analyzers, &base_path)?;
 
     generate_options(&base_path)?;
 
-    update_js_registry_builder(analyzers, assists, syntax)
+    update_js_registry_builder(analyzers)
 }
 
 fn generate_json_analyzer() -> Result<()> {
     let base_path = project_root().join("crates/biome_json_analyze/src");
     let mut analyzers = BTreeMap::new();
     generate_category("lint", &mut analyzers, &base_path)?;
+    generate_category("assist", &mut analyzers, &base_path)?;
 
     generate_options(&base_path)?;
     update_json_registry_builder(analyzers)
@@ -43,34 +41,60 @@ fn generate_css_analyzer() -> Result<()> {
     let base_path = project_root().join("crates/biome_css_analyze/src");
     let mut analyzers = BTreeMap::new();
     generate_category("lint", &mut analyzers, &base_path)?;
+    generate_category("assist", &mut analyzers, &base_path)?;
+
     generate_options(&base_path)?;
     update_css_registry_builder(analyzers)
 }
 
+fn generate_graphql_analyzer() -> Result<()> {
+    let base_path = project_root().join("crates/biome_graphql_analyze/src");
+    let mut analyzers = BTreeMap::new();
+    generate_category("lint", &mut analyzers, &base_path)?;
+    generate_options(&base_path)?;
+    update_graphql_registry_builder(analyzers)
+}
+
 fn generate_options(base_path: &Path) -> Result<()> {
     let mut rules_options = BTreeMap::new();
-    let nl = Punct::new('\n', Spacing::Alone);
-    let category_path = base_path.join("lint");
-    let category_name = format_ident!("{}", filename(&category_path)?);
-    for group_path in list_entry_paths(&category_path)?.filter(|path| path.is_dir()) {
-        let group_name = format_ident!("{}", filename(&group_path)?.to_string());
-        for rule_path in list_entry_paths(&group_path)?.filter(|path| !path.is_dir()) {
-            let rule_filename = filename(&rule_path)?;
-            let rule_name = Case::Pascal.convert(rule_filename);
-            let rule_module_name = format_ident!("{}", rule_filename);
-            let rule_name = format_ident!("{}", rule_name);
-            rules_options.insert(rule_filename.to_string(), quote! {
+    let mut crates = vec![];
+    for category in ["lint", "assist"] {
+        let category_path = base_path.join(category);
+        if !category_path.exists() {
+            continue;
+        }
+        let category_name = format_ident!("{}", filename(&category_path)?);
+        for group_path in list_entry_paths(&category_path)?.filter(|path| path.is_dir()) {
+            let group_name = format_ident!("{}", filename(&group_path)?.to_string());
+            for rule_path in list_entry_paths(&group_path)?.filter(|path| !path.is_dir()) {
+                let rule_filename = filename(&rule_path)?;
+                let rule_name = Case::Pascal.convert(rule_filename);
+                let rule_module_name = format_ident!("{}", rule_filename);
+                let rule_name = format_ident!("{}", rule_name);
+                rules_options.insert(rule_filename.to_string(), quote! {
                     pub type #rule_name = <#category_name::#group_name::#rule_module_name::#rule_name as biome_analyze::Rule>::Options;
                 });
+            }
+        }
+        if category == "lint" {
+            crates.push(quote! {
+                use crate::lint;
+            })
+        } else if category == "assist" {
+            crates.push(quote! {
+                use crate::assist;
+            })
         }
     }
     let rules_options = rules_options.values();
     let tokens = xtask::reformat(quote! {
-        use crate::lint; #nl #nl
+        #( #crates )*
 
         #( #rules_options )*
     })?;
+    let tokens = reformat(tokens)?;
     fs2::write(base_path.join("options.rs"), tokens)?;
+
     Ok(())
 }
 
@@ -122,7 +146,7 @@ fn generate_category(
     let kind = match name {
         "syntax" => format_ident!("Syntax"),
         "lint" => format_ident!("Lint"),
-        "assists" => format_ident!("Action"),
+        "assist" => format_ident!("Action"),
         _ => panic!("unimplemented analyzer category {name:?}"),
     };
 
@@ -146,6 +170,7 @@ fn generate_category(
         }
     })?;
 
+    let tokens = reformat(tokens)?;
     fs2::write(base_path.join(format!("{name}.rs")), tokens)?;
 
     Ok(())
@@ -186,41 +211,54 @@ fn generate_group(category: &'static str, group: &str, base_path: &Path) -> Resu
 
     let (rule_imports, rule_names): (Vec<_>, Vec<_>) = rules.into_values().unzip();
 
-    let nl = Punct::new('\n', Spacing::Alone);
-    let sp = Punct::new(' ', Spacing::Joint);
-    let sp4 = quote! { #sp #sp #sp #sp };
+    let (import_macro, use_macro) = match category {
+        "lint" => (
+            quote!(
+                use biome_analyze::declare_lint_group
+            ),
+            quote!(declare_lint_group),
+        ),
+        "assist" => (
+            quote!(
+                use biome_analyze::declare_assist_group
+            ),
+            quote!(declare_assist_group),
+        ),
+        "syntax" => (
+            quote!(
+                use biome_analyze::declare_syntax_group
+            ),
+            quote!(declare_syntax_group),
+        ),
+
+        _ => panic!("Category not supported: {category}"),
+    };
     let tokens = xtask::reformat(quote! {
-        use biome_analyze::declare_group;
-        #nl #nl
+        #import_macro;
+
         #( #rule_imports )*
-        #nl #nl
-        declare_group! { #nl
-            #sp4 pub #group_name { #nl
-                #sp4 #sp4 name: #group, #nl
-                #sp4 #sp4 rules: [ #nl
-                    #( #sp4 #sp4 #sp4 #rule_names, #nl )*
-                #sp4 #sp4 ] #nl
-            #sp4 } #nl
+
+
+        #use_macro! {
+            pub #group_name {
+                name: #group,
+                 rules: [
+                    #( #rule_names,  )*
+                 ]
+            }
         }
     })?;
 
+    let tokens = reformat(tokens)?;
     fs2::write(base_path.join(category).join(format!("{group}.rs")), tokens)?;
 
     Ok(())
 }
 
-fn update_js_registry_builder(
-    rules: BTreeMap<&'static str, TokenStream>,
-    assists: BTreeMap<&'static str, TokenStream>,
-    syntax: BTreeMap<&'static str, TokenStream>,
-) -> Result<()> {
+fn update_js_registry_builder(analyzers: BTreeMap<&'static str, TokenStream>) -> Result<()> {
     let path = project_root().join("crates/biome_js_analyze/src/registry.rs");
 
-    let categories = rules
-        .into_iter()
-        .chain(assists)
-        .chain(syntax)
-        .map(|(_, tokens)| tokens);
+    let categories = analyzers.into_values();
 
     let tokens = xtask::reformat(quote! {
         use biome_analyze::RegistryVisitor;
@@ -250,6 +288,7 @@ fn update_json_registry_builder(analyzers: BTreeMap<&'static str, TokenStream>) 
         }
     })?;
 
+    let tokens = reformat(tokens)?;
     fs2::write(path, tokens)?;
 
     Ok(())
@@ -269,13 +308,33 @@ fn update_css_registry_builder(analyzers: BTreeMap<&'static str, TokenStream>) -
         }
     })?;
 
+    let tokens = reformat(tokens)?;
+    fs2::write(path, tokens)?;
+
+    Ok(())
+}
+
+fn update_graphql_registry_builder(analyzers: BTreeMap<&'static str, TokenStream>) -> Result<()> {
+    let path = project_root().join("crates/biome_graphql_analyze/src/registry.rs");
+
+    let categories = analyzers.into_values();
+
+    let tokens = xtask::reformat(quote! {
+        use biome_analyze::RegistryVisitor;
+        use biome_graphql_syntax::GraphqlLanguage;
+
+        pub fn visit_registry<V: RegistryVisitor<GraphqlLanguage>>(registry: &mut V) {
+            #( #categories )*
+        }
+    })?;
+
     fs2::write(path, tokens)?;
 
     Ok(())
 }
 
 /// Returns file paths of the given directory.
-fn list_entry_paths(dir: &Path) -> Result<impl Iterator<Item = PathBuf>> {
+fn list_entry_paths(dir: &Path) -> Result<impl Iterator<Item = PathBuf> + use<>> {
     Ok(fs2::read_dir(dir)
         .context("A directory is expected")?
         .filter_map(|entry| entry.ok())

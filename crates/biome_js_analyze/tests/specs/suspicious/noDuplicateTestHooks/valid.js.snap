@@ -1,9 +1,10 @@
 ---
 source: crates/biome_js_analyze/tests/spec_tests.rs
 expression: valid.js
+snapshot_kind: text
 ---
 # Input
-```jsx
+```js
 describe("foo", () => {
 	beforeEach(() => {});
 	test("bar", () => {
@@ -74,6 +75,18 @@ describe("something", () => {
 	});
 });
 
+describe("hello", () => {
+	beforeEach(() => {});
+
+	describe.each(['hello'])(
+		"given an input %p",
+		() => {
+			beforeEach(() => {});
+
+			it("should be fine", () => {});
+		},
+	);
+});
+
+
 ```
-
-

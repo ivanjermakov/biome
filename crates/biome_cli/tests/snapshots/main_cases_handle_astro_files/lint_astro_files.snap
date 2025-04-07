@@ -29,9 +29,11 @@ file.astro:2:1 lint/suspicious/noDebugger  FIXABLE  ━━━━━━━━━�
 
   × This is an unexpected use of the debugger statement.
   
+    1 │ ---
   > 2 │ debugger;
       │ ^^^^^^^^^
-    3 │ 
+    3 │ ---
+    4 │ <div></div>
   
   i Unsafe fix: Remove debugger statement
   
@@ -44,6 +46,6 @@ file.astro:2:1 lint/suspicious/noDebugger  FIXABLE  ━━━━━━━━━�
 ```
 
 ```block
-Checked 1 file in <TIME>. No fixes needed.
+Checked 1 file in <TIME>. No fixes applied.
 Found 1 error.
 ```

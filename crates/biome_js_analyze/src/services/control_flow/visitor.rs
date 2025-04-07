@@ -1,16 +1,16 @@
 use std::any::TypeId;
 
-use biome_analyze::{merge_node_visitors, Visitor, VisitorContext};
+use biome_analyze::{Visitor, VisitorContext, merge_node_visitors};
 use biome_js_syntax::{
     AnyJsFunction, JsConstructorClassMember, JsGetterClassMember, JsGetterObjectMember, JsLanguage,
     JsMethodClassMember, JsMethodObjectMember, JsModule, JsScript, JsSetterClassMember,
     JsSetterObjectMember, JsStaticInitializationBlockClassMember, TsModuleDeclaration,
 };
-use biome_rowan::{declare_node_union, AstNode, SyntaxError, SyntaxResult};
+use biome_rowan::{AstNode, SyntaxError, SyntaxResult, declare_node_union};
 
 use crate::ControlFlowGraph;
 
-use super::{nodes::*, FunctionBuilder};
+use super::{FunctionBuilder, nodes::*};
 
 /// Return a new instance of the [ControlFlowVisitor]
 pub(crate) fn make_visitor() -> impl Visitor<Language = JsLanguage> {
@@ -42,7 +42,7 @@ macro_rules! declare_visitor {
         impl<'a> StatementStack<'a> {
             /// Split the visitor state at the topmost function, returning the
             /// corresponding function visitor and the rest of the stack above it
-            fn new(visitor: &'a mut $name) -> Option<(&mut FunctionVisitor, Self)> {
+            fn new(visitor: &'a mut $name) -> Option<(&'a mut FunctionVisitor, Self)> {
                 let (index, builder) = visitor.function.last_mut()?;
 
                 Some((builder, Self {
@@ -125,6 +125,7 @@ declare_visitor! {
         return_stmt: ReturnVisitor,
         throw: ThrowVisitor,
         variable: VariableVisitor,
+        bogus: BogusVisitor,
     }
 }
 

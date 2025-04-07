@@ -1,15 +1,15 @@
-use crate::services::semantic::Semantic;
 use crate::JsRuleAction;
+use crate::services::semantic::Semantic;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make::{self};
 use biome_js_syntax::binding_ext::AnyJsBindingDeclaration;
 use biome_js_syntax::{JsIdentifierAssignment, JsSyntaxKind};
 use biome_rowan::{AstNode, BatchMutationExt, TextRange};
 
-declare_rule! {
+declare_lint_rule! {
     /// Prevents from having `const` variables being re-assigned.
     ///
     /// Trying to assign a value to a `const` will cause an `TypeError` when the code is executed.
@@ -50,8 +50,10 @@ declare_rule! {
     pub NoConstAssign {
         version: "1.0.0",
         name: "noConstAssign",
+        language: "js",
         sources: &[RuleSource::Eslint("no-const-assign")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -105,13 +107,13 @@ impl Rule for NoConstAssign {
             let const_token = declarator.declaration()?.kind_token().ok()?;
             let let_token = make::token(JsSyntaxKind::LET_KW);
             mutation.replace_token(const_token, let_token);
-            return Some(JsRuleAction {
-                            category: ActionCategory::QuickFix,
-                            applicability: Applicability::MaybeIncorrect,
-                            message: markup! { "Replace "<Emphasis>"const"</Emphasis>" with "<Emphasis>"let"</Emphasis>" if you assign it to a new value." }
+            return Some(JsRuleAction::new(
+                            ctx.metadata().action_category(ctx.category(), ctx.group()),
+                            ctx.metadata().applicability(),
+                             markup! { "Replace "<Emphasis>"const"</Emphasis>" with "<Emphasis>"let"</Emphasis>" if you assign it to a new value." }
                                 .to_owned(),
                             mutation,
-                        });
+            ));
         }
         None
     }

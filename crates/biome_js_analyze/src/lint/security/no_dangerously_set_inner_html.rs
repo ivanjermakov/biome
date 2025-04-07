@@ -1,12 +1,13 @@
 use crate::react::ReactCreateElementCall;
 use crate::services::semantic::Semantic;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{AnyJsxAttributeName, JsCallExpression, JsxAttribute};
-use biome_rowan::{declare_node_union, AstNode, TextRange};
+use biome_rowan::{AstNode, TextRange, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Prevent the usage of dangerous JSX props
     ///
     /// ## Examples
@@ -28,8 +29,10 @@ declare_rule! {
     pub NoDangerouslySetInnerHtml {
         version: "1.0.0",
         name: "noDangerouslySetInnerHtml",
-        sources: &[RuleSource::EslintReact("no-danger-with-children")],
+        language: "jsx",
+        sources: &[RuleSource::EslintReact("no-danger")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

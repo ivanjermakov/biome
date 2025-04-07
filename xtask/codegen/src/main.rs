@@ -9,7 +9,7 @@ mod generate_migrate_eslint;
 #[cfg(feature = "schema")]
 mod generate_schema;
 mod promote_rule;
-use xtask::{project_root, pushd, Result};
+use xtask::{Result, project_root, pushd};
 
 #[cfg(feature = "schema")]
 use crate::generate_bindings::generate_workspace_bindings;
@@ -25,8 +25,8 @@ use crate::promote_rule::promote_rule;
 
 use xtask::Mode::Overwrite;
 use xtask_codegen::{
-    generate_analyzer, generate_ast, generate_crate, generate_formatters, generate_new_lintrule,
-    generate_parser_tests, generate_tables, task_command, TaskCommand,
+    TaskCommand, generate_analyzer, generate_ast, generate_formatters, generate_new_analyzer_rule,
+    generate_tables, task_command,
 };
 
 fn main() -> Result<()> {
@@ -63,14 +63,15 @@ fn main() -> Result<()> {
         TaskCommand::Grammar(language_list) => {
             generate_ast(Overwrite, language_list)?;
         }
-        TaskCommand::Test => {
-            generate_parser_tests(Overwrite)?;
-        }
         TaskCommand::Unicode => {
             generate_tables()?;
         }
-        TaskCommand::NewLintRule(new_rule_kind, rule_name) => {
-            generate_new_lintrule(new_rule_kind, &rule_name);
+        TaskCommand::NewRule {
+            category,
+            name,
+            kind,
+        } => {
+            generate_new_analyzer_rule(kind, category, &name);
         }
         TaskCommand::PromoteRule { name, group } => {
             promote_rule(&name, &group);
@@ -78,7 +79,6 @@ fn main() -> Result<()> {
         TaskCommand::All => {
             generate_tables()?;
             generate_ast(Overwrite, vec![])?;
-            generate_parser_tests(Overwrite)?;
             generate_formatters();
             generate_analyzer()?;
             #[cfg(feature = "configuration")]
@@ -87,9 +87,6 @@ fn main() -> Result<()> {
             generate_configuration_schema(Overwrite)?;
             #[cfg(feature = "schema")]
             generate_workspace_bindings(Overwrite)?;
-        }
-        TaskCommand::NewCrate { name } => {
-            generate_crate(name)?;
         }
     }
 

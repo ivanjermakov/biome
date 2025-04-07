@@ -4,7 +4,7 @@ use biome_analyze::{
 };
 use biome_js_semantic::{SemanticEventExtractor, SemanticModel, SemanticModelBuilder};
 use biome_js_syntax::{AnyJsRoot, JsLanguage, JsSyntaxNode, TextRange, WalkEvent};
-use biome_rowan::{AstNode, SyntaxNode};
+use biome_rowan::AstNode;
 
 pub struct SemanticServices {
     model: SemanticModel,
@@ -103,11 +103,7 @@ impl SemanticModelBuilderVisitor {
 impl Visitor for SemanticModelBuilderVisitor {
     type Language = JsLanguage;
 
-    fn visit(
-        &mut self,
-        event: &WalkEvent<SyntaxNode<JsLanguage>>,
-        _ctx: VisitorContext<JsLanguage>,
-    ) {
+    fn visit(&mut self, event: &WalkEvent<JsSyntaxNode>, _ctx: VisitorContext<JsLanguage>) {
         match event {
             WalkEvent::Enter(node) => {
                 self.builder.push_node(node);
@@ -142,11 +138,7 @@ impl QueryMatch for SemanticModelEvent {
 impl Visitor for SemanticModelVisitor {
     type Language = JsLanguage;
 
-    fn visit(
-        &mut self,
-        event: &WalkEvent<SyntaxNode<JsLanguage>>,
-        mut ctx: VisitorContext<JsLanguage>,
-    ) {
+    fn visit(&mut self, event: &WalkEvent<JsSyntaxNode>, mut ctx: VisitorContext<JsLanguage>) {
         let root = match event {
             WalkEvent::Enter(node) => {
                 if node.parent().is_some() {
@@ -158,7 +150,7 @@ impl Visitor for SemanticModelVisitor {
             WalkEvent::Leave(_) => return,
         };
 
-        let text_range = root.text_range();
+        let text_range = root.text_range_with_trivia();
         ctx.match_query(SemanticModelEvent(text_range));
     }
 }

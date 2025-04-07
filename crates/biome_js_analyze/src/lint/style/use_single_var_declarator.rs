@@ -1,21 +1,20 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     JsSyntaxKind, JsSyntaxToken, JsVariableDeclarationFields, JsVariableStatement,
-    JsVariableStatementFields, TextSize, TriviaPieceKind, T,
+    JsVariableStatementFields, T, TextSize, TriviaPieceKind,
 };
 use biome_rowan::{
-    trim_leading_trivia_pieces, AstNode, AstSeparatedList, BatchMutationExt, TriviaPiece,
+    AstNode, AstSeparatedList, BatchMutationExt, TriviaPiece, trim_leading_trivia_pieces,
 };
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow multiple variable declarations in the same variable statement
     ///
     /// In JavaScript, multiple variables can be declared within a single `var`, `const` or `let` declaration.
@@ -44,8 +43,10 @@ declare_rule! {
     pub UseSingleVarDeclarator {
         version: "1.0.0",
         name: "useSingleVarDeclarator",
+        language: "js",
         sources: &[RuleSource::Eslint("one-var")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -202,11 +203,11 @@ impl Rule for UseSingleVarDeclarator {
         let mut mutation = ctx.root().begin();
         mutation.replace_element(prev_parent.into(), next_parent.into());
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Break out into multiple declarations" }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Break out into multiple declarations" }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

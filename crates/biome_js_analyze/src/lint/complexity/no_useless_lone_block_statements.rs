@@ -1,10 +1,9 @@
-use crate::services::semantic::Semantic;
 use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsStatement, AnyJsSwitchClause, JsBlockStatement, JsFileSource, JsLabeledStatement,
@@ -12,7 +11,7 @@ use biome_js_syntax::{
 };
 use biome_rowan::{AstNode, AstNodeList, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow unnecessary nested block statements.
     ///
     /// > In JavaScript, prior to ES6, standalone code blocks delimited by curly braces do not create a new scope and have no use.
@@ -46,14 +45,16 @@ declare_rule! {
     pub NoUselessLoneBlockStatements {
         version: "1.3.3",
         name: "noUselessLoneBlockStatements",
+        language: "js",
         sources: &[RuleSource::Eslint("no-lone-blocks")],
         recommended: true,
-        fix_kind: FixKind::Unsafe,
+        severity: Severity::Information,
+        fix_kind: FixKind::Safe,
     }
 }
 
 impl Rule for NoUselessLoneBlockStatements {
-    type Query = Semantic<JsBlockStatement>;
+    type Query = Ast<JsBlockStatement>;
     type State = ();
     type Signals = Option<Self::State>;
     type Options = ();
@@ -129,12 +130,12 @@ impl Rule for NoUselessLoneBlockStatements {
         let mut mutation = ctx.root().begin();
         mutation.replace_node_discard_trivia(stmts_list, new_stmts_list);
 
-        return Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Remove redundant block." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove redundant block." }.to_owned(),
             mutation,
-        });
+        ))
     }
 }
 
@@ -180,5 +181,5 @@ fn is_not_var_declaration(variable: &JsVariableStatement) -> bool {
     variable
         .declaration()
         .ok()
-        .map_or(false, |decl| !decl.is_var())
+        .is_some_and(|decl| !decl.is_var())
 }

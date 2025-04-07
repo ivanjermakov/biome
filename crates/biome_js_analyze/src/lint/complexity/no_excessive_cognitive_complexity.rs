@@ -1,12 +1,12 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, AddVisitor, Phases, QueryMatch, Queryable, Rule,
-    RuleDiagnostic, RuleSource, ServiceBag, Visitor, VisitorContext,
+    AddVisitor, Phases, QueryMatch, Queryable, Rule, RuleDiagnostic, RuleSource, ServiceBag,
+    Visitor, VisitorContext, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
 use biome_deserialize_macros::Deserializable;
 use biome_js_syntax::{
     AnyFunctionLike, JsBreakStatement, JsContinueStatement, JsElseClause, JsLanguage,
-    JsLogicalExpression, JsLogicalOperator,
+    JsLogicalExpression, JsLogicalOperator, JsSyntaxNode,
 };
 use biome_rowan::{AstNode, Language, SyntaxNode, TextRange, WalkEvent};
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,7 @@ use schemars::JsonSchema;
 const MAX_FUNCTION_DEPTH: usize = 10;
 const MAX_SCORE: u8 = u8::MAX;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow functions that exceed a given Cognitive Complexity score.
     ///
     /// The more complexity a function contains, the harder it is to understand
@@ -58,9 +58,8 @@ declare_rule! {
     ///
     /// Allows to specify the maximum allowed complexity.
     ///
-    /// ```json
+    /// ```json,options
     /// {
-    ///     "//": "...",
     ///     "options": {
     ///         "maxAllowedComplexity": 15
     ///     }
@@ -72,6 +71,7 @@ declare_rule! {
     pub NoExcessiveCognitiveComplexity {
         version: "1.0.0",
         name: "noExcessiveCognitiveComplexity",
+        language: "js",
         sources: &[RuleSource::EslintSonarJs("cognitive-complexity")],
         recommended: false,
     }
@@ -116,7 +116,12 @@ impl Rule for NoExcessiveCognitiveComplexity {
             RuleDiagnostic::new(
                 rule_category!(),
                 range,
-                markup!("Excessive complexity detected."),
+                markup!({
+                    format!(
+                        "Excessive complexity of {calculated_score} detected \
+                    (max: {max_allowed_complexity})."
+                    )
+                }),
             )
             .note(if calculated_score == &MAX_SCORE {
                 "Please refactor this function to reduce its complexity. \
@@ -195,12 +200,9 @@ impl Visitor for CognitiveComplexityVisitor {
 }
 
 impl CognitiveComplexityVisitor {
-    fn on_enter(&mut self, node: &SyntaxNode<JsLanguage>) {
+    fn on_enter(&mut self, node: &JsSyntaxNode) {
         let parent = self.stack.last();
-        if parent
-            .map(|parent| parent.score == MAX_SCORE)
-            .unwrap_or_default()
-        {
+        if parent.is_some_and(|parent| parent.score == MAX_SCORE) {
             return; // No need for further processing if we're already at the max.
         }
 
@@ -258,7 +260,7 @@ impl CognitiveComplexityVisitor {
         }
     }
 
-    fn on_leave(&mut self, node: &SyntaxNode<JsLanguage>, mut ctx: VisitorContext<JsLanguage>) {
+    fn on_leave(&mut self, node: &JsSyntaxNode, mut ctx: VisitorContext<JsLanguage>) {
         if let Some(exit_node) = AnyFunctionLike::cast_ref(node) {
             if let Some(function_state) = self.stack.pop() {
                 if function_state.function_like == exit_node {
@@ -298,7 +300,7 @@ impl CognitiveComplexityVisitor {
 ///
 /// Note: These are mostly nodes that increase the complexity of the function's
 /// control flow.
-fn increases_nesting(node: &SyntaxNode<JsLanguage>) -> bool {
+fn increases_nesting(node: &JsSyntaxNode) -> bool {
     use biome_js_syntax::JsSyntaxKind::*;
     is_loop_node(node)
         || matches!(
@@ -307,7 +309,7 @@ fn increases_nesting(node: &SyntaxNode<JsLanguage>) -> bool {
         )
 }
 
-fn is_loop_node(node: &SyntaxNode<JsLanguage>) -> bool {
+fn is_loop_node(node: &JsSyntaxNode) -> bool {
     use biome_js_syntax::JsSyntaxKind::*;
     matches!(
         node.kind(),
@@ -334,7 +336,7 @@ fn is_loop_node(node: &SyntaxNode<JsLanguage>) -> bool {
 /// Do note that the SonarSource paper makes no mention of the `with` statement
 /// specifically (probably because it's highly specific to JavaScript), so its
 /// inclusion here is a personal judgement call.
-fn receives_structural_penalty(node: &SyntaxNode<JsLanguage>) -> bool {
+fn receives_structural_penalty(node: &JsSyntaxNode) -> bool {
     use biome_js_syntax::JsSyntaxKind::*;
     receives_nesting_penalty(node)
         || matches!(node.kind(), JS_FINALLY_CLAUSE | JS_WITH_STATEMENT)
@@ -350,7 +352,7 @@ fn receives_structural_penalty(node: &SyntaxNode<JsLanguage>) -> bool {
 /// on the level of nesting in which it occurs.
 ///
 /// Note: This is a strict subset of the nodes that receive a structural penalty.
-fn receives_nesting_penalty(node: &SyntaxNode<JsLanguage>) -> bool {
+fn receives_nesting_penalty(node: &JsSyntaxNode) -> bool {
     use biome_js_syntax::JsSyntaxKind::*;
     is_loop_node(node)
         || matches!(
@@ -367,7 +369,7 @@ pub struct ComplexityScore {
 /// Options for the rule `noExcessiveCognitiveComplexity`.
 #[derive(Clone, Debug, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct ComplexityOptions {
     /// The maximum complexity score that we allow. Anything higher is considered excessive.
     pub max_allowed_complexity: NonZeroU8,

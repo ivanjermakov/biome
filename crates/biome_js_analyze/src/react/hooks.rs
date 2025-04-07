@@ -1,19 +1,20 @@
-use crate::react::{is_react_call_api, ReactLibrary};
+use crate::react::{ReactLibrary, is_react_call_api};
 
 use biome_console::markup;
 use biome_deserialize::{
-    DeserializableValue, DeserializationDiagnostic, DeserializationVisitor, VisitableType,
+    DeserializableTypes, DeserializableValue, DeserializationContext, DeserializationDiagnostic,
+    DeserializationVisitor,
 };
 use biome_diagnostics::Severity;
 use biome_js_semantic::{Capture, Closure, ClosureExtensions, SemanticModel};
 use biome_js_syntax::binding_ext::AnyJsBindingDeclaration;
 use biome_js_syntax::{
-    binding_ext::AnyJsIdentifierBinding, static_value::StaticValue, AnyJsExpression,
-    AnyJsMemberExpression, JsArrowFunctionExpression, JsCallExpression, JsFunctionExpression,
-    TextRange,
+    AnyJsExpression, AnyJsMemberExpression, JsArrowFunctionExpression, JsCallExpression,
+    JsFunctionExpression, TextRange, binding_ext::AnyJsIdentifierBinding,
+    static_value::StaticValue,
 };
-use biome_js_syntax::{JsArrayBindingPatternElement, JsLanguage};
-use biome_rowan::{AstNode, SyntaxToken};
+use biome_js_syntax::{JsArrayBindingPatternElement, JsSyntaxToken};
+use biome_rowan::AstNode;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 
@@ -61,17 +62,17 @@ impl TryFrom<AnyJsExpression> for AnyJsFunctionExpression {
 impl ReactCallWithDependencyResult {
     /// Returns all [Reference] captured by the closure argument of the React hook.
     /// See [react_hook_with_dependency].
-    pub fn all_captures(&self, model: &SemanticModel) -> impl Iterator<Item = Capture> {
+    pub fn all_captures(&self, model: &SemanticModel) -> impl Iterator<Item = Capture> + use<> {
         self.closure_node
             .as_ref()
             .and_then(|node| AnyJsFunctionExpression::try_from(node.clone()).ok())
             .map(|function_expression| {
                 let closure = function_expression.closure(model);
-                let range = *closure.closure_range();
+                let range = closure.closure_range();
                 closure
                     .descendents()
                     .flat_map(|closure| closure.all_captures())
-                    .filter(move |capture| capture.declaration_range().intersect(range).is_none())
+                    .filter(move |capture| !range.contains(capture.declaration_range().start()))
             })
             .into_iter()
             .flatten()
@@ -79,7 +80,7 @@ impl ReactCallWithDependencyResult {
 
     /// Returns all dependencies of a React hook.
     /// See [react_hook_with_dependency]
-    pub fn all_dependencies(&self) -> impl Iterator<Item = AnyJsExpression> {
+    pub fn all_dependencies(&self) -> impl Iterator<Item = AnyJsExpression> + use<> {
         self.dependencies_node
             .as_ref()
             .and_then(|x| Some(x.as_js_array_expression()?.elements().into_iter()))
@@ -110,16 +111,18 @@ impl From<(u8, u8, bool)> for ReactHookConfiguration {
     }
 }
 
-fn get_untrimmed_callee_name(call: &JsCallExpression) -> Option<SyntaxToken<JsLanguage>> {
-    let name = call
-        .callee()
-        .ok()?
-        .as_js_identifier_expression()?
-        .name()
-        .ok()?
-        .value_token()
-        .ok()?;
-    Some(name)
+fn get_untrimmed_callee_name(call: &JsCallExpression) -> Option<JsSyntaxToken> {
+    let callee = call.callee().ok()?;
+
+    if let Some(identifier) = callee.as_js_identifier_expression() {
+        return identifier.name().ok()?.value_token().ok();
+    }
+
+    if let Some(member_expression) = callee.as_js_static_member_expression() {
+        return member_expression.member().ok()?.value_token().ok();
+    }
+
+    None
 }
 
 /// Checks whether the given function name belongs to a React component, based
@@ -149,6 +152,21 @@ pub(crate) fn is_react_hook_call(call: &JsCallExpression) -> bool {
     let Some(name) = get_untrimmed_callee_name(call) else {
         return false;
     };
+
+    // HACK: jest has some functions that start with `use` and are not hooks
+    if let Some(expr) = call
+        .callee()
+        .ok()
+        .and_then(|callee| callee.as_js_static_member_expression().cloned())
+        .and_then(|member| member.object().ok())
+        .and_then(|object| object.as_js_identifier_expression().cloned())
+        .and_then(|ident| ident.name().ok())
+        .and_then(|name| name.value_token().ok())
+    {
+        if expr.text_trimmed() == "jest" {
+            return false;
+        }
+    }
 
     is_react_hook(name.text_trimmed())
 }
@@ -257,7 +275,7 @@ impl JsonSchema for StableHookResult {
         "StableHookResult".to_owned()
     }
 
-    fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(_generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
         use schemars::schema::*;
         Schema::Object(SchemaObject {
             subschemas: Some(Box::new(SubschemaValidation {
@@ -302,11 +320,11 @@ impl JsonSchema for StableHookResult {
 
 impl biome_deserialize::Deserializable for StableHookResult {
     fn deserialize(
+        ctx: &mut impl DeserializationContext,
         value: &impl DeserializableValue,
         name: &str,
-        diagnostics: &mut Vec<biome_deserialize::DeserializationDiagnostic>,
     ) -> Option<Self> {
-        value.deserialize(StableResultVisitor, name, diagnostics)
+        value.deserialize(ctx, StableResultVisitor, name)
     }
 }
 
@@ -314,20 +332,20 @@ struct StableResultVisitor;
 impl DeserializationVisitor for StableResultVisitor {
     type Output = StableHookResult;
 
-    const EXPECTED_TYPE: VisitableType = VisitableType::ARRAY
-        .union(VisitableType::BOOL)
-        .union(VisitableType::NUMBER);
+    const EXPECTED_TYPE: DeserializableTypes = DeserializableTypes::ARRAY
+        .union(DeserializableTypes::BOOL)
+        .union(DeserializableTypes::NUMBER);
 
     fn visit_array(
         self,
+        ctx: &mut impl DeserializationContext,
         items: impl Iterator<Item = Option<impl DeserializableValue>>,
         _range: TextRange,
         _name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
     ) -> Option<Self::Output> {
         let indices: Vec<u8> = items
             .filter_map(|value| {
-                DeserializableValue::deserialize(&value?, StableResultIndexVisitor, "", diagnostics)
+                DeserializableValue::deserialize(&value?, ctx, StableResultIndexVisitor, "")
             })
             .collect();
 
@@ -340,15 +358,15 @@ impl DeserializationVisitor for StableResultVisitor {
 
     fn visit_bool(
         self,
+        ctx: &mut impl DeserializationContext,
         value: bool,
         range: TextRange,
         _name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
     ) -> Option<Self::Output> {
         match value {
             true => Some(StableHookResult::Identity),
             false => {
-                diagnostics.push(
+                ctx.report(
                     DeserializationDiagnostic::new(
                         markup! { "This hook is configured to not have a stable result" },
                     )
@@ -362,19 +380,13 @@ impl DeserializationVisitor for StableResultVisitor {
 
     fn visit_number(
         self,
+        ctx: &mut impl DeserializationContext,
         value: biome_deserialize::TextNumber,
         range: TextRange,
         name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
     ) -> Option<Self::Output> {
-        StableResultIndexVisitor::visit_number(
-            StableResultIndexVisitor,
-            value,
-            range,
-            name,
-            diagnostics,
-        )
-        .map(|index| StableHookResult::Indices(vec![index]))
+        StableResultIndexVisitor::visit_number(StableResultIndexVisitor, ctx, value, range, name)
+            .map(|index| StableHookResult::Indices(vec![index]))
     }
 }
 
@@ -382,19 +394,19 @@ struct StableResultIndexVisitor;
 impl DeserializationVisitor for StableResultIndexVisitor {
     type Output = u8;
 
-    const EXPECTED_TYPE: VisitableType = VisitableType::NUMBER;
+    const EXPECTED_TYPE: DeserializableTypes = DeserializableTypes::NUMBER;
 
     fn visit_number(
         self,
+        ctx: &mut impl DeserializationContext,
         value: biome_deserialize::TextNumber,
         range: TextRange,
         _name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
     ) -> Option<Self::Output> {
         match value.parse::<u8>() {
             Ok(index) => Some(index),
             Err(_) => {
-                diagnostics.push(DeserializationDiagnostic::new_out_of_bound_integer(
+                ctx.report(DeserializationDiagnostic::new_out_of_bound_integer(
                     0, 255, range,
                 ));
                 None
@@ -435,7 +447,7 @@ pub fn is_binding_react_stable(
     let Some(callee) = declarator
         .initializer()
         .and_then(|initializer| initializer.expression().ok())
-        .and_then(|initializer| initializer.as_js_call_expression()?.callee().ok())
+        .and_then(|initializer| unwrap_to_call_expression(initializer)?.callee().ok())
     else {
         return false;
     };
@@ -462,12 +474,38 @@ pub fn is_binding_react_stable(
     })
 }
 
+/// Unwrap the expression to a call expression without changing the result of the expression,
+/// such as type assertions.
+fn unwrap_to_call_expression(mut expression: AnyJsExpression) -> Option<JsCallExpression> {
+    loop {
+        match expression {
+            AnyJsExpression::JsCallExpression(expr) => return Some(expr),
+            AnyJsExpression::JsParenthesizedExpression(expr) => {
+                expression = expr.expression().ok()?;
+            }
+            AnyJsExpression::JsSequenceExpression(expr) => {
+                expression = expr.right().ok()?;
+            }
+            AnyJsExpression::TsAsExpression(expr) => {
+                expression = expr.expression().ok()?;
+            }
+            AnyJsExpression::TsSatisfiesExpression(expr) => {
+                expression = expr.expression().ok()?;
+            }
+            AnyJsExpression::TsNonNullAssertionExpression(expr) => {
+                expression = expr.expression().ok()?;
+            }
+            _ => return None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::react::hooks::is_react_hook_call;
     use biome_js_parser::JsParserOptions;
-    use biome_js_semantic::{semantic_model, SemanticModelOptions};
+    use biome_js_semantic::{SemanticModelOptions, semantic_model};
     use biome_js_syntax::JsFileSource;
 
     #[test]
@@ -484,8 +522,7 @@ mod test {
                 .filter(|x| x.text_trimmed() == "useRef()")
                 .last()
                 .unwrap();
-            let call = JsCallExpression::cast_ref(&node).unwrap();
-            assert!(is_react_hook_call(&call));
+            assert!(is_react_hook_call(&JsCallExpression::unwrap_cast(node)));
         }
 
         {

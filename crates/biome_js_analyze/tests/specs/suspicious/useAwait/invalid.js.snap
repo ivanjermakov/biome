@@ -1,9 +1,10 @@
 ---
 source: crates/biome_js_analyze/tests/spec_tests.rs
 expression: invalid.js
+snapshot_kind: text
 ---
 # Input
-```jsx
+```js
 async function fetchData() {
 	return fetch('/data');
 }
@@ -70,13 +71,38 @@ async function withoutForAwait () {
 	return sum;
 };
 
+function Sample(validator) {
+	return (
+		_,
+		__,
+		descriptor
+	) => {
+		const originalMethod = descriptor.value;
+		validator()
+		descriptor.value = async (...args) => originalMethod.apply(this, args);
+		return descriptor;
+	};
+}
+
+class Sample {
+	@Sample()
+	async decoratedBreaks() {
+		return true;
+	}
+
+	@Sample(() => true)
+	async decoratedWithCallbackBreaks() {
+		return true;
+	}
+}
+
 ```
 
 # Diagnostics
 ```
 invalid.js:1:1 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
   > 1 │ async function fetchData() {
       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -104,7 +130,7 @@ invalid.js:1:1 lint/suspicious/useAwait ━━━━━━━━━━━━━�
 ```
 invalid.js:5:2 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     3 │ }
     4 │ 
@@ -136,7 +162,7 @@ invalid.js:5:2 lint/suspicious/useAwait ━━━━━━━━━━━━━�
 ```
 invalid.js:10:2 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
      9 │ const obj = {
   > 10 │ 	async fetchData() {
@@ -166,7 +192,7 @@ invalid.js:10:2 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:16:2 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     15 │ class DataFetcher {
   > 16 │ 	async fetchData() {
@@ -196,7 +222,7 @@ invalid.js:16:2 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:22:2 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     21 │ async function outer() {
   > 22 │ 	async function innerFetchData() {
@@ -226,7 +252,7 @@ invalid.js:22:2 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:21:1 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     19 │ }
     20 │ 
@@ -262,7 +288,7 @@ invalid.js:21:1 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:28:2 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     27 │ async function outer() {
   > 28 │ 	async function innerFetchData() {
@@ -292,7 +318,7 @@ invalid.js:28:2 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:27:1 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     25 │ }
     26 │ 
@@ -330,7 +356,7 @@ invalid.js:27:1 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:34:1 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     32 │ }
     33 │ 
@@ -368,7 +394,7 @@ invalid.js:34:1 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:43:3 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     41 │ async function complexFunction() {
     42 │ 	const obj = {
@@ -400,7 +426,7 @@ invalid.js:43:3 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:49:3 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     48 │ 	class NestedDataFetcher {
   > 49 │ 		async fetchData() {
@@ -430,7 +456,7 @@ invalid.js:49:3 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:41:1 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     39 │ }
     40 │ 
@@ -466,20 +492,19 @@ invalid.js:41:1 lint/suspicious/useAwait ━━━━━━━━━━━━━
 ```
 invalid.js:59:1 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This async function lacks an await expression.
+  i This async function lacks an await expression.
   
     57 │ }
     58 │ 
   > 59 │ async function withoutForAwait () {
        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   > 60 │ 	let sum = 0;
-  > 61 │ 	for (const n of [1, 2, 3]) {
-  > 62 │ 		sum += n
-  > 63 │ 	}
+        ...
   > 64 │ 	return sum;
   > 65 │ };
        │ ^
     66 │ 
+    67 │ function Sample(validator) {
   
   i Remove this async modifier, or add an await expression in the function.
   
@@ -488,17 +513,80 @@ invalid.js:59:1 lint/suspicious/useAwait ━━━━━━━━━━━━━
   > 59 │ async function withoutForAwait () {
        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   > 60 │ 	let sum = 0;
-  > 61 │ 	for (const n of [1, 2, 3]) {
-  > 62 │ 		sum += n
-  > 63 │ 	}
+        ...
   > 64 │ 	return sum;
   > 65 │ };
        │ ^
     66 │ 
+    67 │ function Sample(validator) {
   
   i Async functions without await expressions may not need to be declared async.
   
 
 ```
 
+```
+invalid.js:81:2 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+  i This async function lacks an await expression.
+  
+    80 │ class Sample {
+  > 81 │ 	@Sample()
+       │ 	^^^^^^^^^
+  > 82 │ 	async decoratedBreaks() {
+  > 83 │ 		return true;
+  > 84 │ 	}
+       │ 	^
+    85 │ 
+    86 │ 	@Sample(() => true)
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    80 │ class Sample {
+  > 81 │ 	@Sample()
+       │ 	^^^^^^^^^
+  > 82 │ 	async decoratedBreaks() {
+  > 83 │ 		return true;
+  > 84 │ 	}
+       │ 	^
+    85 │ 
+    86 │ 	@Sample(() => true)
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+```
+
+```
+invalid.js:86:2 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i This async function lacks an await expression.
+  
+    84 │ 	}
+    85 │ 
+  > 86 │ 	@Sample(() => true)
+       │ 	^^^^^^^^^^^^^^^^^^^
+  > 87 │ 	async decoratedWithCallbackBreaks() {
+  > 88 │ 		return true;
+  > 89 │ 	}
+       │ 	^
+    90 │ }
+    91 │ 
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    84 │ 	}
+    85 │ 
+  > 86 │ 	@Sample(() => true)
+       │ 	^^^^^^^^^^^^^^^^^^^
+  > 87 │ 	async decoratedWithCallbackBreaks() {
+  > 88 │ 		return true;
+  > 89 │ 	}
+       │ 	^
+    90 │ }
+    91 │ 
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+```

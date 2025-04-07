@@ -3,14 +3,15 @@
 mod tests;
 
 use crate::CssParserOptions;
-use biome_css_syntax::{CssSyntaxKind, CssSyntaxKind::*, TextLen, TextSize, T};
+use biome_css_syntax::{CssSyntaxKind, CssSyntaxKind::*, T, TextLen, TextSize};
 use biome_parser::diagnostic::ParseDiagnostic;
 use biome_parser::lexer::{
     LexContext, Lexer, LexerCheckpoint, LexerWithCheckpoint, ReLexer, TokenFlags,
 };
 use biome_rowan::SyntaxKind;
 use biome_unicode_table::{
-    is_css_id_continue, is_css_id_start, lookup_byte, Dispatch, Dispatch::*,
+    Dispatch::{self, *},
+    is_css_non_ascii, lookup_byte,
 };
 use std::char::REPLACEMENT_CHARACTER;
 
@@ -36,6 +37,12 @@ pub enum CssLexContext {
     /// support #000 #000f #ffffff #ffffffff
     /// https://drafts.csswg.org/css-color/#typedef-hex-color
     Color,
+
+    /// Applied when lexing CSS unicode range.
+    /// Starting from U+ or u+
+    /// support U+0-9A-F? U+0-9A-F{1,6} U+0-9A-F{1,6}?
+    /// https://drafts.csswg.org/css-fonts/#unicode-range-desc
+    UnicodeRange,
 }
 
 impl LexContext for CssLexContext {
@@ -47,7 +54,12 @@ impl LexContext for CssLexContext {
 
 /// Context in which the [CssLexContext]'s current should be re-lexed.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum CssReLexContext {}
+pub enum CssReLexContext {
+    #[expect(dead_code)]
+    Regular,
+    /// See [CssLexContext::UnicodeRange]
+    UnicodeRange,
+}
 
 /// An extremely fast, lookup table based, lossless CSS lexer
 #[derive(Debug)]
@@ -77,7 +89,7 @@ pub(crate) struct CssLexer<'src> {
 
     diagnostics: Vec<ParseDiagnostic>,
 
-    config: CssParserOptions,
+    options: CssParserOptions,
 }
 
 impl<'src> Lexer<'src> for CssLexer<'src> {
@@ -119,6 +131,7 @@ impl<'src> Lexer<'src> for CssLexer<'src> {
                 CssLexContext::PseudoNthSelector => self.consume_pseudo_nth_selector_token(current),
                 CssLexContext::UrlRawValue => self.consume_url_raw_value_token(current),
                 CssLexContext::Color => self.consume_color_token(current),
+                CssLexContext::UnicodeRange => self.consume_unicode_range_token(current),
             },
             None => EOF,
         };
@@ -197,12 +210,12 @@ impl<'src> CssLexer<'src> {
             current_flags: TokenFlags::empty(),
             position: 0,
             diagnostics: vec![],
-            config: CssParserOptions::default(),
+            options: CssParserOptions::default(),
         }
     }
 
-    pub(crate) fn with_config(self, config: CssParserOptions) -> Self {
-        Self { config, ..self }
+    pub(crate) fn with_options(self, options: CssParserOptions) -> Self {
+        Self { options, ..self }
     }
 
     /// Bumps the current byte and creates a lexed token of the passed in kind
@@ -307,9 +320,12 @@ impl<'src> CssLexer<'src> {
 
             LSS => self.consume_lss(),
 
-            IDT if self.peek_byte() == Some(b'=') => {
+            IDT | DOL if self.peek_byte() == Some(b'=') => {
                 self.advance(1);
                 self.consume_byte(T!["$="])
+            }
+            UNI if self.options.is_metavariable_enabled() && self.is_metavariable_start() => {
+                self.consume_metavariable(GRIT_METAVARIABLE)
             }
             IDT | UNI | BSL if self.is_ident_start() => self.consume_identifier(),
 
@@ -375,24 +391,84 @@ impl<'src> CssLexer<'src> {
         CSS_COLOR_LITERAL
     }
 
-    fn consume_selector_token(&mut self, current: u8) -> CssSyntaxKind {
+    /// Consumes a Unicode range token and returns its corresponding syntax kind.
+    fn consume_unicode_range_token(&mut self, current: u8) -> CssSyntaxKind {
         match current {
-            b' ' => self.consume_byte(CSS_SPACE_LITERAL),
+            b'u' | b'U' if matches!(self.peek_byte(), Some(b'+')) => {
+                self.advance(1);
+                self.consume_byte(T!["U+"])
+            }
+            b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' | b'?' => self.consume_unicode_range(),
+            b'-' => self.consume_byte(T![-]),
             _ => self.consume_token(current),
         }
     }
+
+    /// Consumes a Unicode range and determines its syntax kind.
+    ///
+    /// This method reads consecutive bytes representing valid hexadecimal characters ('0'-'9', 'a'-'f',
+    /// 'A'-'F') or the wildcard character '?'.
+    /// It tracks the length of the range and detects if it contains a wildcard.
+    /// If the length is invalid (either zero or greater than six), it generates
+    /// a `ParseDiagnostic` indicating an invalid Unicode range.
+    fn consume_unicode_range(&mut self) -> CssSyntaxKind {
+        let start = self.text_position();
+        let mut length = 0;
+        let mut is_wildcard = false;
+
+        while matches!(
+            self.current_byte(),
+            Some(b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' | b'?')
+        ) {
+            // If the current byte is a wildcard character, set the wildcard flag to true.
+            if self.current_byte() == Some(b'?') {
+                is_wildcard = true;
+            }
+
+            self.advance(1);
+            length += 1;
+        }
+
+        if length == 0 || length > 6 {
+            let diagnostic = ParseDiagnostic::new(
+                "Invalid unicode range",
+                start..self.text_position(),
+            )
+            .with_hint(
+                "Valid length (minimum 1 or maximum 6 hex digits) in the start of unicode range.",
+            );
+            self.diagnostics.push(diagnostic);
+        }
+
+        if is_wildcard {
+            CSS_UNICODE_RANGE_WILDCARD_LITERAL
+        } else {
+            CSS_UNICODE_CODEPOINT_LITERAL
+        }
+    }
+
+    fn consume_selector_token(&mut self, current: u8) -> CssSyntaxKind {
+        let dispatched = lookup_byte(current);
+
+        match dispatched {
+            WHS => self.consume_byte(CSS_SPACE_LITERAL),
+            _ => self.consume_token(current),
+        }
+    }
+
     fn consume_url_raw_value_token(&mut self, current: u8) -> CssSyntaxKind {
         if let Some(chr) = self.current_byte() {
             let dispatch = lookup_byte(chr);
             return match dispatch {
                 // TLD byte covers `url(~package/tilde.css)`;
                 // HAS byte covers `url(#IDofSVGpath);`
-                IDT | UNI | PRD | SLH | ZER | DIG | TLD | HAS => self.consume_url_raw_value(),
+                IDT | DOL | UNI | PRD | SLH | ZER | DIG | TLD | HAS => self.consume_url_raw_value(),
                 _ => self.consume_token(current),
             };
         }
         self.consume_token(current)
     }
+
     fn consume_url_raw_value(&mut self) -> CssSyntaxKind {
         let start = self.text_position();
         while let Some(chr) = self.current_byte() {
@@ -569,15 +645,21 @@ impl<'src> CssLexer<'src> {
         // While the next input code point is a digit, consume it.
         self.consume_number_sequence();
 
-        // If the next 2 input code points are U+002E FULL STOP (.) followed by a digit...
-        if matches!(self.current_byte(), Some(b'.'))
-            && self.peek_byte().map_or(false, |byte| byte.is_ascii_digit())
-        {
-            // Consume them.
-            self.advance(2);
+        // According to the spec if the next 2 input code points are U+002E FULL STOP (.) followed by a digit we need to consume them.
+        // However we want to parse numbers like `1.` and `1.e10` where we don't have a number after (.)
+        // If the next input code points are U+002E FULL STOP (.)...
+        if matches!(self.current_byte(), Some(b'.')) {
+            // Consume it.
+            self.advance(1);
 
-            // While the next input code point is a digit, consume it.
-            self.consume_number_sequence()
+            // U+002E FULL STOP (.) followed by a digit...
+            if self
+                .current_byte()
+                .is_some_and(|byte| byte.is_ascii_digit())
+            {
+                // While the next input code point is a digit, consume it.
+                self.consume_number_sequence();
+            }
         }
 
         // If the next 2 or 3 input code points are U+0045 LATIN CAPITAL LETTER E (E) or
@@ -837,6 +919,11 @@ impl<'src> CssLexer<'src> {
             b"domain" => DOMAIN_KW,
             b"media-document" => MEDIA_DOCUMENT_KW,
             b"regexp" => REGEXP_KW,
+            b"value" => VALUE_KW,
+            b"as" => AS_KW,
+            b"composes" => COMPOSES_KW,
+            b"position-try" => POSITION_TRY_KW,
+            b"view-transition" => VIEW_TRANSITION_KW,
             _ => IDENT,
         }
     }
@@ -870,13 +957,10 @@ impl<'src> CssLexer<'src> {
         debug_assert!(self.is_ident_start());
 
         let mut idx = 0;
-        let mut is_first = true;
         let mut only_ascii_used = true;
         // Repeatedly consume the next input code point from the stream.
         while let Some(current) = self.current_byte() {
-            if let Some(part) = self.consume_ident_part(current, is_first) {
-                is_first = false;
-
+            if let Some(part) = self.consume_ident_part(current) {
                 if only_ascii_used && !part.is_ascii() {
                     only_ascii_used = false;
                 }
@@ -898,45 +982,32 @@ impl<'src> CssLexer<'src> {
         (idx, only_ascii_used)
     }
 
-    /// Tries to consume a character that forms part of a CSS identifier.
+    /// Consume a character that forms part of a CSS identifier.
     ///
-    /// This function checks if `current` character conforms to the rules for forming
-    /// CSS identifiers, taking into account if it's the first character (`is_first`)
-    /// in the identifier as the first character has some specific rules (like it cannot start with a digit).
+    /// Before calling this function, you should make sure that there is a valid identifier start
+    /// using [Self::is_ident_start].
     ///
     /// Also handles CSS escape sequences in identifiers and attach appropriate diagnostics for invalid cases.
     ///
     /// Returns the consumed character wrapped in `Some` if it is part of an identifier,
     /// and `None` if it is not.
-    fn consume_ident_part(&mut self, current: u8, is_first: bool) -> Option<char> {
-        let dispatched = lookup_byte(current);
-
-        let chr = match dispatched {
-            MIN => {
+    fn consume_ident_part(&mut self, current: u8) -> Option<char> {
+        let chr = match lookup_byte(current) {
+            IDT | MIN | DIG | ZER => {
                 self.advance(1);
-                '-'
+                // SAFETY: We know that the current byte is a hyphen or a number.
+                current as char
             }
             // name code point
-            UNI | IDT => {
+            UNI => {
                 // SAFETY: We know that the current byte is a valid unicode code point
                 let chr = self.current_char_unchecked();
-                let is_id = if is_first {
-                    is_css_id_start(chr)
-                } else {
-                    is_css_id_continue(chr)
-                };
-
-                if is_id {
+                if is_css_non_ascii(chr) {
                     self.advance(chr.len_utf8());
                     chr
                 } else {
                     return None;
                 }
-            }
-            // SAFETY: We know that the current byte is a number and we can use cast.
-            DIG | ZER if !is_first => {
-                self.advance(1);
-                current as char
             }
             // U+005C REVERSE SOLIDUS (\)
             // If the first and second code points are a valid escape, continue consume.
@@ -1024,7 +1095,7 @@ impl<'src> CssLexer<'src> {
                     COMMENT
                 }
             }
-            Some(b'/') if self.config.allow_wrong_line_comments => {
+            Some(b'/') if self.options.allow_wrong_line_comments => {
                 self.advance(2);
 
                 while let Some(chr) = self.current_byte() {
@@ -1156,7 +1227,7 @@ impl<'src> CssLexer<'src> {
 
         let char = self.current_char_unchecked();
         let err = ParseDiagnostic::new(
-            format!("unexpected character `{}`", char),
+            format!("unexpected character `{char}`"),
             self.text_position()..self.text_position() + char.text_len(),
         );
         self.diagnostics.push(err);
@@ -1173,7 +1244,7 @@ impl<'src> CssLexer<'src> {
                 Some(byte) if byte.is_ascii_digit() => true,
                 // Otherwise, if the second code point is a U+002E FULL STOP (.) and the
                 // third code point is a digit, return true.
-                Some(b'.') if self.byte_at(2).map_or(false, |byte| byte.is_ascii_digit()) => true,
+                Some(b'.') if self.byte_at(2).is_some_and(|byte| byte.is_ascii_digit()) => true,
                 _ => false,
             },
             Some(b'.') => match self.peek_byte() {
@@ -1188,10 +1259,10 @@ impl<'src> CssLexer<'src> {
 
     /// Check if the lexer starts an identifier.
     fn is_ident_start(&self) -> bool {
+        // See https://drafts.csswg.org/css-syntax-3/#typedef-ident-token
         let Some(current) = self.current_byte() else {
             return false;
         };
-
         // Look at the first code point:
         match lookup_byte(current) {
             // U+002D HYPHEN-MINUS
@@ -1199,50 +1270,53 @@ impl<'src> CssLexer<'src> {
                 let Some(next) = self.peek_byte() else {
                     return false;
                 };
-
                 match lookup_byte(next) {
                     MIN => {
                         let Some(next) = self.byte_at(2) else {
                             return false;
                         };
-
                         match lookup_byte(next) {
+                            IDT | MIN | DIG | ZER => true,
                             // If the third code point is a name-start code point
                             // return true.
-                            UNI | IDT if is_css_id_start(self.char_unchecked_at(2)) => true,
+                            UNI => is_css_non_ascii(self.char_unchecked_at(2)),
                             // or the third and fourth code points are a valid escape
                             // return true.
                             BSL => self.is_valid_escape_at(3),
                             _ => false,
                         }
                     }
+                    IDT => true,
                     // If the second code point is a name-start code point
                     // return true.
-                    UNI | IDT if is_css_id_start(self.peek_char_unchecked()) => true,
+                    UNI => is_css_non_ascii(self.peek_char_unchecked()),
                     // or the second and third code points are a valid escape
                     // return true.
                     BSL => self.is_valid_escape_at(2),
                     _ => false,
                 }
             }
-            UNI | IDT if is_css_id_start(self.current_char_unchecked()) => true,
+            IDT => true,
+            UNI => is_css_non_ascii(self.current_char_unchecked()),
             // U+005C REVERSE SOLIDUS (\)
             // If the first and second code points are a valid escape, return true. Otherwise,
             // return false.
             BSL => self.is_valid_escape_at(1),
-
             _ => false,
         }
     }
 }
 
 impl<'src> ReLexer<'src> for CssLexer<'src> {
-    fn re_lex(&mut self, _context: Self::ReLexContext) -> Self::Kind {
+    fn re_lex(&mut self, context: Self::ReLexContext) -> Self::Kind {
         let old_position = self.position;
         self.position = u32::from(self.current_start) as usize;
 
         let re_lexed_kind = match self.current_byte() {
-            Some(current) => self.consume_selector_token(current),
+            Some(current) => match context {
+                CssReLexContext::Regular => self.consume_token(current),
+                CssReLexContext::UnicodeRange => self.consume_unicode_range_token(current),
+            },
             None => EOF,
         };
 

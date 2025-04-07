@@ -1,9 +1,8 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, RuleSourceKind, context::RuleContext,
+    declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsLiteralExpression, AnyJsxAttributeValue, JsSyntaxKind, JsxAttribute, JsxAttributeFields, T,
@@ -12,7 +11,7 @@ use biome_rowan::{AstNode, AstNodeExt, BatchMutationExt};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow implicit `true` values on JSX boolean attributes
     ///
     /// ## Examples
@@ -47,9 +46,11 @@ declare_rule! {
     pub NoImplicitBoolean {
         version: "1.0.0",
         name: "noImplicitBoolean",
+        language: "jsx",
         sources: &[RuleSource::EslintReact("jsx-boolean-value")],
         recommended: false,
         fix_kind: FixKind::Safe,
+        source_kind: RuleSourceKind::Inspired,
     }
 }
 
@@ -125,11 +126,11 @@ impl Rule for NoImplicitBoolean {
 
         mutation.replace_node(n.clone(), next_attr);
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Add explicit `true` literal for this attribute" }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Add explicit `true` literal for this attribute" }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

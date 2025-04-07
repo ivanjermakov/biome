@@ -1,28 +1,23 @@
 //! Generated file, do not edit by hand, see `xtask/codegen`
 
-#![allow(clippy::enum_variant_names)]
-#![allow(clippy::match_like_matches_macro)]
+#![allow(dead_code)]
+#![allow(unused)]
 use crate::{
-    macros::map_syntax_node,
     HtmlLanguage as Language, HtmlSyntaxElement as SyntaxElement,
     HtmlSyntaxElementChildren as SyntaxElementChildren,
     HtmlSyntaxKind::{self as SyntaxKind, *},
     HtmlSyntaxList as SyntaxList, HtmlSyntaxNode as SyntaxNode, HtmlSyntaxToken as SyntaxToken,
+    macros::map_syntax_node,
 };
-use biome_rowan::{support, AstNode, RawSyntaxKind, SyntaxKindSet, SyntaxResult};
-#[allow(unused)]
 use biome_rowan::{
-    AstNodeList, AstNodeListIterator, AstNodeSlotMap, AstSeparatedList,
-    AstSeparatedListNodesIterator,
+    AstNode, AstNodeList, AstNodeListIterator, AstNodeSlotMap, AstSeparatedList,
+    AstSeparatedListNodesIterator, RawSyntaxKind, SyntaxKindSet, SyntaxResult, support,
 };
-#[cfg(feature = "serde")]
 use serde::ser::SerializeSeq;
-#[cfg(feature = "serde")]
 use serde::{Serialize, Serializer};
 use std::fmt::{Debug, Formatter};
 #[doc = r" Sentinel value indicating a missing element in a dynamic node, where"]
 #[doc = r" the slots are not statically known."]
-#[allow(dead_code)]
 pub(crate) const SLOT_MAP_EMPTY_VALUE: u8 = u8::MAX;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct HtmlAttribute {
@@ -44,14 +39,13 @@ impl HtmlAttribute {
             initializer: self.initializer(),
         }
     }
-    pub fn name(&self) -> SyntaxResult<HtmlName> {
+    pub fn name(&self) -> SyntaxResult<HtmlAttributeName> {
         support::required_node(&self.syntax, 0usize)
     }
     pub fn initializer(&self) -> Option<HtmlAttributeInitializerClause> {
         support::node(&self.syntax, 1usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlAttribute {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -60,9 +54,9 @@ impl Serialize for HtmlAttribute {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlAttributeFields {
-    pub name: SyntaxResult<HtmlName>,
+    pub name: SyntaxResult<HtmlAttributeName>,
     pub initializer: Option<HtmlAttributeInitializerClause>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -92,7 +86,6 @@ impl HtmlAttributeInitializerClause {
         support::required_node(&self.syntax, 1usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlAttributeInitializerClause {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -101,10 +94,90 @@ impl Serialize for HtmlAttributeInitializerClause {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlAttributeInitializerClauseFields {
     pub eq_token: SyntaxResult<SyntaxToken>,
     pub value: SyntaxResult<HtmlString>,
+}
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct HtmlAttributeName {
+    pub(crate) syntax: SyntaxNode,
+}
+impl HtmlAttributeName {
+    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
+    #[doc = r""]
+    #[doc = r" # Safety"]
+    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
+    #[doc = r" or a match on [SyntaxNode::kind]"]
+    #[inline]
+    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
+        Self { syntax }
+    }
+    pub fn as_fields(&self) -> HtmlAttributeNameFields {
+        HtmlAttributeNameFields {
+            value_token: self.value_token(),
+        }
+    }
+    pub fn value_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 0usize)
+    }
+}
+impl Serialize for HtmlAttributeName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_fields().serialize(serializer)
+    }
+}
+#[derive(Serialize)]
+pub struct HtmlAttributeNameFields {
+    pub value_token: SyntaxResult<SyntaxToken>,
+}
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct HtmlCdataSection {
+    pub(crate) syntax: SyntaxNode,
+}
+impl HtmlCdataSection {
+    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
+    #[doc = r""]
+    #[doc = r" # Safety"]
+    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
+    #[doc = r" or a match on [SyntaxNode::kind]"]
+    #[inline]
+    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
+        Self { syntax }
+    }
+    pub fn as_fields(&self) -> HtmlCdataSectionFields {
+        HtmlCdataSectionFields {
+            cdata_start_token: self.cdata_start_token(),
+            content_token: self.content_token(),
+            cdata_end_token: self.cdata_end_token(),
+        }
+    }
+    pub fn cdata_start_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 0usize)
+    }
+    pub fn content_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 1usize)
+    }
+    pub fn cdata_end_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 2usize)
+    }
+}
+impl Serialize for HtmlCdataSection {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_fields().serialize(serializer)
+    }
+}
+#[derive(Serialize)]
+pub struct HtmlCdataSectionFields {
+    pub cdata_start_token: SyntaxResult<SyntaxToken>,
+    pub content_token: SyntaxResult<SyntaxToken>,
+    pub cdata_end_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct HtmlClosingElement {
@@ -134,14 +207,13 @@ impl HtmlClosingElement {
     pub fn slash_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<HtmlName> {
+    pub fn name(&self) -> SyntaxResult<HtmlTagName> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn r_angle_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 3usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlClosingElement {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -150,12 +222,57 @@ impl Serialize for HtmlClosingElement {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlClosingElementFields {
     pub l_angle_token: SyntaxResult<SyntaxToken>,
     pub slash_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<HtmlName>,
+    pub name: SyntaxResult<HtmlTagName>,
     pub r_angle_token: SyntaxResult<SyntaxToken>,
+}
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct HtmlComment {
+    pub(crate) syntax: SyntaxNode,
+}
+impl HtmlComment {
+    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
+    #[doc = r""]
+    #[doc = r" # Safety"]
+    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
+    #[doc = r" or a match on [SyntaxNode::kind]"]
+    #[inline]
+    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
+        Self { syntax }
+    }
+    pub fn as_fields(&self) -> HtmlCommentFields {
+        HtmlCommentFields {
+            comment_start_token: self.comment_start_token(),
+            content_token: self.content_token(),
+            comment_end_token: self.comment_end_token(),
+        }
+    }
+    pub fn comment_start_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 0usize)
+    }
+    pub fn content_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 1usize)
+    }
+    pub fn comment_end_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 2usize)
+    }
+}
+impl Serialize for HtmlComment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_fields().serialize(serializer)
+    }
+}
+#[derive(Serialize)]
+pub struct HtmlCommentFields {
+    pub comment_start_token: SyntaxResult<SyntaxToken>,
+    pub content_token: SyntaxResult<SyntaxToken>,
+    pub comment_end_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct HtmlContent {
@@ -180,7 +297,6 @@ impl HtmlContent {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlContent {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -189,7 +305,7 @@ impl Serialize for HtmlContent {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlContentFields {
     pub value_token: SyntaxResult<SyntaxToken>,
 }
@@ -244,7 +360,6 @@ impl HtmlDirective {
         support::required_token(&self.syntax, 7usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlDirective {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -253,7 +368,7 @@ impl Serialize for HtmlDirective {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlDirectiveFields {
     pub l_angle_token: SyntaxResult<SyntaxToken>,
     pub excl_token: SyntaxResult<SyntaxToken>,
@@ -295,7 +410,6 @@ impl HtmlElement {
         support::required_node(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlElement {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -304,47 +418,11 @@ impl Serialize for HtmlElement {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlElementFields {
     pub opening_element: SyntaxResult<HtmlOpeningElement>,
     pub children: HtmlElementList,
     pub closing_element: SyntaxResult<HtmlClosingElement>,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct HtmlName {
-    pub(crate) syntax: SyntaxNode,
-}
-impl HtmlName {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> HtmlNameFields {
-        HtmlNameFields {
-            value_token: self.value_token(),
-        }
-    }
-    pub fn value_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for HtmlName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct HtmlNameFields {
-    pub value_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct HtmlOpeningElement {
@@ -371,7 +449,7 @@ impl HtmlOpeningElement {
     pub fn l_angle_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<HtmlName> {
+    pub fn name(&self) -> SyntaxResult<HtmlTagName> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn attributes(&self) -> HtmlAttributeList {
@@ -381,7 +459,6 @@ impl HtmlOpeningElement {
         support::required_token(&self.syntax, 3usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlOpeningElement {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -390,10 +467,10 @@ impl Serialize for HtmlOpeningElement {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlOpeningElementFields {
     pub l_angle_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<HtmlName>,
+    pub name: SyntaxResult<HtmlTagName>,
     pub attributes: HtmlAttributeList,
     pub r_angle_token: SyntaxResult<SyntaxToken>,
 }
@@ -425,14 +502,13 @@ impl HtmlRoot {
     pub fn directive(&self) -> Option<HtmlDirective> {
         support::node(&self.syntax, 1usize)
     }
-    pub fn html(&self) -> Option<AnyHtmlElement> {
-        support::node(&self.syntax, 2usize)
+    pub fn html(&self) -> HtmlElementList {
+        support::list(&self.syntax, 2usize)
     }
     pub fn eof_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 3usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlRoot {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -441,11 +517,11 @@ impl Serialize for HtmlRoot {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlRootFields {
     pub bom_token: Option<SyntaxToken>,
     pub directive: Option<HtmlDirective>,
-    pub html: Option<AnyHtmlElement>,
+    pub html: HtmlElementList,
     pub eof_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -474,20 +550,19 @@ impl HtmlSelfClosingElement {
     pub fn l_angle_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<HtmlName> {
+    pub fn name(&self) -> SyntaxResult<HtmlTagName> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn attributes(&self) -> HtmlAttributeList {
         support::list(&self.syntax, 2usize)
     }
-    pub fn slash_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 3usize)
+    pub fn slash_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, 3usize)
     }
     pub fn r_angle_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlSelfClosingElement {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -496,12 +571,12 @@ impl Serialize for HtmlSelfClosingElement {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlSelfClosingElementFields {
     pub l_angle_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<HtmlName>,
+    pub name: SyntaxResult<HtmlTagName>,
     pub attributes: HtmlAttributeList,
-    pub slash_token: SyntaxResult<SyntaxToken>,
+    pub slash_token: Option<SyntaxToken>,
     pub r_angle_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -527,7 +602,6 @@ impl HtmlString {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -536,12 +610,46 @@ impl Serialize for HtmlString {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct HtmlStringFields {
     pub value_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+pub struct HtmlTagName {
+    pub(crate) syntax: SyntaxNode,
+}
+impl HtmlTagName {
+    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
+    #[doc = r""]
+    #[doc = r" # Safety"]
+    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
+    #[doc = r" or a match on [SyntaxNode::kind]"]
+    #[inline]
+    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
+        Self { syntax }
+    }
+    pub fn as_fields(&self) -> HtmlTagNameFields {
+        HtmlTagNameFields {
+            value_token: self.value_token(),
+        }
+    }
+    pub fn value_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 0usize)
+    }
+}
+impl Serialize for HtmlTagName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_fields().serialize(serializer)
+    }
+}
+#[derive(Serialize)]
+pub struct HtmlTagNameFields {
+    pub value_token: SyntaxResult<SyntaxToken>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyHtmlAttribute {
     HtmlAttribute(HtmlAttribute),
     HtmlBogusAttribute(HtmlBogusAttribute),
@@ -560,10 +668,11 @@ impl AnyHtmlAttribute {
         }
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyHtmlElement {
     HtmlBogusElement(HtmlBogusElement),
+    HtmlCdataSection(HtmlCdataSection),
+    HtmlComment(HtmlComment),
     HtmlContent(HtmlContent),
     HtmlElement(HtmlElement),
     HtmlSelfClosingElement(HtmlSelfClosingElement),
@@ -572,6 +681,18 @@ impl AnyHtmlElement {
     pub fn as_html_bogus_element(&self) -> Option<&HtmlBogusElement> {
         match &self {
             AnyHtmlElement::HtmlBogusElement(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_html_cdata_section(&self) -> Option<&HtmlCdataSection> {
+        match &self {
+            AnyHtmlElement::HtmlCdataSection(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_html_comment(&self) -> Option<&HtmlComment> {
+        match &self {
+            AnyHtmlElement::HtmlComment(item) => Some(item),
             _ => None,
         }
     }
@@ -617,13 +738,22 @@ impl AstNode for HtmlAttribute {
 }
 impl std::fmt::Debug for HtmlAttribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlAttribute")
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "initializer",
-                &support::DebugOptionalElement(self.initializer()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlAttribute")
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "initializer",
+                    &support::DebugOptionalElement(self.initializer()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlAttribute").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlAttribute> for SyntaxNode {
@@ -659,10 +789,19 @@ impl AstNode for HtmlAttributeInitializerClause {
 }
 impl std::fmt::Debug for HtmlAttributeInitializerClause {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlAttributeInitializerClause")
-            .field("eq_token", &support::DebugSyntaxResult(self.eq_token()))
-            .field("value", &support::DebugSyntaxResult(self.value()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlAttributeInitializerClause")
+                .field("eq_token", &support::DebugSyntaxResult(self.eq_token()))
+                .field("value", &support::DebugSyntaxResult(self.value()))
+                .finish()
+        } else {
+            f.debug_struct("HtmlAttributeInitializerClause").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlAttributeInitializerClause> for SyntaxNode {
@@ -672,6 +811,114 @@ impl From<HtmlAttributeInitializerClause> for SyntaxNode {
 }
 impl From<HtmlAttributeInitializerClause> for SyntaxElement {
     fn from(n: HtmlAttributeInitializerClause) -> SyntaxElement {
+        n.syntax.into()
+    }
+}
+impl AstNode for HtmlAttributeName {
+    type Language = Language;
+    const KIND_SET: SyntaxKindSet<Language> =
+        SyntaxKindSet::from_raw(RawSyntaxKind(HTML_ATTRIBUTE_NAME as u16));
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == HTML_ATTRIBUTE_NAME
+    }
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+    fn into_syntax(self) -> SyntaxNode {
+        self.syntax
+    }
+}
+impl std::fmt::Debug for HtmlAttributeName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlAttributeName")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlAttributeName").finish()
+        };
+        DEPTH.set(current_depth);
+        result
+    }
+}
+impl From<HtmlAttributeName> for SyntaxNode {
+    fn from(n: HtmlAttributeName) -> SyntaxNode {
+        n.syntax
+    }
+}
+impl From<HtmlAttributeName> for SyntaxElement {
+    fn from(n: HtmlAttributeName) -> SyntaxElement {
+        n.syntax.into()
+    }
+}
+impl AstNode for HtmlCdataSection {
+    type Language = Language;
+    const KIND_SET: SyntaxKindSet<Language> =
+        SyntaxKindSet::from_raw(RawSyntaxKind(HTML_CDATA_SECTION as u16));
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == HTML_CDATA_SECTION
+    }
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+    fn into_syntax(self) -> SyntaxNode {
+        self.syntax
+    }
+}
+impl std::fmt::Debug for HtmlCdataSection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlCdataSection")
+                .field(
+                    "cdata_start_token",
+                    &support::DebugSyntaxResult(self.cdata_start_token()),
+                )
+                .field(
+                    "content_token",
+                    &support::DebugSyntaxResult(self.content_token()),
+                )
+                .field(
+                    "cdata_end_token",
+                    &support::DebugSyntaxResult(self.cdata_end_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlCdataSection").finish()
+        };
+        DEPTH.set(current_depth);
+        result
+    }
+}
+impl From<HtmlCdataSection> for SyntaxNode {
+    fn from(n: HtmlCdataSection) -> SyntaxNode {
+        n.syntax
+    }
+}
+impl From<HtmlCdataSection> for SyntaxElement {
+    fn from(n: HtmlCdataSection) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -698,21 +945,30 @@ impl AstNode for HtmlClosingElement {
 }
 impl std::fmt::Debug for HtmlClosingElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlClosingElement")
-            .field(
-                "l_angle_token",
-                &support::DebugSyntaxResult(self.l_angle_token()),
-            )
-            .field(
-                "slash_token",
-                &support::DebugSyntaxResult(self.slash_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "r_angle_token",
-                &support::DebugSyntaxResult(self.r_angle_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlClosingElement")
+                .field(
+                    "l_angle_token",
+                    &support::DebugSyntaxResult(self.l_angle_token()),
+                )
+                .field(
+                    "slash_token",
+                    &support::DebugSyntaxResult(self.slash_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "r_angle_token",
+                    &support::DebugSyntaxResult(self.r_angle_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlClosingElement").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlClosingElement> for SyntaxNode {
@@ -722,6 +978,64 @@ impl From<HtmlClosingElement> for SyntaxNode {
 }
 impl From<HtmlClosingElement> for SyntaxElement {
     fn from(n: HtmlClosingElement) -> SyntaxElement {
+        n.syntax.into()
+    }
+}
+impl AstNode for HtmlComment {
+    type Language = Language;
+    const KIND_SET: SyntaxKindSet<Language> =
+        SyntaxKindSet::from_raw(RawSyntaxKind(HTML_COMMENT as u16));
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == HTML_COMMENT
+    }
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+    fn into_syntax(self) -> SyntaxNode {
+        self.syntax
+    }
+}
+impl std::fmt::Debug for HtmlComment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlComment")
+                .field(
+                    "comment_start_token",
+                    &support::DebugSyntaxResult(self.comment_start_token()),
+                )
+                .field(
+                    "content_token",
+                    &support::DebugSyntaxResult(self.content_token()),
+                )
+                .field(
+                    "comment_end_token",
+                    &support::DebugSyntaxResult(self.comment_end_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlComment").finish()
+        };
+        DEPTH.set(current_depth);
+        result
+    }
+}
+impl From<HtmlComment> for SyntaxNode {
+    fn from(n: HtmlComment) -> SyntaxNode {
+        n.syntax
+    }
+}
+impl From<HtmlComment> for SyntaxElement {
+    fn from(n: HtmlComment) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -748,12 +1062,21 @@ impl AstNode for HtmlContent {
 }
 impl std::fmt::Debug for HtmlContent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlContent")
-            .field(
-                "value_token",
-                &support::DebugSyntaxResult(self.value_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlContent")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlContent").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlContent> for SyntaxNode {
@@ -789,37 +1112,46 @@ impl AstNode for HtmlDirective {
 }
 impl std::fmt::Debug for HtmlDirective {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlDirective")
-            .field(
-                "l_angle_token",
-                &support::DebugSyntaxResult(self.l_angle_token()),
-            )
-            .field("excl_token", &support::DebugSyntaxResult(self.excl_token()))
-            .field(
-                "doctype_token",
-                &support::DebugSyntaxResult(self.doctype_token()),
-            )
-            .field(
-                "html_token",
-                &support::DebugOptionalElement(self.html_token()),
-            )
-            .field(
-                "quirk_token",
-                &support::DebugOptionalElement(self.quirk_token()),
-            )
-            .field(
-                "public_id_token",
-                &support::DebugOptionalElement(self.public_id_token()),
-            )
-            .field(
-                "system_id_token",
-                &support::DebugOptionalElement(self.system_id_token()),
-            )
-            .field(
-                "r_angle_token",
-                &support::DebugSyntaxResult(self.r_angle_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlDirective")
+                .field(
+                    "l_angle_token",
+                    &support::DebugSyntaxResult(self.l_angle_token()),
+                )
+                .field("excl_token", &support::DebugSyntaxResult(self.excl_token()))
+                .field(
+                    "doctype_token",
+                    &support::DebugSyntaxResult(self.doctype_token()),
+                )
+                .field(
+                    "html_token",
+                    &support::DebugOptionalElement(self.html_token()),
+                )
+                .field(
+                    "quirk_token",
+                    &support::DebugOptionalElement(self.quirk_token()),
+                )
+                .field(
+                    "public_id_token",
+                    &support::DebugOptionalElement(self.public_id_token()),
+                )
+                .field(
+                    "system_id_token",
+                    &support::DebugOptionalElement(self.system_id_token()),
+                )
+                .field(
+                    "r_angle_token",
+                    &support::DebugSyntaxResult(self.r_angle_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlDirective").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlDirective> for SyntaxNode {
@@ -855,17 +1187,26 @@ impl AstNode for HtmlElement {
 }
 impl std::fmt::Debug for HtmlElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlElement")
-            .field(
-                "opening_element",
-                &support::DebugSyntaxResult(self.opening_element()),
-            )
-            .field("children", &self.children())
-            .field(
-                "closing_element",
-                &support::DebugSyntaxResult(self.closing_element()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlElement")
+                .field(
+                    "opening_element",
+                    &support::DebugSyntaxResult(self.opening_element()),
+                )
+                .field("children", &self.children())
+                .field(
+                    "closing_element",
+                    &support::DebugSyntaxResult(self.closing_element()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlElement").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlElement> for SyntaxNode {
@@ -875,47 +1216,6 @@ impl From<HtmlElement> for SyntaxNode {
 }
 impl From<HtmlElement> for SyntaxElement {
     fn from(n: HtmlElement) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for HtmlName {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> =
-        SyntaxKindSet::from_raw(RawSyntaxKind(HTML_NAME as u16));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == HTML_NAME
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for HtmlName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlName")
-            .field(
-                "value_token",
-                &support::DebugSyntaxResult(self.value_token()),
-            )
-            .finish()
-    }
-}
-impl From<HtmlName> for SyntaxNode {
-    fn from(n: HtmlName) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<HtmlName> for SyntaxElement {
-    fn from(n: HtmlName) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -942,18 +1242,27 @@ impl AstNode for HtmlOpeningElement {
 }
 impl std::fmt::Debug for HtmlOpeningElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlOpeningElement")
-            .field(
-                "l_angle_token",
-                &support::DebugSyntaxResult(self.l_angle_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("attributes", &self.attributes())
-            .field(
-                "r_angle_token",
-                &support::DebugSyntaxResult(self.r_angle_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlOpeningElement")
+                .field(
+                    "l_angle_token",
+                    &support::DebugSyntaxResult(self.l_angle_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("attributes", &self.attributes())
+                .field(
+                    "r_angle_token",
+                    &support::DebugSyntaxResult(self.r_angle_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlOpeningElement").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlOpeningElement> for SyntaxNode {
@@ -989,18 +1298,27 @@ impl AstNode for HtmlRoot {
 }
 impl std::fmt::Debug for HtmlRoot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlRoot")
-            .field(
-                "bom_token",
-                &support::DebugOptionalElement(self.bom_token()),
-            )
-            .field(
-                "directive",
-                &support::DebugOptionalElement(self.directive()),
-            )
-            .field("html", &support::DebugOptionalElement(self.html()))
-            .field("eof_token", &support::DebugSyntaxResult(self.eof_token()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlRoot")
+                .field(
+                    "bom_token",
+                    &support::DebugOptionalElement(self.bom_token()),
+                )
+                .field(
+                    "directive",
+                    &support::DebugOptionalElement(self.directive()),
+                )
+                .field("html", &self.html())
+                .field("eof_token", &support::DebugSyntaxResult(self.eof_token()))
+                .finish()
+        } else {
+            f.debug_struct("HtmlRoot").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlRoot> for SyntaxNode {
@@ -1036,22 +1354,31 @@ impl AstNode for HtmlSelfClosingElement {
 }
 impl std::fmt::Debug for HtmlSelfClosingElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlSelfClosingElement")
-            .field(
-                "l_angle_token",
-                &support::DebugSyntaxResult(self.l_angle_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("attributes", &self.attributes())
-            .field(
-                "slash_token",
-                &support::DebugSyntaxResult(self.slash_token()),
-            )
-            .field(
-                "r_angle_token",
-                &support::DebugSyntaxResult(self.r_angle_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlSelfClosingElement")
+                .field(
+                    "l_angle_token",
+                    &support::DebugSyntaxResult(self.l_angle_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("attributes", &self.attributes())
+                .field(
+                    "slash_token",
+                    &support::DebugOptionalElement(self.slash_token()),
+                )
+                .field(
+                    "r_angle_token",
+                    &support::DebugSyntaxResult(self.r_angle_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlSelfClosingElement").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlSelfClosingElement> for SyntaxNode {
@@ -1087,12 +1414,21 @@ impl AstNode for HtmlString {
 }
 impl std::fmt::Debug for HtmlString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HtmlString")
-            .field(
-                "value_token",
-                &support::DebugSyntaxResult(self.value_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlString")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlString").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<HtmlString> for SyntaxNode {
@@ -1102,6 +1438,56 @@ impl From<HtmlString> for SyntaxNode {
 }
 impl From<HtmlString> for SyntaxElement {
     fn from(n: HtmlString) -> SyntaxElement {
+        n.syntax.into()
+    }
+}
+impl AstNode for HtmlTagName {
+    type Language = Language;
+    const KIND_SET: SyntaxKindSet<Language> =
+        SyntaxKindSet::from_raw(RawSyntaxKind(HTML_TAG_NAME as u16));
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == HTML_TAG_NAME
+    }
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+    fn into_syntax(self) -> SyntaxNode {
+        self.syntax
+    }
+}
+impl std::fmt::Debug for HtmlTagName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("HtmlTagName")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("HtmlTagName").finish()
+        };
+        DEPTH.set(current_depth);
+        result
+    }
+}
+impl From<HtmlTagName> for SyntaxNode {
+    fn from(n: HtmlTagName) -> SyntaxNode {
+        n.syntax
+    }
+}
+impl From<HtmlTagName> for SyntaxElement {
+    fn from(n: HtmlTagName) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -1172,6 +1558,16 @@ impl From<HtmlBogusElement> for AnyHtmlElement {
         AnyHtmlElement::HtmlBogusElement(node)
     }
 }
+impl From<HtmlCdataSection> for AnyHtmlElement {
+    fn from(node: HtmlCdataSection) -> AnyHtmlElement {
+        AnyHtmlElement::HtmlCdataSection(node)
+    }
+}
+impl From<HtmlComment> for AnyHtmlElement {
+    fn from(node: HtmlComment) -> AnyHtmlElement {
+        AnyHtmlElement::HtmlComment(node)
+    }
+}
 impl From<HtmlContent> for AnyHtmlElement {
     fn from(node: HtmlContent) -> AnyHtmlElement {
         AnyHtmlElement::HtmlContent(node)
@@ -1190,18 +1586,27 @@ impl From<HtmlSelfClosingElement> for AnyHtmlElement {
 impl AstNode for AnyHtmlElement {
     type Language = Language;
     const KIND_SET: SyntaxKindSet<Language> = HtmlBogusElement::KIND_SET
+        .union(HtmlCdataSection::KIND_SET)
+        .union(HtmlComment::KIND_SET)
         .union(HtmlContent::KIND_SET)
         .union(HtmlElement::KIND_SET)
         .union(HtmlSelfClosingElement::KIND_SET);
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(
             kind,
-            HTML_BOGUS_ELEMENT | HTML_CONTENT | HTML_ELEMENT | HTML_SELF_CLOSING_ELEMENT
+            HTML_BOGUS_ELEMENT
+                | HTML_CDATA_SECTION
+                | HTML_COMMENT
+                | HTML_CONTENT
+                | HTML_ELEMENT
+                | HTML_SELF_CLOSING_ELEMENT
         )
     }
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let res = match syntax.kind() {
             HTML_BOGUS_ELEMENT => AnyHtmlElement::HtmlBogusElement(HtmlBogusElement { syntax }),
+            HTML_CDATA_SECTION => AnyHtmlElement::HtmlCdataSection(HtmlCdataSection { syntax }),
+            HTML_COMMENT => AnyHtmlElement::HtmlComment(HtmlComment { syntax }),
             HTML_CONTENT => AnyHtmlElement::HtmlContent(HtmlContent { syntax }),
             HTML_ELEMENT => AnyHtmlElement::HtmlElement(HtmlElement { syntax }),
             HTML_SELF_CLOSING_ELEMENT => {
@@ -1214,6 +1619,8 @@ impl AstNode for AnyHtmlElement {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             AnyHtmlElement::HtmlBogusElement(it) => &it.syntax,
+            AnyHtmlElement::HtmlCdataSection(it) => &it.syntax,
+            AnyHtmlElement::HtmlComment(it) => &it.syntax,
             AnyHtmlElement::HtmlContent(it) => &it.syntax,
             AnyHtmlElement::HtmlElement(it) => &it.syntax,
             AnyHtmlElement::HtmlSelfClosingElement(it) => &it.syntax,
@@ -1222,6 +1629,8 @@ impl AstNode for AnyHtmlElement {
     fn into_syntax(self) -> SyntaxNode {
         match self {
             AnyHtmlElement::HtmlBogusElement(it) => it.syntax,
+            AnyHtmlElement::HtmlCdataSection(it) => it.syntax,
+            AnyHtmlElement::HtmlComment(it) => it.syntax,
             AnyHtmlElement::HtmlContent(it) => it.syntax,
             AnyHtmlElement::HtmlElement(it) => it.syntax,
             AnyHtmlElement::HtmlSelfClosingElement(it) => it.syntax,
@@ -1232,6 +1641,8 @@ impl std::fmt::Debug for AnyHtmlElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AnyHtmlElement::HtmlBogusElement(it) => std::fmt::Debug::fmt(it, f),
+            AnyHtmlElement::HtmlCdataSection(it) => std::fmt::Debug::fmt(it, f),
+            AnyHtmlElement::HtmlComment(it) => std::fmt::Debug::fmt(it, f),
             AnyHtmlElement::HtmlContent(it) => std::fmt::Debug::fmt(it, f),
             AnyHtmlElement::HtmlElement(it) => std::fmt::Debug::fmt(it, f),
             AnyHtmlElement::HtmlSelfClosingElement(it) => std::fmt::Debug::fmt(it, f),
@@ -1242,6 +1653,8 @@ impl From<AnyHtmlElement> for SyntaxNode {
     fn from(n: AnyHtmlElement) -> SyntaxNode {
         match n {
             AnyHtmlElement::HtmlBogusElement(it) => it.into(),
+            AnyHtmlElement::HtmlCdataSection(it) => it.into(),
+            AnyHtmlElement::HtmlComment(it) => it.into(),
             AnyHtmlElement::HtmlContent(it) => it.into(),
             AnyHtmlElement::HtmlElement(it) => it.into(),
             AnyHtmlElement::HtmlSelfClosingElement(it) => it.into(),
@@ -1274,7 +1687,22 @@ impl std::fmt::Display for HtmlAttributeInitializerClause {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
+impl std::fmt::Display for HtmlAttributeName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.syntax(), f)
+    }
+}
+impl std::fmt::Display for HtmlCdataSection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.syntax(), f)
+    }
+}
 impl std::fmt::Display for HtmlClosingElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.syntax(), f)
+    }
+}
+impl std::fmt::Display for HtmlComment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
@@ -1290,11 +1718,6 @@ impl std::fmt::Display for HtmlDirective {
     }
 }
 impl std::fmt::Display for HtmlElement {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for HtmlName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
@@ -1319,8 +1742,12 @@ impl std::fmt::Display for HtmlString {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+impl std::fmt::Display for HtmlTagName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.syntax(), f)
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct HtmlBogus {
     syntax: SyntaxNode,
 }
@@ -1376,8 +1803,7 @@ impl From<HtmlBogus> for SyntaxElement {
         n.syntax.into()
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct HtmlBogusAttribute {
     syntax: SyntaxNode,
 }
@@ -1433,8 +1859,7 @@ impl From<HtmlBogusAttribute> for SyntaxElement {
         n.syntax.into()
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct HtmlBogusElement {
     syntax: SyntaxNode,
 }
@@ -1490,6 +1915,7 @@ impl From<HtmlBogusElement> for SyntaxElement {
         n.syntax.into()
     }
 }
+biome_rowan::declare_node_union! { pub AnyHtmlBogusNode = HtmlBogus | HtmlBogusAttribute | HtmlBogusElement }
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct HtmlAttributeList {
     syntax_list: SyntaxList,
@@ -1530,7 +1956,6 @@ impl AstNode for HtmlAttributeList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlAttributeList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1613,7 +2038,6 @@ impl AstNode for HtmlElementList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for HtmlElementList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

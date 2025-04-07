@@ -1,9 +1,7 @@
 use biome_analyze::RuleSource;
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsExpression, AnyJsMemberExpression, AnyJsName, JsLogicalExpression, JsLogicalOperator,
@@ -16,10 +14,10 @@ use std::iter;
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce using concise optional chain instead of chained logical expressions.
     ///
-    /// TypeScript 3.7 added support for the optional chain operator.
+    /// TypeScript 3.7 introduced support for the optional chain operator, which was later standardized and included in the ECMAScript specification.
     /// This operator allows you to safely access properties and methods on objects when they are potentially `null` or `undefined`.
     /// The optional chain operator only chains when the property value is `null` or `undefined`.
     /// It is much safer than relying upon logical operator chaining; which chains on any truthy value.
@@ -76,8 +74,10 @@ declare_rule! {
     pub UseOptionalChain {
         version: "1.0.0",
         name: "useOptionalChain",
+        language: "js",
         sources: &[RuleSource::EslintTypeScript("prefer-optional-chain")],
         recommended: true,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -200,12 +200,12 @@ impl Rule for UseOptionalChain {
 
                 let mut mutation = ctx.root().begin();
                 mutation.replace_node(AnyJsExpression::from(logical.clone()), replacement);
-                Some(JsRuleAction {
-                    category: ActionCategory::QuickFix,
-                    applicability: Applicability::MaybeIncorrect,
-                    message: markup! { "Change to an optional chain." }.to_owned(),
+                Some(JsRuleAction::new(
+                    ctx.metadata().action_category(ctx.category(), ctx.group()),
+                    ctx.metadata().applicability(),
+                    markup! { "Change to an optional chain." }.to_owned(),
                     mutation,
-                })
+                ))
             }
             UseOptionalChainState::LogicalOrLike(chain) => {
                 let chain = chain.optional_chain_expression_nodes();
@@ -248,12 +248,12 @@ impl Rule for UseOptionalChain {
                 let (prev_member, new_member) = prev_chain?;
                 let mut mutation = ctx.root().begin();
                 mutation.replace_node(prev_member, new_member);
-                Some(JsRuleAction {
-                    category: ActionCategory::QuickFix,
-                    applicability: Applicability::MaybeIncorrect,
-                    message: markup! { "Change to an optional chain." }.to_owned(),
+                Some(JsRuleAction::new(
+                    ctx.metadata().action_category(ctx.category(), ctx.group()),
+                    ctx.metadata().applicability(),
+                    markup! { "Change to an optional chain." }.to_owned(),
                     mutation,
-                })
+                ))
             }
         }
     }
@@ -529,8 +529,8 @@ impl LogicalAndChain {
                 // they should be considered different even if `main_value_token`
                 // and `branch_value_token` are the same.
                 // Therefore, we need to check their arguments here.
-                if main_call_expression_args.args().text()
-                    != branch_call_expression_args.args().text()
+                if main_call_expression_args.args().to_trimmed_string()
+                    != branch_call_expression_args.args().to_trimmed_string()
                 {
                     return Ok(LogicalAndChainOrdering::Different);
                 }
@@ -753,7 +753,7 @@ impl LogicalOrLikeChain {
     /// ### Example
     /// `(foo ?? {}).bar` is inside `((foo ?? {}).bar || {}).baz;`
     fn is_inside_another_chain(&self) -> bool {
-        LogicalOrLikeChain::get_chain_parent(&self.member).map_or(false, |parent| {
+        LogicalOrLikeChain::get_chain_parent(&self.member).is_some_and(|parent| {
             parent
                 .as_js_logical_expression()
                 .filter(|parent_expression| {
@@ -785,7 +785,7 @@ impl LogicalOrLikeChain {
             // E.g. (((foo || {}))).bar;
             let object = object.omit_parentheses();
             if let AnyJsExpression::JsLogicalExpression(logical) = object {
-                let is_valid_operator = logical.operator().map_or(false, |operator| {
+                let is_valid_operator = logical.operator().is_ok_and(|operator| {
                     matches!(
                         operator,
                         JsLogicalOperator::NullishCoalescing | JsLogicalOperator::LogicalOr

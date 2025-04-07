@@ -11,10 +11,8 @@ use crate::fmt::{Display, Formatter, MarkupElements, Write};
 
 /// Enumeration of all the supported markup elements
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum MarkupElement<'fmt> {
     Emphasis,
     Dim,
@@ -73,13 +71,10 @@ impl MarkupElement<'_> {
             MarkupElement::Warn => {
                 color.set_fg(Some(Color::Yellow));
             }
-            MarkupElement::Info => {
-                color.set_fg(Some(Color::Green));
-            }
             MarkupElement::Trace => {
                 color.set_fg(Some(Color::Magenta));
             }
-            MarkupElement::Debug => {
+            MarkupElement::Info | MarkupElement::Debug => {
                 // Blue is really difficult to see on the standard windows command line
                 #[cfg(windows)]
                 const BLUE: Color = Color::Cyan;
@@ -125,10 +120,8 @@ pub struct MarkupNode<'fmt> {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct MarkupNodeBuf {
     pub elements: Vec<MarkupElement<'static>>,
     pub content: String,
@@ -184,19 +177,36 @@ impl Markup<'_> {
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct MarkupBuf(pub Vec<MarkupNodeBuf>);
 
 impl MarkupBuf {
+    /// Extends the buffer with additional markup.
+    ///
+    /// ## Example
+    ///
+    /// ```rs
+    /// let mut markup = markup!(<Info>"Hello"</Info>).to_owned();
+    /// markup.extend_with(markup!(<Info>"world"</Info>));
+    /// ```
+    pub fn extend_with(&mut self, markup: Markup) {
+        // SAFETY: The implementation of Write for MarkupBuf below always returns Ok
+        Formatter::new(self).write_markup(markup).unwrap();
+    }
+
     pub fn is_empty(&self) -> bool {
         self.0.iter().all(|node| node.content.is_empty())
     }
 
     pub fn len(&self) -> TextSize {
         self.0.iter().map(|node| TextSize::of(&node.content)).sum()
+    }
+
+    pub fn text_len(&self) -> usize {
+        self.0
+            .iter()
+            .fold(0, |acc, string| acc + string.content.len())
     }
 }
 

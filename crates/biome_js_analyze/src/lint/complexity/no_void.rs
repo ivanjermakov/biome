@@ -1,9 +1,11 @@
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{
+    Ast, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
+};
 use biome_console::markup;
 use biome_js_syntax::JsUnaryExpression;
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of `void` operators, which is not a familiar operator.
     ///
     /// > The `void` operator is often used merely to obtain the undefined primitive value,
@@ -20,6 +22,7 @@ declare_rule! {
     pub NoVoid {
         version: "1.0.0",
         name: "noVoid",
+        language: "js",
         sources: &[RuleSource::Eslint("no-void")],
         recommended: false,
     }

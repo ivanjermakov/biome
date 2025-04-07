@@ -1,32 +1,27 @@
 use crate::parser::{
-    directive::DirectiveList,
-    is_at_name, parse_description,
-    parse_error::{expected_name, expected_named_type},
-    parse_name,
-    r#type::parse_named_type,
-    value::is_at_string,
     GraphqlParser,
+    directive::DirectiveList,
+    is_nth_at_name, is_nth_at_non_kw_name, parse_binding, parse_description,
+    parse_error::{expected_name, expected_named_type, expected_union_extension},
+    parse_reference,
+    r#type::parse_named_type,
 };
 use biome_graphql_syntax::{
     GraphqlSyntaxKind::{self, *},
     T,
 };
 use biome_parser::{
+    Parser,
     parse_lists::{ParseNodeList, ParseSeparatedList},
     parse_recovery::ParseRecovery,
     parsed_syntax::ParsedSyntax,
     prelude::ParsedSyntax::*,
-    token_source::TokenSource,
-    Parser,
 };
 
 use super::is_at_definition;
 
 #[inline]
 pub(crate) fn parse_union_type_definition(p: &mut GraphqlParser) -> ParsedSyntax {
-    if !is_at_union_type_definition(p) {
-        return Absent;
-    }
     let m = p.start();
 
     // description is optional
@@ -34,7 +29,7 @@ pub(crate) fn parse_union_type_definition(p: &mut GraphqlParser) -> ParsedSyntax
 
     p.bump(T![union]);
 
-    parse_name(p).or_add_diagnostic(p, expected_name);
+    parse_binding(p).or_add_diagnostic(p, expected_name);
 
     DirectiveList.parse_list(p);
 
@@ -44,6 +39,28 @@ pub(crate) fn parse_union_type_definition(p: &mut GraphqlParser) -> ParsedSyntax
     Present(m.complete(p, GRAPHQL_UNION_TYPE_DEFINITION))
 }
 
+/// Must only be called if the next 2 token is `extend` and `union`, otherwise it will panic.
+#[inline]
+pub(super) fn parse_union_type_extension(p: &mut GraphqlParser) -> ParsedSyntax {
+    let m = p.start();
+
+    p.bump(T![extend]);
+    p.bump(T![union]);
+
+    parse_reference(p).or_add_diagnostic(p, expected_name);
+
+    let directive_list = DirectiveList.parse_list(p);
+    let directive_empty = directive_list.range(p).is_empty();
+
+    let union_members_empty = parse_union_member_types(p).is_absent();
+
+    if directive_empty && union_members_empty {
+        p.error(expected_union_extension(p, p.cur_range()));
+    }
+
+    Present(m.complete(p, GRAPHQL_UNION_TYPE_EXTENSION))
+}
+
 #[inline]
 fn parse_union_member_types(p: &mut GraphqlParser) -> ParsedSyntax {
     if !is_at_union_member_types(p) {
@@ -51,18 +68,10 @@ fn parse_union_member_types(p: &mut GraphqlParser) -> ParsedSyntax {
     }
     let m = p.start();
     p.expect(T![=]);
+    p.eat(T![|]); // leading pipe separator is optional
 
-    if p.at(T![|]) {
-        p.bump(T![|]);
-    }
-
-    let position = p.source().position();
     UnionMemberTypeList.parse_list(p);
 
-    // has not progressed, meaning no union member types were parsed
-    if position == p.source().position() {
-        p.error(expected_named_type(p, p.cur_range()));
-    }
     Present(m.complete(p, GRAPHQL_UNION_MEMBER_TYPES))
 }
 
@@ -76,7 +85,7 @@ impl ParseSeparatedList for UnionMemberTypeList {
     const LIST_KIND: Self::Kind = GRAPHQL_UNION_MEMBER_TYPE_LIST;
 
     fn parse_element(&mut self, p: &mut Self::Parser<'_>) -> ParsedSyntax {
-        parse_named_type(p)
+        parse_union_member(p)
     }
 
     fn is_at_list_end(&self, p: &mut Self::Parser<'_>) -> bool {
@@ -98,6 +107,10 @@ impl ParseSeparatedList for UnionMemberTypeList {
     fn allow_trailing_separating_element(&self) -> bool {
         false
     }
+
+    fn allow_empty(&self) -> bool {
+        false
+    }
 }
 
 struct UnionMemberListParseRecovery;
@@ -109,28 +122,42 @@ impl ParseRecovery for UnionMemberListParseRecovery {
 
     fn is_at_recovered(&self, p: &mut Self::Parser<'_>) -> bool {
         p.at(T![|])
-        // After a union definition is a new type definition so it's safe to
-        // assume any name we see before a new type definition is a union
-        // member type
-        || is_at_name(p)
+        // We should only recover at a non kw name token, as a kw name token
+        // could be the start of a new type definition
+        || is_nth_at_non_kw_name(p, 0)
         || is_at_union_member_types_end(p)
     }
 }
 
 #[inline]
-pub(crate) fn is_at_union_type_definition(p: &mut GraphqlParser<'_>) -> bool {
-    p.at(T![union]) || (is_at_string(p) && p.nth_at(1, T![union]))
+fn parse_union_member(p: &mut GraphqlParser) -> ParsedSyntax {
+    if !is_at_union_member(p) {
+        return Absent;
+    }
+
+    parse_named_type(p)
+}
+
+/// We must enforce either a `=`, `|`, or a non kw name token to be present, as
+/// a union member can be keyword, which could be the start of a new type
+/// definition
+/// ```graphql
+/// union FirstUnion
+/// union MyUnion = String
+/// ```
+#[inline]
+fn is_at_union_member_types(p: &mut GraphqlParser<'_>) -> bool {
+    p.at(T![=]) || p.at(T![|]) || is_nth_at_non_kw_name(p, 0)
 }
 
 #[inline]
-fn is_at_union_member_types(p: &mut GraphqlParser<'_>) -> bool {
-    p.at(T![=])
-    // missing =
-    || p.at(T![|])
-    // missing both = and |. After a union definition is a new type definition
-    // so it's safe to assume any name we see before a new type definition is
-    // a union member type
-    || is_at_name(p)
+fn is_at_union_member(p: &mut GraphqlParser<'_>) -> bool {
+    is_nth_at_non_kw_name(p, 0)
+    // if this token is a keyword and the next token is a non keyword name,
+    // it's moke likely that this is a new type definition
+    // 2 consecutive kw is allowed, as one kw would be a valid type name and
+    // the other the start of a new type definition
+    || (is_nth_at_name(p, 0) && !is_nth_at_non_kw_name(p, 1))
 }
 
 #[inline]

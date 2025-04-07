@@ -1,12 +1,10 @@
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic};
 use biome_analyze::{Ast, RuleSource, RuleSourceKind};
+use biome_analyze::{Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_js_syntax::{
-    JsExport, JsExportFromClause, JsExportNamedFromClause, JsFileSource, JsModule,
-};
+use biome_js_syntax::{JsExport, JsExportFromClause, JsExportNamedFromClause, JsModule};
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of barrel file.
     ///
     /// A barrel file is a file that re-exports all of the exports from other files in a directory.
@@ -20,17 +18,17 @@ declare_rule! {
     ///
     /// ### Invalid
     ///
-    /// ```ts,expect_diagnostic
+    /// ```js,expect_diagnostic
     /// export * from "foo";
     /// export * from "bar";
     /// ```
     ///
-    /// ```ts,expect_diagnostic
+    /// ```js,expect_diagnostic
     /// export { foo } from "foo";
     /// export { bar } from "bar";
     /// ```
     ///
-    /// ```ts,expect_diagnostic
+    /// ```js,expect_diagnostic
     /// export { default as module1 } from "./module1";
     /// ```
     ///
@@ -44,6 +42,7 @@ declare_rule! {
     pub NoBarrelFile {
         version: "1.6.0",
         name: "noBarrelFile",
+        language: "js",
         recommended: false,
         sources: &[RuleSource::EslintBarrelFiles("avoid-barrel-files")],
         source_kind: RuleSourceKind::Inspired,
@@ -57,20 +56,12 @@ impl Rule for NoBarrelFile {
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
-        if ctx
-            .source_type::<JsFileSource>()
-            .language()
-            .is_definition_file()
-        {
-            return None;
-        }
         let items = ctx.query().items();
-
-        for i in items {
-            if let Some(export) = JsExport::cast(i.into()) {
+        for item in items {
+            if let Some(export) = JsExport::cast(item.into()) {
                 if let Ok(export_from_clause) = export.export_clause() {
                     if let Some(export_from_clause) =
-                        JsExportFromClause::cast(export_from_clause.clone().into())
+                        JsExportFromClause::cast_ref(export_from_clause.syntax())
                     {
                         if export_from_clause.type_token().is_none() {
                             return Some(export);
@@ -78,7 +69,7 @@ impl Rule for NoBarrelFile {
                     }
 
                     if let Some(export_from_clause) =
-                        JsExportNamedFromClause::cast(export_from_clause.into())
+                        JsExportNamedFromClause::cast(export_from_clause.into_syntax())
                     {
                         if export_from_clause.type_token().is_some() {
                             continue;

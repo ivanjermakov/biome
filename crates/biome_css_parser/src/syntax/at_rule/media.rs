@@ -1,8 +1,11 @@
 use super::parse_error::expected_media_query;
 use crate::parser::CssParser;
 use crate::syntax::at_rule::feature::parse_any_query_feature;
-use crate::syntax::block::parse_rule_block;
-use crate::syntax::{is_at_identifier, is_nth_at_identifier, parse_regular_identifier};
+use crate::syntax::block::parse_conditional_block;
+use crate::syntax::{
+    is_at_identifier, is_at_metavariable, is_nth_at_identifier, parse_metavariable,
+    parse_regular_identifier,
+};
 use biome_css_syntax::CssSyntaxKind::*;
 use biome_css_syntax::{CssSyntaxKind, T};
 use biome_parser::parse_lists::ParseSeparatedList;
@@ -28,7 +31,7 @@ pub(crate) fn parse_media_at_rule(p: &mut CssParser) -> ParsedSyntax {
 
     MediaQueryList::new(T!['{']).parse_list(p);
 
-    parse_rule_block(p);
+    parse_conditional_block(p);
 
     Present(m.complete(p, CSS_MEDIA_AT_RULE))
 }
@@ -77,10 +80,14 @@ impl ParseSeparatedList for MediaQueryList {
 fn parse_any_media_query(p: &mut CssParser) -> ParsedSyntax {
     if is_at_media_type_query(p) {
         parse_any_media_type_query(p)
-    } else {
+    } else if is_at_metavariable(p) {
+        parse_metavariable(p)
+    } else if is_at_any_media_condition(p) {
         let m = p.start();
         parse_any_media_condition(p).ok(); // TODO handle error
         Present(m.complete(p, CSS_MEDIA_CONDITION_QUERY))
+    } else {
+        Absent
     }
 }
 

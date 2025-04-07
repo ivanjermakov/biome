@@ -1,15 +1,16 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, AddVisitor, Phases, QueryMatch, Queryable, Rule,
-    RuleDiagnostic, RuleSource, RuleSourceKind, ServiceBag, Visitor,
+    AddVisitor, Phases, QueryMatch, Queryable, Rule, RuleDiagnostic, RuleDomain, RuleSource,
+    RuleSourceKind, ServiceBag, Visitor, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
-    assign_ext::AnyJsMemberAssignment, AnyJsExpression, AnyJsRoot, JsAssignmentExpression,
-    JsCallExpression, JsExport, JsLanguage,
+    AnyJsExpression, AnyJsRoot, JsAssignmentExpression, JsCallExpression, JsExport, JsLanguage,
+    assign_ext::AnyJsMemberAssignment,
 };
-use biome_rowan::{declare_node_union, AstNode, Language, TextRange, WalkEvent};
+use biome_rowan::{AstNode, Language, TextRange, WalkEvent, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow using `export` or `module.exports` in files containing tests
     ///
     /// This rule aims to eliminate duplicate runs of tests by exporting things from test files.
@@ -39,9 +40,12 @@ declare_rule! {
     pub NoExportsInTest {
         version: "1.6.0",
         name: "noExportsInTest",
+        language: "js",
         recommended: true,
+        severity: Severity::Error,
         sources: &[RuleSource::EslintJest("no-export")],
         source_kind: RuleSourceKind::Inspired,
+        domains: &[RuleDomain::Test],
     }
 }
 
@@ -55,7 +59,7 @@ impl MaybeExport {
             MaybeExport::JsExport(_) => true,
             MaybeExport::JsAssignmentExpression(assignment_expr) => {
                 let left = assignment_expr.left().ok();
-                left.and_then(|left| AnyJsMemberAssignment::try_cast_node(left).ok())
+                left.and_then(|left| AnyJsMemberAssignment::cast(left.into_syntax()))
                     .is_some_and(|member_expr| {
                         let object = member_expr.object().ok();
                         object.is_some_and(|object| match object {
@@ -63,9 +67,10 @@ impl MaybeExport {
                                 AnyJsMemberAssignment::JsComputedMemberAssignment(_) => false,
                                 AnyJsMemberAssignment::JsStaticMemberAssignment(static_member) => {
                                     // module.exports = {}
-                                    let indent_text = ident.text();
-                                    let member_text =
-                                        static_member.member().map(|member| member.text());
+                                    let indent_text = ident.to_trimmed_string();
+                                    let member_text = static_member
+                                        .member()
+                                        .map(|member| member.to_trimmed_string());
                                     indent_text == "module"
                                         && member_text
                                             .is_ok_and(|member_text| member_text == "exports")
@@ -73,8 +78,12 @@ impl MaybeExport {
                             },
                             AnyJsExpression::JsStaticMemberExpression(member_expr) => {
                                 // modules.exports.foo = {}, module.exports[foo] = {}
-                                let object_text = member_expr.object().map(|object| object.text());
-                                let member_text = member_expr.member().map(|member| member.text());
+                                let object_text = member_expr
+                                    .object()
+                                    .map(|object| object.to_trimmed_string());
+                                let member_text = member_expr
+                                    .member()
+                                    .map(|member| member.to_trimmed_string());
                                 object_text.is_ok_and(|text| text == "module")
                                     && member_text.is_ok_and(|member_text| member_text == "exports")
                             }
@@ -110,7 +119,32 @@ impl Visitor for AnyExportInTestVisitor {
 
                 if !self.has_test {
                     if let Some(call_expr) = JsCallExpression::cast_ref(node) {
-                        self.has_test = call_expr.is_test_call_expression().unwrap_or(false);
+                        self.has_test = call_expr
+                            .is_test_call_expression()
+                            .ok()
+                            .and_then(|is_test_call_expr| {
+                                if is_test_call_expr {
+                                    // Ensure the test call is at the top level to avoid mistakenly identifying files with in-source testing as test files.
+                                    // Example:
+                                    // ```js
+                                    // if (import.meta.vitest) {
+                                    //   const { describe, expect } = import.meta.vitest;
+                                    //   describe("a test", () => {
+                                    //     expect(test).toEqual("");
+                                    //   });
+                                    // }
+                                    // ```
+                                    // The ancestors of the top-level call expression are:
+                                    // [JsScript, JsStatementList, JsExpressionStatement, JsCallExpression]
+                                    // [JsModule, JsModuleItemList, JsExpressionStatement, JsCallExpression]
+                                    //
+                                    // **Note**: The ancestors start with the current node.
+                                    Some(call_expr.syntax().ancestors().count() == 4)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(false);
                     }
                 }
             }

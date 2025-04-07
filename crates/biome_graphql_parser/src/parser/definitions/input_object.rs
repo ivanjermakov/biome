@@ -1,26 +1,23 @@
 use crate::parser::{
-    directive::DirectiveList, parse_description, parse_error::expected_name, parse_name,
-    value::is_at_string, GraphqlParser,
+    GraphqlParser,
+    directive::DirectiveList,
+    parse_binding, parse_description,
+    parse_error::{expected_input_object_extension, expected_name},
+    parse_reference,
 };
 use biome_graphql_syntax::{
     GraphqlSyntaxKind::{self, *},
     T,
 };
 use biome_parser::{
-    parse_lists::ParseNodeList, parse_recovery::ParseRecovery, parsed_syntax::ParsedSyntax,
-    prelude::ParsedSyntax::*, Parser,
+    Parser, parse_lists::ParseNodeList, parse_recovery::ParseRecovery, parsed_syntax::ParsedSyntax,
+    prelude::ParsedSyntax::*,
 };
 
-use super::{
-    field::{is_at_input_value_definition, parse_input_value_definition},
-    is_at_definition,
-};
+use super::field::{is_at_input_value_definition, parse_input_value_definition};
 
 #[inline]
 pub(crate) fn parse_input_object_type_definition(p: &mut GraphqlParser) -> ParsedSyntax {
-    if !is_at_input_object_type_definition(p) {
-        return Absent;
-    }
     let m = p.start();
 
     // description is optional
@@ -28,7 +25,7 @@ pub(crate) fn parse_input_object_type_definition(p: &mut GraphqlParser) -> Parse
 
     p.bump(T![input]);
 
-    parse_name(p).or_add_diagnostic(p, expected_name);
+    parse_binding(p).or_add_diagnostic(p, expected_name);
 
     DirectiveList.parse_list(p);
 
@@ -36,6 +33,28 @@ pub(crate) fn parse_input_object_type_definition(p: &mut GraphqlParser) -> Parse
     parse_input_fields_definition(p).ok();
 
     Present(m.complete(p, GRAPHQL_INPUT_OBJECT_TYPE_DEFINITION))
+}
+
+/// Must only be called if the next 2 token is `extend` and `input`, otherwise it will panic.
+#[inline]
+pub(crate) fn parse_input_object_type_extension(p: &mut GraphqlParser) -> ParsedSyntax {
+    let m = p.start();
+
+    p.bump(T![extend]);
+    p.expect(T![input]);
+
+    parse_reference(p).or_add_diagnostic(p, expected_name);
+
+    let directive_list = DirectiveList.parse_list(p);
+    let directive_empty = directive_list.range(p).is_empty();
+
+    let input_fields_empty = parse_input_fields_definition(p).is_absent();
+
+    if directive_empty && input_fields_empty {
+        p.error(expected_input_object_extension(p, p.cur_range()));
+    }
+
+    Present(m.complete(p, GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION))
 }
 
 #[inline]
@@ -91,11 +110,6 @@ impl ParseRecovery for InputFieldListParseRecovery {
 }
 
 #[inline]
-pub(crate) fn is_at_input_object_type_definition(p: &mut GraphqlParser) -> bool {
-    p.at(T![input]) || (is_at_string(p) && p.nth_at(1, T![input]))
-}
-
-#[inline]
 fn is_at_input_fields_definition(p: &mut GraphqlParser) -> bool {
     p.at(T!['{'])
     // missing opening brace
@@ -104,5 +118,7 @@ fn is_at_input_fields_definition(p: &mut GraphqlParser) -> bool {
 
 #[inline]
 fn is_input_fields_end(p: &mut GraphqlParser) -> bool {
-    p.at(T!['}']) || is_at_definition(p)
+    p.at(T!['}'])
+    // start of next definition body, since input fields can't be nested
+    || p.at(T!['{'])
 }

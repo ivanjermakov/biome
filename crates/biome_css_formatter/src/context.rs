@@ -1,9 +1,9 @@
 use crate::CssCommentStyle;
-use biome_formatter::{prelude::*, AttributePosition, IndentWidth, QuoteStyle};
 use biome_formatter::{
     CstFormatContext, FormatContext, FormatOptions, IndentStyle, LineEnding, LineWidth,
     TransformSourceMap,
 };
+use biome_formatter::{IndentWidth, QuoteStyle, prelude::*};
 
 use crate::comments::{CssComments, FormatCssLeadingComment};
 use biome_css_syntax::{CssFileSource, CssLanguage};
@@ -55,14 +55,13 @@ impl CstFormatContext for CssFormatContext {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct CssFormatOptions {
     indent_style: IndentStyle,
     indent_width: IndentWidth,
     line_ending: LineEnding,
     line_width: LineWidth,
     quote_style: QuoteStyle,
-    attribute_position: AttributePosition,
     _file_source: CssFileSource,
 }
 
@@ -75,7 +74,6 @@ impl CssFormatOptions {
             line_ending: LineEnding::default(),
             line_width: LineWidth::default(),
             quote_style: QuoteStyle::default(),
-            attribute_position: AttributePosition::default(),
         }
     }
 
@@ -138,20 +136,16 @@ impl FormatOptions for CssFormatOptions {
         self.indent_width
     }
 
-    fn line_ending(&self) -> LineEnding {
-        self.line_ending
-    }
-
     fn line_width(&self) -> LineWidth {
         self.line_width
     }
 
-    fn as_print_options(&self) -> PrinterOptions {
-        PrinterOptions::from(self)
+    fn line_ending(&self) -> LineEnding {
+        self.line_ending
     }
 
-    fn attribute_position(&self) -> AttributePosition {
-        self.attribute_position
+    fn as_print_options(&self) -> PrinterOptions {
+        PrinterOptions::from(self)
     }
 }
 
@@ -160,7 +154,7 @@ impl fmt::Display for CssFormatOptions {
         writeln!(f, "Indent style: {}", self.indent_style)?;
         writeln!(f, "Indent width: {}", self.indent_width.value())?;
         writeln!(f, "Line ending: {}", self.line_ending)?;
-        writeln!(f, "Line width: {}", self.line_width.get())?;
+        writeln!(f, "Line width: {}", self.line_width.value())?;
         writeln!(f, "Quote style: {}", self.quote_style)
     }
 }

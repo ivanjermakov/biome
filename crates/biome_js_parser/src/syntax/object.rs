@@ -1,16 +1,17 @@
-#[allow(deprecated)]
-use crate::parser::single_token_parse_recovery::SingleTokenParseRecovery;
+use crate::JsSyntaxFeature::TypeScript;
 use crate::parser::ParsedSyntax::{Absent, Present};
+#[expect(deprecated)]
+use crate::parser::single_token_parse_recovery::SingleTokenParseRecovery;
 use crate::parser::{ParsedSyntax, RecoveryResult};
 use crate::prelude::*;
 use crate::state::{EnterParameters, SignatureFlags};
 use crate::syntax::class::parse_decorators;
 use crate::syntax::expr::{
-    is_nth_at_reference_identifier, parse_assignment_expression_or_higher, parse_expression,
-    parse_reference_identifier, ExpressionContext,
+    ExpressionContext, is_nth_at_reference_identifier, parse_assignment_expression_or_higher,
+    parse_expression, parse_reference_identifier,
 };
 use crate::syntax::function::{
-    parse_formal_parameter, parse_function_body, parse_parameter_list, ParameterContext,
+    ParameterContext, parse_formal_parameter, parse_function_body, parse_parameter_list,
 };
 use crate::syntax::js_parse_error;
 use crate::syntax::js_parse_error::decorators_not_allowed;
@@ -18,14 +19,15 @@ use crate::syntax::typescript::ts_parse_error::{
     ts_accessor_type_parameters_error, ts_only_syntax_error, ts_set_accessor_return_type_error,
 };
 use crate::syntax::typescript::{
-    parse_ts_return_type_annotation, parse_ts_type_annotation, parse_ts_type_parameters,
-    TypeContext,
+    TypeContext, parse_ts_return_type_annotation, parse_ts_type_annotation,
+    parse_ts_type_parameters,
 };
-use crate::JsSyntaxFeature::TypeScript;
 use crate::{JsParser, ParseRecoveryTokenSet};
 use biome_js_syntax::JsSyntaxKind::*;
 use biome_js_syntax::{JsSyntaxKind, T};
 use biome_parser::parse_lists::ParseSeparatedList;
+
+use super::metavariable::parse_metavariable;
 
 // test js object_expr
 // let a = {};
@@ -112,6 +114,8 @@ fn parse_object_member(p: &mut JsParser) -> ParsedSyntax {
         // test js setter_object_member
         // let a = {
         //  set foo(value) {
+        //  },
+        //  set a(value,) {
         //  },
         //  set "bar"(value) {
         //  },
@@ -227,7 +231,7 @@ fn parse_object_member(p: &mut JsParser) -> ParsedSyntax {
                 // test_err js object_expr_non_ident_literal_prop
                 // let d = {5}
 
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 SingleTokenParseRecovery::new(token_set![T![:], T![,]], JS_BOGUS).recover(p);
 
                 if p.eat(T![:]) {
@@ -329,6 +333,11 @@ fn parse_setter_object_member(p: &mut JsParser) -> ParsedSyntax {
             TypeContext::default(),
         )
         .or_add_diagnostic(p, js_parse_error::expected_parameter);
+
+        if p.at(T![,]) {
+            p.bump_any();
+        }
+
         p.expect(T![')']);
     });
 
@@ -355,6 +364,7 @@ fn parse_setter_object_member(p: &mut JsParser) -> ParsedSyntax {
 pub(crate) fn parse_object_member_name(p: &mut JsParser) -> ParsedSyntax {
     match p.cur() {
         T!['['] => parse_computed_member_name(p),
+        t if t.is_metavariable() => parse_metavariable(p),
         _ => parse_literal_member_name(p),
     }
 }
@@ -410,6 +420,10 @@ pub(super) fn parse_literal_member_name(p: &mut JsParser) -> ParsedSyntax {
         }
         t if t.is_keyword() => {
             p.bump_remap(T![ident]);
+        }
+        t if t.is_metavariable() => {
+            m.abandon(p);
+            return parse_metavariable(p);
         }
         _ => {
             m.abandon(p);

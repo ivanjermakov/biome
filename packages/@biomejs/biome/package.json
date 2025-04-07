@@ -1,14 +1,13 @@
 {
   "name": "@biomejs/biome",
-  "version": "1.7.3",
-  "bin": "bin/biome",
-  "scripts": {
-    "postinstall": "node scripts/postinstall.js"
+  "version": "1.9.4",
+  "bin": {
+    "biome": "bin/biome"
   },
   "homepage": "https://biomejs.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/biomejs/biome.git",
+    "url": "git+https://github.com/biomejs/biome.git",
     "directory": "packages/@biomejs/biome"
   },
   "author": "Emanuele Stoppa",
@@ -17,7 +16,6 @@
   "description": "Biome is a toolchain for the web: formatter, linter and more",
   "files": [
     "bin/biome",
-    "scripts/postinstall.js",
     "configuration_schema.json",
     "README.md",
     "LICENSE-APACHE",
@@ -25,12 +23,17 @@
     "ROME-LICENSE-MIT"
   ],
   "keywords": [
-    "JavaScript",
-    "TypeScript",
     "format",
     "lint",
     "toolchain",
-    "JSON"
+    "JavaScript",
+    "TypeScript",
+    "JSON",
+    "JSONC",
+    "JSX",
+    "TSX",
+    "CSS",
+    "GraphQL"
   ],
   "engines": {
     "node": ">=14.21.3"
@@ -39,14 +42,17 @@
     "type": "opencollective",
     "url": "https://opencollective.com/biome"
   },
+  "publishConfig": {
+    "provenance": true
+  },
   "optionalDependencies": {
-    "@biomejs/cli-win32-x64": "1.7.3",
-    "@biomejs/cli-win32-arm64": "1.7.3",
-    "@biomejs/cli-darwin-x64": "1.7.3",
-    "@biomejs/cli-darwin-arm64": "1.7.3",
-    "@biomejs/cli-linux-x64": "1.7.3",
-    "@biomejs/cli-linux-arm64": "1.7.3",
-    "@biomejs/cli-linux-x64-musl": "1.7.3",
-    "@biomejs/cli-linux-arm64-musl": "1.7.3"
+    "@biomejs/cli-win32-x64": "1.9.4",
+    "@biomejs/cli-win32-arm64": "1.9.4",
+    "@biomejs/cli-darwin-x64": "1.9.4",
+    "@biomejs/cli-darwin-arm64": "1.9.4",
+    "@biomejs/cli-linux-x64": "1.9.4",
+    "@biomejs/cli-linux-arm64": "1.9.4",
+    "@biomejs/cli-linux-x64-musl": "1.9.4",
+    "@biomejs/cli-linux-arm64-musl": "1.9.4"
   }
 }

@@ -1,11 +1,14 @@
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{
+    Ast, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
+};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsCallArgument, AnyJsExpression, AnyJsFunction, JsNewExpression, JsNewExpressionFields,
 };
 use biome_rowan::{AstNode, AstSeparatedList};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallows using an async function as a Promise executor.
     ///
     /// The executor function can also be an async function. However, this is usually a mistake, for a few reasons:
@@ -39,8 +42,10 @@ declare_rule! {
     pub NoAsyncPromiseExecutor {
         version: "1.0.0",
         name: "noAsyncPromiseExecutor",
+        language: "js",
         sources: &[RuleSource::Eslint("no-async-promise-executor")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -62,7 +67,7 @@ impl Rule for NoAsyncPromiseExecutor {
         let is_promise_constructor = callee
             .as_js_identifier_expression()
             .and_then(|ident| ident.name().ok())
-            .map_or(false, |name| name.syntax().text_trimmed() == "Promise");
+            .is_some_and(|name| name.syntax().text_trimmed() == "Promise");
         if !is_promise_constructor {
             return None;
         }

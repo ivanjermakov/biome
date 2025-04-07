@@ -1,51 +1,64 @@
-use super::process_file::{process_file, DiffKind, FileStatus, Message};
+use super::process_file::{DiffKind, FileStatus, Message, process_file};
 use super::{Execution, TraversalMode};
 use crate::cli_options::CliOptions;
 use crate::execute::diagnostics::{
-    CIFormatDiffDiagnostic, CIOrganizeImportsDiffDiagnostic, ContentDiffAdvice,
-    FormatDiffDiagnostic, OrganizeImportsDiffDiagnostic, PanicDiagnostic,
+    AssistDiffDiagnostic, CIAssistDiffDiagnostic, CIFormatDiffDiagnostic, ContentDiffAdvice,
+    FormatDiffDiagnostic, PanicDiagnostic,
 };
 use crate::reporter::TraversalSummary;
 use crate::{CliDiagnostic, CliSession};
 use biome_diagnostics::DiagnosticTags;
-use biome_diagnostics::{category, DiagnosticExt, Error, Resource, Severity};
+use biome_diagnostics::{DiagnosticExt, Error, Resource, Severity, category};
 use biome_fs::{BiomePath, FileSystem, PathInterner};
 use biome_fs::{TraversalContext, TraversalScope};
-use biome_service::workspace::{DropPatternParams, IsPathIgnoredParams};
-use biome_service::{extension_error, workspace::SupportsFeatureParams, Workspace, WorkspaceError};
-use crossbeam::channel::{unbounded, Receiver, Sender};
+use biome_service::dome::Dome;
+use biome_service::projects::ProjectKey;
+use biome_service::workspace::{DocumentFileSource, DropPatternParams, IsPathIgnoredParams};
+use biome_service::{Workspace, WorkspaceError, extension_error, workspace::SupportsFeatureParams};
+use camino::{Utf8Path, Utf8PathBuf};
+use crossbeam::channel::{Receiver, Sender, unbounded};
 use rustc_hash::FxHashSet;
+use std::collections::BTreeSet;
+use std::sync::RwLock;
 use std::sync::atomic::AtomicU32;
 use std::{
     env::current_dir,
     ffi::OsString,
     panic::catch_unwind,
-    path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicU16, AtomicUsize, Ordering},
-        Once,
-    },
+    sync::atomic::{AtomicUsize, Ordering},
     thread,
     time::{Duration, Instant},
 };
+use tracing::{Span, instrument};
+
+pub(crate) struct TraverseResult {
+    pub(crate) summary: TraversalSummary,
+    pub(crate) evaluated_paths: BTreeSet<BiomePath>,
+    pub(crate) diagnostics: Vec<Error>,
+}
 
 pub(crate) fn traverse(
     execution: &Execution,
     session: &mut CliSession,
+    project_key: ProjectKey,
     cli_options: &CliOptions,
     mut inputs: Vec<OsString>,
-) -> Result<(TraversalSummary, Vec<Error>), CliDiagnostic> {
-    init_thread_pool();
-
+) -> Result<TraverseResult, CliDiagnostic> {
     if inputs.is_empty() {
-        match execution.traversal_mode {
+        match &execution.traversal_mode {
             TraversalMode::Check { .. }
             | TraversalMode::Lint { .. }
             | TraversalMode::Format { .. }
-            | TraversalMode::CI { .. } => match current_dir() {
-                Ok(current_dir) => inputs.push(current_dir.into_os_string()),
-                Err(err) => return Err(CliDiagnostic::io_error(err)),
-            },
+            | TraversalMode::CI { .. }
+            | TraversalMode::Search { .. } => {
+                // If `--staged` or `--changed` is specified, it's acceptable for them to be empty, so ignore it.
+                if !execution.is_vcs_targeted() {
+                    match current_dir() {
+                        Ok(current_dir) => inputs.push(current_dir.into_os_string()),
+                        Err(err) => return Err(CliDiagnostic::io_error(err)),
+                    }
+                }
+            }
             _ => {
                 if execution.as_stdin_file().is_none() && !cli_options.no_errors_on_unmatched {
                     return Err(CliDiagnostic::missing_argument(
@@ -62,20 +75,22 @@ pub(crate) fn traverse(
 
     let changed = AtomicUsize::new(0);
     let unchanged = AtomicUsize::new(0);
+    let matches = AtomicUsize::new(0);
     let skipped = AtomicUsize::new(0);
 
-    let fs = &*session.app.fs;
     let workspace = &*session.app.workspace;
+    let fs = workspace.fs();
 
     let max_diagnostics = execution.get_max_diagnostics();
-    let remaining_diagnostics = AtomicU16::new(max_diagnostics);
+    let remaining_diagnostics = AtomicU32::new(max_diagnostics);
 
-    let printer = DiagnosticsPrinter::new(execution)
+    let working_directory = fs.working_directory();
+    let printer = DiagnosticsPrinter::new(execution, working_directory.as_deref())
         .with_verbose(cli_options.verbose)
         .with_diagnostic_level(cli_options.diagnostic_level)
         .with_max_diagnostics(max_diagnostics);
 
-    let (duration, diagnostics) = thread::scope(|s| {
+    let (duration, evaluated_paths, diagnostics) = thread::scope(|s| {
         let handler = thread::Builder::new()
             .name(String::from("biome::console"))
             .spawn_scoped(s, || printer.run(receiver, recv_files))
@@ -83,25 +98,28 @@ pub(crate) fn traverse(
 
         // The traversal context is scoped to ensure all the channels it
         // contains are properly closed once the traversal finishes
-        let elapsed = traverse_inputs(
+        let (elapsed, evaluated_paths) = traverse_inputs(
             fs,
-            inputs,
+            &inputs,
             &TraversalOptions {
                 fs,
                 workspace,
+                project_key,
                 execution,
                 interner,
+                matches: &matches,
                 changed: &changed,
                 unchanged: &unchanged,
                 skipped: &skipped,
                 messages: sender,
                 remaining_diagnostics: &remaining_diagnostics,
+                evaluated_paths: RwLock::default(),
             },
         );
         // wait for the main thread to finish
         let diagnostics = handler.join().unwrap();
 
-        (elapsed, diagnostics)
+        (elapsed, evaluated_paths, diagnostics)
     });
 
     // Make sure patterns are always cleaned up at the end of traversal.
@@ -115,48 +133,62 @@ pub(crate) fn traverse(
     let warnings = printer.warnings();
     let changed = changed.load(Ordering::Relaxed);
     let unchanged = unchanged.load(Ordering::Relaxed);
+    let matches = matches.load(Ordering::Relaxed);
     let skipped = skipped.load(Ordering::Relaxed);
     let suggested_fixes_skipped = printer.skipped_fixes();
     let diagnostics_not_printed = printer.not_printed_diagnostics();
-    Ok((
-        TraversalSummary {
+    Ok(TraverseResult {
+        summary: TraversalSummary {
             changed,
             unchanged,
             duration,
             errors,
+            matches,
             warnings,
             skipped,
             suggested_fixes_skipped,
             diagnostics_not_printed,
         },
+        evaluated_paths,
         diagnostics,
-    ))
-}
-
-/// This function will setup the global Rayon thread pool the first time it's called
-///
-/// This is currently only used to assign friendly debug names to the threads of the pool
-fn init_thread_pool() {
-    static INIT_ONCE: Once = Once::new();
-    INIT_ONCE.call_once(|| {
-        rayon::ThreadPoolBuilder::new()
-            .thread_name(|index| format!("biome::worker_{index}"))
-            .build_global()
-            .expect("failed to initialize the global thread pool");
-    });
+    })
 }
 
 /// Initiate the filesystem traversal tasks with the provided input paths and
-/// run it to completion, returning the duration of the process
-fn traverse_inputs(fs: &dyn FileSystem, inputs: Vec<OsString>, ctx: &TraversalOptions) -> Duration {
+/// run it to completion, returning the duration of the process and the evaluated paths
+fn traverse_inputs(
+    fs: &dyn FileSystem,
+    inputs: &[OsString],
+    ctx: &TraversalOptions,
+) -> (Duration, BTreeSet<BiomePath>) {
     let start = Instant::now();
     fs.traversal(Box::new(move |scope: &dyn TraversalScope| {
         for input in inputs {
-            scope.spawn(ctx, PathBuf::from(input));
+            scope.evaluate(
+                ctx,
+                Utf8PathBuf::from_path_buf(input.into()).expect("Valid UTF-8 path"),
+            );
         }
     }));
 
-    start.elapsed()
+    let paths = ctx.evaluated_paths();
+    let dome = Dome::new(paths);
+    let mut iter = dome.iter();
+    fs.traversal(Box::new(|scope: &dyn TraversalScope| {
+        while let Some(path) = iter.next_config() {
+            scope.handle(ctx, path.to_path_buf());
+        }
+
+        while let Some(path) = iter.next_manifest() {
+            scope.handle(ctx, path.to_path_buf());
+        }
+
+        for path in iter {
+            scope.handle(ctx, path.to_path_buf());
+        }
+    }));
+
+    (start.elapsed(), ctx.evaluated_paths())
 }
 
 // struct DiagnosticsReporter<'ctx> {}
@@ -183,10 +215,13 @@ struct DiagnosticsPrinter<'ctx> {
     not_printed_diagnostics: AtomicU32,
     printed_diagnostics: AtomicU32,
     total_skipped_suggested_fixes: AtomicU32,
+
+    /// The current working directory, borrowed from [FileSystem]
+    working_directory: Option<&'ctx Utf8Path>,
 }
 
 impl<'ctx> DiagnosticsPrinter<'ctx> {
-    fn new(execution: &'ctx Execution) -> Self {
+    fn new(execution: &'ctx Execution, working_directory: Option<&'ctx Utf8Path>) -> Self {
         Self {
             errors: AtomicU32::new(0),
             warnings: AtomicU32::new(0),
@@ -198,6 +233,7 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
             not_printed_diagnostics: AtomicU32::new(0),
             printed_diagnostics: AtomicU32::new(0),
             total_skipped_suggested_fixes: AtomicU32::new(0),
+            working_directory,
         }
     }
 
@@ -206,8 +242,8 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
         self
     }
 
-    fn with_max_diagnostics(mut self, value: u16) -> Self {
-        self.max_diagnostics = value as u32;
+    fn with_max_diagnostics(mut self, value: u32) -> Self {
+        self.max_diagnostics = value;
         self
     }
 
@@ -264,7 +300,7 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
         should_print
     }
 
-    fn run(&self, receiver: Receiver<Message>, interner: Receiver<PathBuf>) -> Vec<Error> {
+    fn run(&self, receiver: Receiver<Message>, interner: Receiver<Utf8PathBuf>) -> Vec<Error> {
         let mut paths: FxHashSet<String> = FxHashSet::default();
 
         let mut diagnostics_to_print = vec![];
@@ -300,9 +336,9 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
                             None => loop {
                                 match interner.recv() {
                                     Ok(path) => {
-                                        paths.insert(path.display().to_string());
-                                        if path.display().to_string() == *file_path {
-                                            break paths.get(&path.display().to_string());
+                                        paths.insert(path.to_string());
+                                        if path.as_str() == *file_path {
+                                            break paths.get(&path.to_string());
                                         }
                                     }
                                     // In case the channel disconnected without sending
@@ -326,7 +362,7 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
                 }
 
                 Message::Diagnostics {
-                    name,
+                    file_path,
                     content,
                     diagnostics,
                     skipped_diagnostics,
@@ -349,7 +385,13 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
                                 self.warnings.fetch_add(1, Ordering::Relaxed);
                             }
 
-                            let diag = diag.with_file_path(&name).with_file_source_code(&content);
+                            let file_path = self
+                                .working_directory
+                                .and_then(|wd| file_path.strip_prefix(wd.as_str()))
+                                .unwrap_or(file_path.as_str());
+                            let diag = diag
+                                .with_file_path(file_path)
+                                .with_file_source_code(&content);
                             diagnostics_to_print.push(diag);
                         }
                     } else {
@@ -368,8 +410,13 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
                             let should_print = self.should_print();
 
                             if should_print {
-                                let diag =
-                                    diag.with_file_path(&name).with_file_source_code(&content);
+                                let file_path = self
+                                    .working_directory
+                                    .and_then(|wd| file_path.strip_prefix(wd.as_str()))
+                                    .unwrap_or(file_path.as_str());
+                                let diag = diag
+                                    .with_file_path(file_path)
+                                    .with_file_source_code(&content);
                                 diagnostics_to_print.push(diag)
                             }
                         }
@@ -381,6 +428,10 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
                     new,
                     diff_kind,
                 } => {
+                    let file_name = self
+                        .working_directory
+                        .and_then(|wd| file_name.strip_prefix(wd.as_str()))
+                        .unwrap_or(file_name.as_str());
                     // A diff is an error in CI mode and in format check mode
                     let is_error = self.execution.is_ci() || !self.execution.is_format_write();
                     if is_error {
@@ -405,46 +456,58 @@ impl<'ctx> DiagnosticsPrinter<'ctx> {
                             match diff_kind {
                                 DiffKind::Format => {
                                     let diag = CIFormatDiffDiagnostic {
-                                        file_name: file_name.clone(),
+                                        file_name: file_name.to_string(),
                                         diff: ContentDiffAdvice {
                                             old: old.clone(),
                                             new: new.clone(),
                                         },
                                     };
-                                    diagnostics_to_print.push(diag.with_severity(severity));
+                                    diagnostics_to_print.push(
+                                        diag.with_severity(severity)
+                                            .with_file_source_code(old.clone()),
+                                    );
                                 }
-                                DiffKind::OrganizeImports => {
-                                    let diag = CIOrganizeImportsDiffDiagnostic {
-                                        file_name: file_name.clone(),
+                                DiffKind::Assist => {
+                                    let diag = CIAssistDiffDiagnostic {
+                                        file_name: file_name.to_string(),
                                         diff: ContentDiffAdvice {
                                             old: old.clone(),
                                             new: new.clone(),
                                         },
                                     };
-                                    diagnostics_to_print.push(diag.with_severity(severity))
+                                    diagnostics_to_print.push(
+                                        diag.with_severity(severity)
+                                            .with_file_source_code(old.clone()),
+                                    )
                                 }
                             };
                         } else {
                             match diff_kind {
                                 DiffKind::Format => {
                                     let diag = FormatDiffDiagnostic {
-                                        file_name: file_name.clone(),
+                                        file_name: file_name.to_string(),
                                         diff: ContentDiffAdvice {
                                             old: old.clone(),
                                             new: new.clone(),
                                         },
                                     };
-                                    diagnostics_to_print.push(diag.with_severity(severity))
+                                    diagnostics_to_print.push(
+                                        diag.with_severity(severity)
+                                            .with_file_source_code(old.clone()),
+                                    )
                                 }
-                                DiffKind::OrganizeImports => {
-                                    let diag = OrganizeImportsDiffDiagnostic {
-                                        file_name: file_name.clone(),
+                                DiffKind::Assist => {
+                                    let diag = AssistDiffDiagnostic {
+                                        file_name: file_name.to_string(),
                                         diff: ContentDiffAdvice {
                                             old: old.clone(),
                                             new: new.clone(),
                                         },
                                     };
-                                    diagnostics_to_print.push(diag.with_severity(severity))
+                                    diagnostics_to_print.push(
+                                        diag.with_severity(severity)
+                                            .with_file_source_code(old.clone()),
+                                    )
                                 }
                             };
                         }
@@ -462,6 +525,8 @@ pub(crate) struct TraversalOptions<'ctx, 'app> {
     pub(crate) fs: &'app dyn FileSystem,
     /// Instance of [Workspace] used by this instance of the CLI
     pub(crate) workspace: &'ctx dyn Workspace,
+    /// Key of the project in which we're traversing.
+    pub(crate) project_key: ProjectKey,
     /// Determines how the files should be processed
     pub(crate) execution: &'ctx Execution,
     /// File paths interner cache used by the filesystem traversal
@@ -470,21 +535,34 @@ pub(crate) struct TraversalOptions<'ctx, 'app> {
     changed: &'ctx AtomicUsize,
     /// Shared atomic counter storing the number of unchanged files
     unchanged: &'ctx AtomicUsize,
+    /// Shared atomic counter storing the number of unchanged files
+    matches: &'ctx AtomicUsize,
     /// Shared atomic counter storing the number of skipped files
     skipped: &'ctx AtomicUsize,
     /// Channel sending messages to the display thread
     pub(crate) messages: Sender<Message>,
     /// The approximate number of diagnostics the console will print before
     /// folding the rest into the "skipped diagnostics" counter
-    pub(crate) remaining_diagnostics: &'ctx AtomicU16,
+    pub(crate) remaining_diagnostics: &'ctx AtomicU32,
+
+    /// List of paths that should be processed
+    pub(crate) evaluated_paths: RwLock<BTreeSet<BiomePath>>,
 }
 
-impl<'ctx, 'app> TraversalOptions<'ctx, 'app> {
-    pub(crate) fn increment_changed(&self) {
+impl TraversalOptions<'_, '_> {
+    pub(crate) fn increment_changed(&self, path: &BiomePath) {
         self.changed.fetch_add(1, Ordering::Relaxed);
+        self.evaluated_paths
+            .write()
+            .unwrap()
+            .replace(path.to_written());
     }
     pub(crate) fn increment_unchanged(&self) {
         self.unchanged.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn increment_matches(&self, num_matches: usize) {
+        self.matches.fetch_add(num_matches, Ordering::Relaxed);
     }
 
     /// Send a message to the display thread
@@ -495,27 +573,30 @@ impl<'ctx, 'app> TraversalOptions<'ctx, 'app> {
     pub(crate) fn miss_handler_err(&self, err: WorkspaceError, biome_path: &BiomePath) {
         self.push_diagnostic(
             err.with_category(category!("files/missingHandler"))
-                .with_file_path(biome_path.display().to_string())
+                .with_file_path(biome_path.to_string())
                 .with_tags(DiagnosticTags::VERBOSE),
         );
     }
 
     pub(crate) fn protected_file(&self, biome_path: &BiomePath) {
-        self.push_diagnostic(
-            WorkspaceError::protected_file(biome_path.display().to_string()).into(),
-        )
+        self.push_diagnostic(WorkspaceError::protected_file(biome_path.to_string()).into())
     }
 }
 
-impl<'ctx, 'app> TraversalContext for TraversalOptions<'ctx, 'app> {
+impl TraversalContext for TraversalOptions<'_, '_> {
     fn interner(&self) -> &PathInterner {
         &self.interner
+    }
+
+    fn evaluated_paths(&self) -> BTreeSet<BiomePath> {
+        self.evaluated_paths.read().unwrap().clone()
     }
 
     fn push_diagnostic(&self, error: Error) {
         self.push_message(error);
     }
 
+    #[instrument(level = "trace", skip(self, biome_path), fields(can_handle))]
     fn can_handle(&self, biome_path: &BiomePath) -> bool {
         let path = biome_path.as_path();
         if self.fs.path_is_dir(path) || self.fs.path_is_symlink(path) {
@@ -528,75 +609,98 @@ impl<'ctx, 'app> TraversalContext for TraversalOptions<'ctx, 'app> {
             let can_handle = !self
                 .workspace
                 .is_path_ignored(IsPathIgnoredParams {
-                    biome_path: biome_path.clone(),
-                    features: self.execution.to_features(),
+                    project_key: self.project_key,
+                    path: biome_path.clone(),
+                    features: self.execution.to_feature(),
                 })
                 .unwrap_or_else(|err| {
                     self.push_diagnostic(err.into());
                     false
                 });
+            Span::current().record("can_handle", can_handle);
+
             return can_handle;
         }
 
         // bail on fifo and socket files
         if !self.fs.path_is_file(path) {
+            Span::current().record("can_handle", false);
             return false;
         }
 
         let file_features = self.workspace.file_features(SupportsFeatureParams {
+            project_key: self.project_key,
             path: biome_path.clone(),
-            features: self.execution.to_features(),
+            features: self.execution.to_feature(),
         });
+
+        let can_read = DocumentFileSource::can_read(biome_path);
 
         let file_features = match file_features {
             Ok(file_features) => {
                 if file_features.is_protected() {
                     self.protected_file(biome_path);
+                    Span::current().record("can_handle", false);
                     return false;
                 }
 
-                if file_features.is_not_supported() && !file_features.is_ignored() {
+                if file_features.is_not_supported() && !file_features.is_ignored() && !can_read {
                     // we should throw a diagnostic if we can't handle a file that isn't ignored
                     self.miss_handler_err(extension_error(biome_path), biome_path);
+                    Span::current().record("can_handle", false);
                     return false;
                 }
                 file_features
             }
             Err(err) => {
                 self.miss_handler_err(err, biome_path);
-
+                Span::current().record("can_handle", false);
                 return false;
             }
         };
-        match self.execution.traversal_mode() {
+        let result = match self.execution.traversal_mode() {
             TraversalMode::Check { .. } | TraversalMode::CI { .. } => {
                 file_features.supports_lint()
                     || file_features.supports_format()
-                    || file_features.supports_organize_imports()
+                    || file_features.supports_assist()
             }
             TraversalMode::Format { .. } => file_features.supports_format(),
             TraversalMode::Lint { .. } => file_features.supports_lint(),
             // Imagine if Biome can't handle its own configuration file...
             TraversalMode::Migrate { .. } => true,
-            TraversalMode::Search { .. } => false,
-        }
+            TraversalMode::Search { .. } => file_features.supports_search(),
+        };
+        Span::current().record("can_handle", result);
+        result
     }
 
-    fn handle_file(&self, path: &Path) {
-        handle_file(self, path)
+    fn handle_path(&self, path: BiomePath) {
+        handle_file(self, &path)
+    }
+
+    fn store_path(&self, path: BiomePath) {
+        self.evaluated_paths
+            .write()
+            .unwrap()
+            .insert(BiomePath::new(path.as_path()));
     }
 }
 
 /// This function wraps the [process_file] function implementing the traversal
 /// in a [catch_unwind] block and emit diagnostics in case of error (either the
 /// traversal function returns Err or panics)
-fn handle_file(ctx: &TraversalOptions, path: &Path) {
+fn handle_file(ctx: &TraversalOptions, path: &BiomePath) {
     match catch_unwind(move || process_file(ctx, path)) {
         Ok(Ok(FileStatus::Changed)) => {
-            ctx.increment_changed();
+            ctx.increment_changed(path);
         }
         Ok(Ok(FileStatus::Unchanged)) => {
             ctx.increment_unchanged();
+        }
+        Ok(Ok(FileStatus::SearchResult(num_matches, msg))) => {
+            ctx.increment_unchanged();
+            ctx.increment_matches(num_matches);
+            ctx.push_message(msg);
         }
         Ok(Ok(FileStatus::Message(msg))) => {
             ctx.increment_unchanged();
@@ -621,9 +725,7 @@ fn handle_file(ctx: &TraversalOptions, path: &Path) {
                 },
             };
 
-            ctx.push_message(
-                PanicDiagnostic { message }.with_file_path(path.display().to_string()),
-            );
+            ctx.push_message(PanicDiagnostic { message }.with_file_path(path.to_string()));
         }
     }
 }

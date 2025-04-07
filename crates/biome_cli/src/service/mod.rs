@@ -10,22 +10,21 @@ use std::{
     io,
     ops::Deref,
     panic::RefUnwindSafe,
-    str::{from_utf8, FromStr},
+    str::{FromStr, from_utf8},
     sync::Arc,
     time::Duration,
 };
 
-use anyhow::{bail, ensure, Context, Error};
+use anyhow::{Context, Error, bail, ensure};
 use biome_service::{
-    workspace::{TransportRequest, WorkspaceTransport},
     TransportError,
+    workspace::{TransportRequest, WorkspaceTransport},
 };
 use dashmap::DashMap;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{
-    from_slice, from_str, to_vec,
-    value::{to_raw_value, RawValue},
-    Value,
+    Value, from_slice, from_str, to_vec,
+    value::{RawValue, to_raw_value},
 };
 use tokio::{
     io::{
@@ -34,8 +33,9 @@ use tokio::{
     },
     runtime::Runtime,
     sync::{
-        mpsc::{channel, Receiver, Sender},
-        oneshot, Notify,
+        Notify,
+        mpsc::{Receiver, Sender, channel},
+        oneshot,
     },
     time::sleep,
 };
@@ -72,11 +72,11 @@ type JsonRpcResult = Result<Box<RawValue>, TransportError>;
 /// This structs holds an instance of the `tokio` runtime, as well as the
 /// following fields:
 /// - `write_send` is a sender handle to the "write channel", an MPSC channel
-/// that's used to queue up requests to be sent to the server (for simplicity
-/// the requests are pushed to the channel as serialized byte buffers)
+///     that's used to queue up requests to be sent to the server (for simplicity
+///     the requests are pushed to the channel as serialized byte buffers)
 /// - `pending_requests` is handle to a shared hashmap where the keys are `u64`
-/// corresponding to request IDs, and the values are sender handles to oneshot
-/// channel instances that can be consumed to fulfill the associated request
+///     corresponding to request IDs, and the values are sender handles to oneshot
+///     channel instances that can be consumed to fulfill the associated request
 ///
 /// Creating a new `SocketTransport` instance requires providing a `tokio`
 /// runtime instance as well as the "read half" and "write half" of the socket
@@ -87,12 +87,12 @@ type JsonRpcResult = Result<Box<RawValue>, TransportError>;
 ///
 /// This concurrent handling of I/O is implemented useing two "background tasks":
 /// - the `write_task` pulls outgoing messages from the "write channel" and
-/// writes them to the "write half" of the socket
+///     writes them to the "write half" of the socket
 /// - the `read_task` reads incoming messages from the "read half" of the
 /// - the `read_task` reads incoming messages from the "read half" of the
-/// socket, then looks up a request with an ID corresponding to the received
-/// message in the "pending requests" map. If a pending request is found, it's
-/// fulfilled with the content of the message that was just received
+///   socket, then looks up a request with an ID corresponding to the received
+///   message in the "pending requests" map. If a pending request is found, it's
+///   fulfilled with the content of the message that was just received
 ///
 /// In addition to these, a new "foreground task" is created for each request.
 /// Each foreground task creates a oneshot channel and stores it in the pending
@@ -324,7 +324,9 @@ where
             // that indicates the end of the header section
             2 => {
                 if line != "\r\n" {
-                    bail!("unexpected byte sequence received from the remote workspace, got {line:?} expected \"\\r\\n\"");
+                    bail!(
+                        "unexpected byte sequence received from the remote workspace, got {line:?} expected \"\\r\\n\""
+                    );
                 }
 
                 break;
@@ -422,7 +424,7 @@ struct JsonRpcRequest<P> {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct JsonRpcResponse {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     jsonrpc: Cow<'static, str>,
     id: u64,
     result: Option<Box<RawValue>>,
@@ -431,10 +433,10 @@ struct JsonRpcResponse {
 
 #[derive(Debug, Deserialize)]
 struct JsonRpcError {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     code: i64,
     message: String,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     data: Option<Box<RawValue>>,
 }
 
@@ -465,7 +467,7 @@ impl FromStr for TransportHeader {
             }
             "Content-Type" => {
                 ensure!(
-                    value.starts_with( "application/vscode-jsonrpc"),
+                    value.starts_with("application/vscode-jsonrpc"),
                     "invalid value for Content-Type expected \"application/vscode-jsonrpc\", got {value:?}"
                 );
 

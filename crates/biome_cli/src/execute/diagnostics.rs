@@ -1,7 +1,7 @@
-use biome_diagnostics::adapters::{IoError, StdError};
 use biome_diagnostics::{
     Advices, Category, Diagnostic, DiagnosticExt, DiagnosticTags, Error, Visit,
 };
+use biome_diagnostics::{IoError, StdError};
 use biome_text_edit::TextEdit;
 use std::io;
 
@@ -20,10 +20,10 @@ pub(crate) struct CIFormatDiffDiagnostic {
 
 #[derive(Debug, Diagnostic)]
 #[diagnostic(
-    category = "organizeImports",
-    message = "Import statements differs from the output"
+    category = "assist",
+    message = "Applied actions differs from the output"
 )]
-pub(crate) struct CIOrganizeImportsDiffDiagnostic {
+pub(crate) struct CIAssistDiffDiagnostic {
     #[location(resource)]
     pub(crate) file_name: String,
     #[advice]
@@ -45,11 +45,11 @@ pub(crate) struct FormatDiffDiagnostic {
 
 #[derive(Debug, Diagnostic)]
 #[diagnostic(
-	category = "organizeImports",
-	severity = Error,
-	message = "Import statements could be sorted:"
+    category = "assist",
+    severity = Error,
+    message = "Not all actions were applied:"
 )]
-pub(crate) struct OrganizeImportsDiffDiagnostic {
+pub(crate) struct AssistDiffDiagnostic {
     #[location(resource)]
     pub(crate) file_name: String,
     #[advice]
@@ -102,6 +102,10 @@ pub(crate) struct UnhandledDiagnostic;
 #[derive(Debug, Diagnostic)]
 #[diagnostic(category = "parse", message = "Skipped file with syntax errors")]
 pub(crate) struct SkippedDiagnostic;
+
+#[derive(Debug, Diagnostic)]
+#[diagnostic(category = "search", severity = Information)]
+pub(crate) struct SearchDiagnostic;
 
 /// Extension trait for turning [Display]-able error types into [TraversalError]
 pub(crate) trait ResultExt {

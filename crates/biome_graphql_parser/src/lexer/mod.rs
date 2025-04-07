@@ -2,7 +2,7 @@
 #[rustfmt::skip]
 mod tests;
 
-use biome_graphql_syntax::{GraphqlSyntaxKind, GraphqlSyntaxKind::*, TextLen, TextSize, T};
+use biome_graphql_syntax::{GraphqlSyntaxKind, GraphqlSyntaxKind::*, T, TextLen, TextSize};
 use biome_parser::diagnostic::ParseDiagnostic;
 use biome_parser::lexer::{Lexer, LexerCheckpoint, LexerWithCheckpoint, TokenFlags};
 use biome_rowan::SyntaxKind;
@@ -302,7 +302,7 @@ impl<'src> GraphqlLexer<'src> {
             b"ENUM_VALUE" => ENUM_VALUE_KW,
             b"INPUT_OBJECT" => INPUT_OBJECT_KW,
             b"INPUT_FIELD_DEFINITION" => INPUT_FIELD_DEFINITION_KW,
-            _ => GRAPHQL_NAME,
+            _ => T![ident],
         }
     }
 
@@ -312,7 +312,7 @@ impl<'src> GraphqlLexer<'src> {
 
         let char = self.current_char_unchecked();
         let err = ParseDiagnostic::new(
-            format!("unexpected character `{}`", char),
+            format!("unexpected character `{char}`"),
             self.text_position()..self.text_position() + char.text_len(),
         );
         self.diagnostics.push(err);
@@ -656,16 +656,8 @@ impl<'src> GraphqlLexer<'src> {
                     && self.byte_at(2) == Some(b'"')
                 {
                     self.advance(3);
-                    (state, None)
-                } else {
-                    let c = self.current_char_unchecked();
-                    let diagnostic = ParseDiagnostic::new(
-                        "Invalid escape sequence",
-                        escape_start..self.text_position() + c.text_len(),
-                    )
-                    .with_hint(r#"For block string the only valid escape sequences is `\"""`. "#);
-                    (state, Some(diagnostic))
                 }
+                (state, None)
             }
             // should never happen
             _ => (

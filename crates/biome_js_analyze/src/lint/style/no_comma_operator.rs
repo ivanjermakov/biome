@@ -1,9 +1,10 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
+use biome_diagnostics::Severity;
 use biome_js_syntax::{JsForStatement, JsSequenceExpression};
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow comma operator.
     ///
     /// The comma operator includes multiple expressions where only one is expected.
@@ -39,8 +40,10 @@ declare_rule! {
     pub NoCommaOperator {
         version: "1.0.0",
         name: "noCommaOperator",
+        language: "js",
         sources: &[RuleSource::Eslint("no-sequences")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
     }
 }
 

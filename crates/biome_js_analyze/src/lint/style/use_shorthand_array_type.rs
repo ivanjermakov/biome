@@ -1,17 +1,14 @@
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
-    AnyTsType, JsSyntaxKind, JsSyntaxToken, TsReferenceType, TsTypeArguments, T,
+    AnyTsType, JsSyntaxKind, JsSyntaxToken, T, TsReferenceType, TsTypeArguments,
 };
-use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt, TriviaPiece};
+use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt, SyntaxNodeOptionExt, TriviaPiece};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// When expressing array types, this rule promotes the usage of `T[]` shorthand instead of `Array<T>`.
     ///
     /// ## Examples
@@ -51,6 +48,7 @@ declare_rule! {
     pub UseShorthandArrayType  {
         version: "1.0.0",
         name: "useShorthandArrayType",
+        language: "ts",
         recommended: false,
         deprecated: "Use `useConsistentArrayType` instead.",
         fix_kind: FixKind::Unsafe,
@@ -73,12 +71,19 @@ impl Rule for UseShorthandArrayType {
 
     fn run(ctx: &RuleContext<Self>) -> Option<Self::State> {
         let node = ctx.query();
-        let type_arguments = node.type_arguments()?;
+        let array_kind = get_array_kind_by_reference(node)?;
 
-        match get_array_kind_by_reference(node) {
-            Some(array_kind) => convert_to_array_type(&type_arguments, array_kind),
-            None => None,
+        // Ignore `Array` in the `extends` and `implements` clauses.
+        let parent = node
+            .syntax()
+            .ancestors()
+            .skip(1)
+            .find(|ancestor| ancestor.kind() != JsSyntaxKind::JS_PARENTHESIZED_EXPRESSION);
+        if parent.kind() == Some(JsSyntaxKind::TS_TYPE_LIST) {
+            return None;
         }
+
+        convert_to_array_type(&node.type_arguments()?, array_kind)
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, _: &Self::State) -> Option<RuleDiagnostic> {
@@ -117,12 +122,12 @@ impl Rule for UseShorthandArrayType {
                         .to_owned()
                 }
             };
-            return Some(JsRuleAction {
-                category: ActionCategory::QuickFix,
-                applicability: Applicability::MaybeIncorrect,
+            return Some(JsRuleAction::new(
+                ctx.metadata().action_category(ctx.category(), ctx.group()),
+                ctx.metadata().applicability(),
                 message,
                 mutation,
-            });
+            ));
         };
         None
     }
@@ -230,7 +235,7 @@ fn convert_to_array_type(
             0 => {}
             1 => {
                 // SAFETY: We know that `length` of `array_types` is 1, so unwrap the first element should be safe.
-                let first_type = types_array.into_iter().next().unwrap();
+                let first_type = types_array.into_iter().next()?;
                 return Some(first_type);
             }
             length => {

@@ -9,17 +9,17 @@ contact_links:
   - name: 🧩 IntelliJ extension issues
     url: https://github.com/biomejs/biome-intellij
     about: File an issue in the biome-intellij repository
-  - name: ✅ Linter rule requests
-    url: https://github.com/biomejs/biome/discussions/3
-    about: Please add a comment to the discussion named "Linter rules from other sources"
+  - name: ✅ Linter rule suggestions
+    url: https://github.com/biomejs/biome/discussions/new?category=rule-suggestion
+    about: Please create a discussion for rule suggestions
   - name: 💡 Feature requests
     url: https://github.com/biomejs/biome/discussions/new
     about: Please use a new Github discussion to propose ideas of feature requests
   - name: 🗣️ Chat
-    url: https://discord.gg/BypW39g6Yc
+    url: https://biomejs.dev/chat
     about: Our Discord server is active and is used for real-time discussions including contribution collaboration, questions, and more!
   - name: 🤔 Support
-    url: https://discord.gg/BypW39g6Yc
+    url: https://biomejs.dev/chat
     about: "This issue tracker is not for support questions. Visit our community Discord and the #support channel for assistance!"
   - name: 🆘 Code of Conduct Reports
     url: https://github.com/biomejs/biome/blob/main/CODE_OF_CONDUCT.md#contributor-covenant-code-of-conduct

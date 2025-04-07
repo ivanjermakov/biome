@@ -1,18 +1,17 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet, VecDeque},
     env,
-    fs::{create_dir_all, read_dir, remove_file, File},
+    fs::{File, create_dir_all, read_dir, remove_file},
     io::Write,
     path::{Path, PathBuf},
 };
 
+use crate::ast::load_ast;
+use crate::language_kind::{ALL_LANGUAGE_KIND, LanguageKind};
 use git2::{Repository, Status, StatusOptions};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use xtask::project_root;
-
-use crate::ast::load_ast;
-use crate::language_kind::{LanguageKind, ALL_LANGUAGE_KIND};
 
 struct GitRepo {
     repo: Repository,
@@ -84,10 +83,16 @@ impl GitRepo {
 
     fn check_path(&self, path: &Path) {
         if self.dirty.contains(path) {
-            panic!("Codegen would overwrite '{}' but it has uncommitted changes. Commit the file to git, or pass --allow-dirty to the command to proceed anyway", path.display());
+            panic!(
+                "Codegen would overwrite '{}' but it has uncommitted changes. Commit the file to git, or pass --allow-dirty to the command to proceed anyway",
+                path.display()
+            );
         }
         if self.staged.contains(path) {
-            panic!("Codegen would overwrite '{}' but it has uncommitted changes. Commit the file to git, or pass --allow-staged to the command to proceed anyway", path.display());
+            panic!(
+                "Codegen would overwrite '{}' but it has uncommitted changes. Commit the file to git, or pass --allow-staged to the command to proceed anyway",
+                path.display()
+            );
         }
     }
 
@@ -201,7 +206,7 @@ impl ModuleIndex {
                 // Clippy complains about child modules having the same
                 // names as their parent, eg. js/name/name.rs
                 if import == stem {
-                    content.push_str("#[allow(clippy::module_inception)]\n");
+                    content.push_str("#[expect(clippy::module_inception)]\n");
                 }
 
                 content.push_str("pub(crate) mod ");
@@ -513,7 +518,6 @@ impl BoilerplateImpls {
                 type Format<'a> = FormatRefWithRule<'a, #syntax_crate_ident::#node_id, #format_id>;
 
                 fn format(&self) -> Self::Format<'_> {
-                    #![allow(clippy::default_constructed_unit_structs)]
                     FormatRefWithRule::new(self, #format_id::default())
                 }
             }
@@ -522,7 +526,6 @@ impl BoilerplateImpls {
                 type Format = FormatOwnedWithRule<#syntax_crate_ident::#node_id, #format_id>;
 
                 fn into_format(self) -> Self::Format {
-                    #![allow(clippy::default_constructed_unit_structs)]
                     FormatOwnedWithRule::new(self, #format_id::default())
                 }
             }
@@ -536,6 +539,7 @@ impl BoilerplateImpls {
         let formatter_context_ident = self.language.format_context_ident();
 
         let tokens = quote! {
+            #![expect(clippy::default_constructed_unit_structs)]
             use crate::{AsFormat, IntoFormat, FormatNodeRule, FormatBogusNodeRule, #formatter_ident, #formatter_context_ident};
             use biome_formatter::{FormatRefWithRule, FormatOwnedWithRule, FormatRule, FormatResult};
 
@@ -556,6 +560,9 @@ enum NodeDialect {
     Jsx,
     Json,
     Css,
+    Grit,
+    Graphql,
+    Html,
 }
 
 impl NodeDialect {
@@ -566,6 +573,9 @@ impl NodeDialect {
             NodeDialect::Jsx,
             NodeDialect::Json,
             NodeDialect::Css,
+            NodeDialect::Grit,
+            NodeDialect::Graphql,
+            NodeDialect::Html,
         ]
     }
 
@@ -580,6 +590,9 @@ impl NodeDialect {
             NodeDialect::Jsx => "jsx",
             NodeDialect::Json => "json",
             NodeDialect::Css => "css",
+            NodeDialect::Grit => "grit",
+            NodeDialect::Graphql => "graphql",
+            NodeDialect::Html => "html",
         }
     }
 
@@ -590,8 +603,11 @@ impl NodeDialect {
             "Ts" => NodeDialect::Ts,
             "Json" => NodeDialect::Json,
             "Css" => NodeDialect::Css,
+            "Grit" => NodeDialect::Grit,
+            "Graphql" => NodeDialect::Graphql,
+            "Html" => NodeDialect::Html,
             _ => {
-                eprintln!("missing prefix {}", name);
+                eprintln!("missing prefix {name}");
                 NodeDialect::Js
             }
         }
@@ -625,6 +641,14 @@ enum NodeConcept {
     Pseudo,
     Selector,
     Property,
+
+    // GritQL
+    Pattern,
+    Predicate,
+
+    // GraphQL
+    Definition,
+    Extension,
 }
 
 impl NodeConcept {
@@ -649,6 +673,10 @@ impl NodeConcept {
             NodeConcept::Pseudo => "pseudo",
             NodeConcept::Selector => "selectors",
             NodeConcept::Property => "properties",
+            NodeConcept::Pattern => "patterns",
+            NodeConcept::Predicate => "predicates",
+            NodeConcept::Definition => "definitions",
+            NodeConcept::Extension => "extensions",
         }
     }
 }
@@ -757,6 +785,7 @@ fn get_node_concept(
                 _ if name.ends_with("Value") => NodeConcept::Value,
                 _ => NodeConcept::Auxiliary,
             },
+            LanguageKind::Markdown => NodeConcept::Auxiliary,
             LanguageKind::Css => match name {
                 _ if name.ends_with("AtRule") => NodeConcept::Statement,
                 _ if name.ends_with("Selector") => NodeConcept::Selector,
@@ -779,11 +808,20 @@ fn get_node_concept(
                 _ => NodeConcept::Auxiliary,
             },
 
-            // TODO: implement formatter
-            LanguageKind::Graphql => NodeConcept::Auxiliary,
+            LanguageKind::Graphql => match name {
+                _ if name.contains("Extension") => NodeConcept::Extension,
+                _ if name.ends_with("Definition") => NodeConcept::Definition,
+                _ if name.ends_with("Value") => NodeConcept::Value,
+                _ => NodeConcept::Auxiliary,
+            },
 
-            // TODO: I will handle formatting in a follow-up PR.
-            LanguageKind::Grit => NodeConcept::Auxiliary,
+            LanguageKind::Grit => match name {
+                _ if name.contains("Operation") || name.contains("Pattern") => NodeConcept::Pattern,
+                _ if name.contains("Predicate") => NodeConcept::Predicate,
+                _ if name.ends_with("Definition") => NodeConcept::Declaration,
+                _ if name == "CodeSnippet" || name.ends_with("Literal") => NodeConcept::Value,
+                _ => NodeConcept::Auxiliary,
+            },
 
             LanguageKind::Html => match name {
                 _ if name.ends_with("Value") => NodeConcept::Value,
@@ -857,6 +895,7 @@ impl LanguageKind {
             LanguageKind::Grit => "GritFormatter",
             LanguageKind::Html => "HtmlFormatter",
             LanguageKind::Yaml => "YamlFormatter",
+            LanguageKind::Markdown => "DemoFormatter",
         };
 
         Ident::new(name, Span::call_site())
@@ -871,6 +910,7 @@ impl LanguageKind {
             LanguageKind::Grit => "GritFormatContext",
             LanguageKind::Html => "HtmlFormatContext",
             LanguageKind::Yaml => "YamlFormatContext",
+            LanguageKind::Markdown => "DemoFormatterContext",
         };
 
         Ident::new(name, Span::call_site())

@@ -1,15 +1,15 @@
 use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, Ast, FixKind, Rule, RuleDiagnostic, RuleSource,
-    RuleSourceKind,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleDomain, RuleSource, RuleSourceKind,
+    context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{JsCallExpression, TextRange};
 use biome_rowan::{AstNode, BatchMutationExt, NodeOrToken};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow focused tests.
     ///
     /// Disabled test are useful when developing and debugging, because it forces the test suite to run only certain tests.
@@ -35,10 +35,13 @@ declare_rule! {
     pub NoFocusedTests {
         version: "1.6.0",
         name: "noFocusedTests",
+        language: "js",
         recommended: true,
+        severity: Severity::Error,
         sources: &[RuleSource::EslintJest("no-focused-tests")],
         source_kind: RuleSourceKind::Inspired,
         fix_kind: FixKind::Unsafe,
+        domains: &[RuleDomain::Test],
     }
 }
 
@@ -143,11 +146,11 @@ impl Rule for NoFocusedTests {
             mutation.remove_element(NodeOrToken::Token(r_brack));
         };
 
-        Some(JsRuleAction {
-            category: biome_analyze::ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove focus from test." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove focus from test." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

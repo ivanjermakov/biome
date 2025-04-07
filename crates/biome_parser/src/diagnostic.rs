@@ -1,7 +1,7 @@
-use crate::token_source::TokenSource;
 use crate::Parser;
+use crate::token_source::TokenSource;
 use biome_diagnostics::console::fmt::Display;
-use biome_diagnostics::console::{markup, MarkupBuf};
+use biome_diagnostics::console::{MarkupBuf, markup};
 use biome_diagnostics::location::AsSpan;
 use biome_diagnostics::{Advices, Diagnostic, Location, LogCategory, MessageAndDescription, Visit};
 use biome_rowan::{SyntaxKind, TextLen, TextRange};
@@ -26,7 +26,7 @@ pub struct ParseDiagnostic {
     span: Option<TextRange>,
     #[message]
     #[description]
-    message: MessageAndDescription,
+    pub message: MessageAndDescription,
     #[advice]
     advice: ParserAdvice,
 }
@@ -124,7 +124,7 @@ impl ParseDiagnostic {
     pub fn new_single_node(name: &str, range: TextRange, p: &impl Parser) -> Self {
         let names = format!("{} {}", article_for(name), name);
         let msg = if p.source().text().text_len() <= range.start() {
-            format!("Expected {} but instead found the end of the file.", names)
+            format!("Expected {names} but instead found the end of the file.")
         } else {
             format!("Expected {} but instead found '{}'.", names, p.text(range))
         };
@@ -133,7 +133,7 @@ impl ParseDiagnostic {
             message: MessageAndDescription::from(msg),
             advice: ParserAdvice::default(),
         }
-        .with_detail(range, format!("Expected {} here.", names))
+        .with_detail(range, format!("Expected {names} here."))
     }
 
     pub fn new_with_any(names: &[&str], range: TextRange, p: &impl Parser) -> Self {
@@ -160,10 +160,7 @@ impl ParseDiagnostic {
         }
 
         let msg = if p.source().text().text_len() <= range.start() {
-            format!(
-                "Expected {} but instead found the end of the file.",
-                joined_names
-            )
+            format!("Expected {joined_names} but instead found the end of the file.")
         } else {
             format!(
                 "Expected {} but instead found '{}'.",
@@ -177,7 +174,7 @@ impl ParseDiagnostic {
             message: MessageAndDescription::from(msg),
             advice: ParserAdvice::default(),
         }
-        .with_detail(range, format!("Expected {} here.", joined_names))
+        .with_detail(range, format!("Expected {joined_names} here."))
     }
 
     pub const fn is_error(&self) -> bool {
@@ -443,8 +440,8 @@ pub fn expect_one_of(names: &[&str], range: TextRange) -> ParseDiagnostic {
 }
 
 fn article_for(name: &str) -> &'static str {
-    match name.chars().next() {
-        Some('a' | 'e' | 'i' | 'o' | 'u') => "an",
+    match name.bytes().next() {
+        Some(b'a' | b'e' | b'i' | b'o' | b'u') => "an",
         _ => "a",
     }
 }

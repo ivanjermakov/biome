@@ -1,9 +1,11 @@
 use crate::prelude::*;
-use biome_formatter::{write, CstFormatContext, FormatRuleWithOptions, GroupId};
+use biome_formatter::{
+    CstFormatContext, Expand, FormatContext, FormatRuleWithOptions, GroupId, write,
+};
 
 use crate::utils::array::write_array_node;
 
-use crate::context::trailing_comma::FormatTrailingComma;
+use crate::context::trailing_commas::FormatTrailingCommas;
 use biome_js_syntax::JsArrayElementList;
 use biome_rowan::{AstNode, AstSeparatedList};
 
@@ -25,7 +27,10 @@ impl FormatRule<JsArrayElementList> for FormatJsArrayElementList {
     type Context = JsFormatContext;
 
     fn fmt(&self, node: &JsArrayElementList, f: &mut JsFormatter) -> FormatResult<()> {
-        let layout = if can_concisely_print_array_list(node, f.context().comments()) {
+        let expand_lists = f.context().options().expand() == Expand::Always;
+        let layout = if expand_lists {
+            ArrayLayout::OnePerLine
+        } else if can_concisely_print_array_list(node, f.context().comments()) {
             ArrayLayout::Fill
         } else {
             ArrayLayout::OnePerLine
@@ -33,7 +38,7 @@ impl FormatRule<JsArrayElementList> for FormatJsArrayElementList {
 
         match layout {
             ArrayLayout::Fill => {
-                let trailing_separator = FormatTrailingComma::ES5.trailing_separator(f.options());
+                let trailing_separator = FormatTrailingCommas::ES5.trailing_separator(f.options());
 
                 let mut filler = f.fill();
 

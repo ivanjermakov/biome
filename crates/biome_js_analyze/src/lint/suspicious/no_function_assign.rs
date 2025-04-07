@@ -1,11 +1,12 @@
 use crate::services::semantic::Semantic;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_semantic::{Reference, ReferencesExtensions};
 use biome_js_syntax::{JsFunctionDeclaration, JsIdentifierBinding};
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow reassigning function declarations.
     ///
     /// ## Examples
@@ -96,14 +97,16 @@ declare_rule! {
     pub NoFunctionAssign {
         version: "1.0.0",
         name: "noFunctionAssign",
+        language: "js",
         sources: &[RuleSource::Eslint("no-func-assign")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 pub struct State {
     id: JsIdentifierBinding,
-    all_writes: Vec<Reference>,
+    all_writes: Box<[Reference]>,
 }
 
 impl Rule for NoFunctionAssign {
@@ -125,7 +128,7 @@ impl Rule for NoFunctionAssign {
         } else {
             Some(State {
                 id: id.clone(),
-                all_writes,
+                all_writes: all_writes.into_boxed_slice(),
             })
         }
     }

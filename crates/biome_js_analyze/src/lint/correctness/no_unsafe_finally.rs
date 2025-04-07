@@ -1,10 +1,11 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::*;
-use biome_rowan::{declare_node_union, AstNode};
+use biome_rowan::{AstNode, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow control flow statements in finally blocks.
     ///
     /// JavaScript suspends the control flow statements of `try` and `catch` blocks until
@@ -127,8 +128,10 @@ declare_rule! {
     pub NoUnsafeFinally {
         version: "1.0.0",
         name: "noUnsafeFinally",
+        language: "js",
         sources: &[RuleSource::Eslint("no-unsafe-finally")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -190,7 +193,7 @@ impl ControlFlowStatement {
                     if parent
                         .label_token()
                         .ok()
-                        .map_or(false, |it| it.text_trimmed() == label.text_trimmed())
+                        .is_some_and(|it| it.text_trimmed() == label.text_trimmed())
                     {
                         is_label_inside_finally = true;
                     }

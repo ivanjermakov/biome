@@ -1,10 +1,11 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{TsAnyType, TsTypeConstraintClause};
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the `any` type usage.
     ///
     /// The `any` type in TypeScript is a dangerous "escape hatch" from the type system.
@@ -26,7 +27,7 @@ declare_rule! {
     ///
     /// ```ts,expect_diagnostic
     /// class SomeClass {
-    ///   message: Array<Array<any>>;
+    ///    message: Array<Array<any>>;
     /// }
     /// ```
     ///
@@ -43,7 +44,7 @@ declare_rule! {
     ///
     /// ```ts
     /// class SomeClass<T extends any> {
-    ///   message: Array<Array<unknown>>;
+    ///    message: Array<Array<unknown>>;
     /// }
     /// ```
     ///
@@ -54,8 +55,10 @@ declare_rule! {
     pub NoExplicitAny {
         version: "1.0.0",
         name: "noExplicitAny",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("no-explicit-any")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

@@ -1,9 +1,7 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsAssignment, AnyJsExpression, JsAssignmentExpression, JsAssignmentOperator,
@@ -12,11 +10,11 @@ use biome_js_syntax::{
 use biome_rowan::{AstNode, BatchMutationExt};
 
 use crate::{
-    utils::{find_variable_position, VariablePosition},
     JsRuleAction,
+    utils::{VariablePosition, find_variable_position},
 };
 
-declare_rule! {
+declare_lint_rule! {
     /// Require assignment operator shorthand where possible.
     ///
     /// JavaScript provides shorthand operators combining a variable assignment and simple mathematical operation.
@@ -53,6 +51,7 @@ declare_rule! {
     pub UseShorthandAssign {
         version: "1.3.0",
         name: "useShorthandAssign",
+        language: "js",
         sources: &[RuleSource::Eslint("operator-assignment")],
         recommended: false,
         fix_kind: FixKind::Unsafe,
@@ -81,16 +80,18 @@ impl Rule for UseShorthandAssign {
         let right = node.right().ok()?;
 
         let left_var_name = match left.as_any_js_assignment()? {
-            AnyJsAssignment::JsComputedMemberAssignment(assignment) => assignment.text(),
-            AnyJsAssignment::JsIdentifierAssignment(assignment) => assignment.text(),
-            AnyJsAssignment::JsStaticMemberAssignment(assignment) => assignment.text(),
+            AnyJsAssignment::JsComputedMemberAssignment(assignment) => {
+                assignment.to_trimmed_string()
+            }
+            AnyJsAssignment::JsIdentifierAssignment(assignment) => assignment.to_trimmed_string(),
+            AnyJsAssignment::JsStaticMemberAssignment(assignment) => assignment.to_trimmed_string(),
             _ => return None,
         };
 
         let binary_expression = match right {
             AnyJsExpression::JsBinaryExpression(binary_expression) => binary_expression,
             AnyJsExpression::JsParenthesizedExpression(param) => {
-                JsBinaryExpression::cast_ref(param.expression().ok()?.syntax())?
+                JsBinaryExpression::cast(param.expression().ok()?.into_syntax())?
             }
             _ => return None,
         };
@@ -150,13 +151,13 @@ impl Rule for UseShorthandAssign {
 
         mutation.replace_node(node.clone(), shorthand_node);
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Use "<Emphasis>""{shorthand_operator.to_string()?}""</Emphasis>" instead." }
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use "<Emphasis>""{shorthand_operator.to_string()?}""</Emphasis>" instead." }
                 .to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

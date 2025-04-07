@@ -1,6 +1,5 @@
 //! Generated file, do not edit by hand, see `xtask/codegen`
 
-#![allow(clippy::all)]
 #![allow(bad_style, missing_docs, unreachable_pub)]
 #[doc = r" The kind of syntax node, e.g. `IDENT`, `FUNCTION_KW`, or `FOR_STMT`."]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -71,10 +70,13 @@ pub enum GraphqlSyntaxKind {
     ERROR_TOKEN,
     NEWLINE,
     WHITESPACE,
-    GRAPHQL_NAME,
+    IDENT,
     COMMENT,
     COMMA,
     GRAPHQL_ROOT,
+    GRAPHQL_LITERAL_NAME,
+    GRAPHQL_NAME_BINDING,
+    GRAPHQL_NAME_REFERENCE,
     GRAPHQL_DEFINITION_LIST,
     GRAPHQL_FRAGMENT_DEFINITION,
     GRAPHQL_DIRECTIVE_DEFINITION,
@@ -97,9 +99,9 @@ pub enum GraphqlSyntaxKind {
     GRAPHQL_ARGUMENT,
     GRAPHQL_FRAGMENT_SPREAD,
     GRAPHQL_INLINE_FRAGMENT,
-    GRAPHQL_FRAGMENT_NAME,
     GRAPHQL_TYPE_CONDITION,
-    GRAPHQL_VARIABLE,
+    GRAPHQL_VARIABLE_BINDING,
+    GRAPHQL_VARIABLE_REFERENCE,
     GRAPHQL_ENUM_VALUE,
     GRAPHQL_LIST_VALUE,
     GRAPHQL_LIST_VALUE_ELEMENT_LIST,
@@ -111,17 +113,14 @@ pub enum GraphqlSyntaxKind {
     GRAPHQL_VARIABLE_DEFINITION,
     GRAPHQL_DEFAULT_VALUE,
     GRAPHQL_NON_NULL_TYPE,
-    GRAPHQL_NAMED_TYPE,
     GRAPHQL_LIST_TYPE,
     GRAPHQL_DIRECTIVE_LIST,
     GRAPHQL_DIRECTIVE,
+    GRAPHQL_ROOT_OPERATION_TYPES,
     GRAPHQL_ROOT_OPERATION_TYPE_DEFINITION_LIST,
     GRAPHQL_ROOT_OPERATION_TYPE_DEFINITION,
-    GRAPHQL_SCHEMA_EXTENSION_WITH_ROOT_OPERATION_TYPE,
     GRAPHQL_SCHEMA_EXTENSION,
     GRAPHQL_DESCRIPTION,
-    GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_FIELDS,
-    GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_DIRECTIVES,
     GRAPHQL_OBJECT_TYPE_EXTENSION,
     GRAPHQL_IMPLEMENTS_INTERFACES,
     GRAPHQL_IMPLEMENTS_INTERFACE_LIST,
@@ -131,21 +130,16 @@ pub enum GraphqlSyntaxKind {
     GRAPHQL_ARGUMENTS_DEFINITION,
     GRAPHQL_ARGUMENT_DEFINITION_LIST,
     GRAPHQL_INPUT_VALUE_DEFINITION,
-    GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_FIELDS,
-    GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_DIRECTIVES,
     GRAPHQL_INTERFACE_TYPE_EXTENSION,
     GRAPHQL_UNION_MEMBER_TYPES,
     GRAPHQL_UNION_MEMBER_TYPE_LIST,
-    GRAPHQL_UNION_TYPE_EXTENSION_WITH_MEMBERS,
     GRAPHQL_UNION_TYPE_EXTENSION,
     GRAPHQL_ENUM_VALUES_DEFINITION,
     GRAPHQL_ENUM_VALUE_LIST,
     GRAPHQL_ENUM_VALUE_DEFINITION,
-    GRAPHQL_ENUM_TYPE_EXTENSION_WITH_VALUES,
     GRAPHQL_ENUM_TYPE_EXTENSION,
     GRAPHQL_INPUT_FIELDS_DEFINITION,
     GRAPHQL_INPUT_FIELD_LIST,
-    GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION_WITH_FIELDS,
     GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION,
     GRAPHQL_DIRECTIVE_LOCATION_LIST,
     GRAPHQL_DIRECTIVE_LOCATION,
@@ -159,44 +153,54 @@ pub enum GraphqlSyntaxKind {
     GRAPHQL_BOGUS_SELECTION,
     GRAPHQL_BOGUS_VALUE,
     GRAPHQL_BOGUS_TYPE,
-    GRAPHQL_BOGUS_EXTENSION,
     #[doc(hidden)]
     __LAST,
 }
 use self::GraphqlSyntaxKind::*;
 impl GraphqlSyntaxKind {
     pub const fn is_punct(self) -> bool {
-        match self {
-            BANG | DOLLAR | AMP | L_PAREN | R_PAREN | DOT3 | COLON | EQ | AT | L_BRACK
-            | R_BRACK | L_CURLY | PIPE | R_CURLY => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            BANG | DOLLAR
+                | AMP
+                | L_PAREN
+                | R_PAREN
+                | DOT3
+                | COLON
+                | EQ
+                | AT
+                | L_BRACK
+                | R_BRACK
+                | L_CURLY
+                | PIPE
+                | R_CURLY
+        )
     }
     pub const fn is_literal(self) -> bool {
-        match self {
-            GRAPHQL_STRING_LITERAL | GRAPHQL_FLOAT_LITERAL | GRAPHQL_INT_LITERAL => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            GRAPHQL_STRING_LITERAL | GRAPHQL_FLOAT_LITERAL | GRAPHQL_INT_LITERAL
+        )
     }
     pub const fn is_list(self) -> bool {
-        match self {
+        matches!(
+            self,
             GRAPHQL_DEFINITION_LIST
-            | GRAPHQL_SELECTION_LIST
-            | GRAPHQL_ARGUMENT_LIST
-            | GRAPHQL_LIST_VALUE_ELEMENT_LIST
-            | GRAPHQL_OBJECT_VALUE_MEMBER_LIST
-            | GRAPHQL_VARIABLE_DEFINITION_LIST
-            | GRAPHQL_DIRECTIVE_LIST
-            | GRAPHQL_ROOT_OPERATION_TYPE_DEFINITION_LIST
-            | GRAPHQL_IMPLEMENTS_INTERFACE_LIST
-            | GRAPHQL_FIELD_DEFINITION_LIST
-            | GRAPHQL_ARGUMENT_DEFINITION_LIST
-            | GRAPHQL_UNION_MEMBER_TYPE_LIST
-            | GRAPHQL_ENUM_VALUE_LIST
-            | GRAPHQL_INPUT_FIELD_LIST
-            | GRAPHQL_DIRECTIVE_LOCATION_LIST => true,
-            _ => false,
-        }
+                | GRAPHQL_SELECTION_LIST
+                | GRAPHQL_ARGUMENT_LIST
+                | GRAPHQL_LIST_VALUE_ELEMENT_LIST
+                | GRAPHQL_OBJECT_VALUE_MEMBER_LIST
+                | GRAPHQL_VARIABLE_DEFINITION_LIST
+                | GRAPHQL_DIRECTIVE_LIST
+                | GRAPHQL_ROOT_OPERATION_TYPE_DEFINITION_LIST
+                | GRAPHQL_IMPLEMENTS_INTERFACE_LIST
+                | GRAPHQL_FIELD_DEFINITION_LIST
+                | GRAPHQL_ARGUMENT_DEFINITION_LIST
+                | GRAPHQL_UNION_MEMBER_TYPE_LIST
+                | GRAPHQL_ENUM_VALUE_LIST
+                | GRAPHQL_INPUT_FIELD_LIST
+                | GRAPHQL_DIRECTIVE_LOCATION_LIST
+        )
     }
     pub fn from_keyword(ident: &str) -> Option<GraphqlSyntaxKind> {
         let kw = match ident {

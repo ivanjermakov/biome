@@ -1,5 +1,6 @@
 mod at_rule;
 mod block;
+mod css_modules;
 mod parse_error;
 mod property;
 mod selector;
@@ -9,11 +10,13 @@ use crate::lexer::CssLexContext;
 use crate::parser::CssParser;
 use crate::syntax::at_rule::{is_at_at_rule, parse_at_rule};
 use crate::syntax::block::parse_declaration_or_rule_list_block;
-use crate::syntax::parse_error::expected_any_rule;
+use crate::syntax::parse_error::{expected_any_rule, expected_non_css_wide_keyword_identifier};
+use crate::syntax::property::color::{is_at_color, parse_color};
+use crate::syntax::property::unicode_range::{is_at_unicode_range, parse_unicode_range};
 use crate::syntax::property::{is_at_any_property, parse_any_property};
-use crate::syntax::selector::is_nth_at_selector;
-use crate::syntax::selector::relative_selector::{is_at_relative_selector, RelativeSelectorList};
 use crate::syntax::selector::SelectorList;
+use crate::syntax::selector::is_nth_at_selector;
+use crate::syntax::selector::relative_selector::{RelativeSelectorList, is_at_relative_selector};
 use crate::syntax::value::function::BINARY_OPERATION_TOKEN;
 use biome_css_syntax::CssSyntaxKind::*;
 use biome_css_syntax::{CssSyntaxKind, T};
@@ -21,11 +24,12 @@ use biome_parser::parse_lists::{ParseNodeList, ParseSeparatedList};
 use biome_parser::parse_recovery::{ParseRecovery, ParseRecoveryTokenSet, RecoveryResult};
 use biome_parser::prelude::ParsedSyntax;
 use biome_parser::prelude::ParsedSyntax::{Absent, Present};
-use biome_parser::{token_set, Parser};
+use biome_parser::{Parser, token_set};
 use value::dimension::{is_at_any_dimension, parse_any_dimension};
 use value::function::{is_at_any_function, parse_any_function};
 
-use self::parse_error::{expected_component_value, expected_declaration_item, expected_number};
+use self::parse_error::{expected_component_value, expected_declaration_item};
+
 pub(crate) fn parse_root(p: &mut CssParser) {
     let m = p.start();
     p.eat(UNICODE_BOM);
@@ -50,7 +54,15 @@ pub(crate) fn is_at_rule_list_element(p: &mut CssParser) -> bool {
     is_at_at_rule(p) || is_at_qualified_rule(p)
 }
 
-struct RuleListParseRecovery;
+struct RuleListParseRecovery {
+    end_kind: CssSyntaxKind,
+}
+
+impl RuleListParseRecovery {
+    fn new(end_kind: CssSyntaxKind) -> Self {
+        Self { end_kind }
+    }
+}
 
 impl ParseRecovery for RuleListParseRecovery {
     type Kind = CssSyntaxKind;
@@ -58,7 +70,7 @@ impl ParseRecovery for RuleListParseRecovery {
     const RECOVERED_KIND: Self::Kind = CSS_BOGUS_RULE;
 
     fn is_at_recovered(&self, p: &mut Self::Parser<'_>) -> bool {
-        is_at_rule_list_element(p)
+        p.at(self.end_kind) || is_at_rule_list_element(p)
     }
 }
 
@@ -86,7 +98,11 @@ impl ParseNodeList for RuleList {
         p: &mut Self::Parser<'_>,
         parsed_element: ParsedSyntax,
     ) -> RecoveryResult {
-        parsed_element.or_recover(p, &RuleListParseRecovery, expected_any_rule)
+        parsed_element.or_recover(
+            p,
+            &RuleListParseRecovery::new(self.end_kind),
+            expected_any_rule,
+        )
     }
 }
 
@@ -217,8 +233,24 @@ pub(crate) fn parse_declaration_with_semicolon(p: &mut CssParser) -> ParsedSynta
 }
 
 #[inline]
+pub(crate) fn parse_empty_declaration(p: &mut CssParser) -> ParsedSyntax {
+    if p.at(T![;]) {
+        let m = p.start();
+        p.bump_any(); // bump ;
+        m.complete(p, CSS_EMPTY_DECLARATION).into()
+    } else {
+        Absent
+    }
+}
+
+#[inline]
 fn is_at_declaration_important(p: &mut CssParser) -> bool {
     p.at(T![!]) && p.nth_at(1, T![important])
+}
+
+#[inline]
+pub(crate) fn is_at_declaration_semicolon(p: &mut CssParser) -> bool {
+    p.at(T![;]) && (p.nth_at(1, T![;]) || p.nth_at(1, T!['}']))
 }
 
 #[inline]
@@ -233,6 +265,26 @@ fn parse_declaration_important(p: &mut CssParser) -> ParsedSyntax {
 }
 
 #[inline]
+fn is_at_metavariable(p: &mut CssParser) -> bool {
+    p.at(GRIT_METAVARIABLE)
+}
+
+#[inline]
+fn is_nth_at_metavariable(p: &mut CssParser, n: usize) -> bool {
+    p.nth_at(n, GRIT_METAVARIABLE)
+}
+
+#[inline]
+fn parse_metavariable(p: &mut CssParser) -> ParsedSyntax {
+    if !is_at_metavariable(p) {
+        return Absent;
+    }
+    let m = p.start();
+    p.bump(GRIT_METAVARIABLE);
+    Present(m.complete(p, CSS_METAVARIABLE))
+}
+
+#[inline]
 pub(crate) fn is_at_any_value(p: &mut CssParser) -> bool {
     is_at_any_function(p)
         || is_at_identifier(p)
@@ -242,6 +294,8 @@ pub(crate) fn is_at_any_value(p: &mut CssParser) -> bool {
         || is_at_dashed_identifier(p)
         || is_at_ratio(p)
         || is_at_color(p)
+        || is_at_bracketed_value(p)
+        || is_at_metavariable(p)
 }
 
 #[inline]
@@ -250,6 +304,8 @@ pub(crate) fn parse_any_value(p: &mut CssParser) -> ParsedSyntax {
         parse_any_function(p)
     } else if is_at_dashed_identifier(p) {
         parse_dashed_identifier(p)
+    } else if is_at_unicode_range(p) {
+        parse_unicode_range(p)
     } else if is_at_identifier(p) {
         parse_regular_identifier(p)
     } else if p.at(CSS_STRING_LITERAL) {
@@ -262,24 +318,13 @@ pub(crate) fn parse_any_value(p: &mut CssParser) -> ParsedSyntax {
         parse_regular_number(p)
     } else if is_at_color(p) {
         parse_color(p)
+    } else if is_at_bracketed_value(p) {
+        parse_bracketed_value(p)
+    } else if is_at_metavariable(p) {
+        parse_metavariable(p)
     } else {
         Absent
     }
-}
-
-#[inline]
-pub(crate) fn is_at_color(p: &mut CssParser) -> bool {
-    p.at(T![#])
-}
-#[inline]
-pub(crate) fn parse_color(p: &mut CssParser) -> ParsedSyntax {
-    if !is_at_color(p) {
-        return Absent;
-    }
-    let m = p.start();
-    p.bump_with_context(T![#], CssLexContext::Color);
-    p.expect(CSS_COLOR_LITERAL);
-    Present(m.complete(p, CSS_COLOR))
 }
 
 struct CssComponentValueList;
@@ -311,7 +356,7 @@ impl ParseNodeList for CssComponentValueList {
 
 #[inline]
 pub(crate) fn is_at_ratio(p: &mut CssParser) -> bool {
-    p.at(CSS_NUMBER_LITERAL) && p.nth_at(1, T![/])
+    p.at(CSS_NUMBER_LITERAL) && p.nth_at(1, T![/]) && p.nth_at(2, CSS_NUMBER_LITERAL)
 }
 
 #[inline]
@@ -321,8 +366,8 @@ pub(crate) fn parse_ratio(p: &mut CssParser) -> ParsedSyntax {
     }
     let m = p.start();
     parse_regular_number(p).ok();
-    p.eat(T![/]);
-    parse_regular_number(p).or_add_diagnostic(p, expected_number);
+    p.bump(T![/]);
+    parse_regular_number(p).ok();
     Present(m.complete(p, CSS_RATIO))
 }
 
@@ -462,12 +507,85 @@ pub(crate) fn is_at_string(p: &mut CssParser) -> bool {
     p.at(CSS_STRING_LITERAL)
 }
 
+/// Checks if the parser is currently at the start of a bracketed value.
+#[inline]
+pub(crate) fn is_at_bracketed_value(p: &mut CssParser) -> bool {
+    p.at(T!['['])
+}
+
+/// Parses a bracketed value from the current position in the CSS parser.
+///
+/// This function parses a list of values enclosed in square brackets, commonly used in CSS properties
+/// like `grid-template-areas` where the value is a list of identifiers representing grid areas.
+/// For details on the syntax of bracketed values,
+/// see the [CSS Syntax specification](https://drafts.csswg.org/css-grid/#named-lines)
+#[inline]
+pub(crate) fn parse_bracketed_value(p: &mut CssParser) -> ParsedSyntax {
+    if !is_at_bracketed_value(p) {
+        return Absent;
+    }
+
+    let m = p.start();
+
+    p.bump(T!['[']);
+    BracketedValueList.parse_list(p);
+    p.expect(T![']']);
+
+    Present(m.complete(p, CSS_BRACKETED_VALUE))
+}
+
+/// The list parser for bracketed values.
+///
+/// This parser is responsible for parsing a list of identifiers inside a bracketed value.
+pub(crate) struct BracketedValueList;
+
+impl ParseNodeList for BracketedValueList {
+    type Kind = CssSyntaxKind;
+    type Parser<'source> = CssParser<'source>;
+    const LIST_KIND: Self::Kind = CSS_BRACKETED_VALUE_LIST;
+
+    fn parse_element(&mut self, p: &mut Self::Parser<'_>) -> ParsedSyntax {
+        parse_custom_identifier(p, CssLexContext::Regular)
+    }
+
+    fn is_at_list_end(&self, p: &mut Self::Parser<'_>) -> bool {
+        p.at(T![']'])
+    }
+
+    fn recover(
+        &mut self,
+        p: &mut Self::Parser<'_>,
+        parsed_element: ParsedSyntax,
+    ) -> RecoveryResult {
+        parsed_element.or_recover(
+            p,
+            &BracketedValueListRecovery,
+            expected_non_css_wide_keyword_identifier,
+        )
+    }
+}
+
+/// Recovery strategy for bracketed value lists.
+///
+/// This recovery strategy handles the recovery process when parsing bracketed value lists.
+struct BracketedValueListRecovery;
+
+impl ParseRecovery for BracketedValueListRecovery {
+    type Kind = CssSyntaxKind;
+    type Parser<'source> = CssParser<'source>;
+    const RECOVERED_KIND: Self::Kind = CSS_BOGUS_CUSTOM_IDENTIFIER;
+
+    fn is_at_recovered(&self, p: &mut Self::Parser<'_>) -> bool {
+        // If the next token is the end of the list or the next element, we're at a recovery point.
+        p.at(T![']']) || is_at_identifier(p)
+    }
+}
+
 /// Attempt to parse some input with the given parsing function. If parsing
 /// succeeds, `Ok` is returned with the result of the parse and the state is
 /// preserved. If parsing fails, this function rewinds the parser back to
 /// where it was before attempting the parse and the `Err` value is returned.
 #[must_use = "The result of try_parse contains information about whether the parse succeeded and should not be ignored"]
-#[allow(dead_code)]
 pub(crate) fn try_parse<T, E>(
     p: &mut CssParser,
     func: impl FnOnce(&mut CssParser) -> Result<T, E>,
@@ -487,10 +605,10 @@ pub(crate) fn try_parse<T, E>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{parser::CssParser, CssParserOptions};
+    use crate::{CssParserOptions, parser::CssParser};
     use biome_css_syntax::{CssSyntaxKind, T};
-    use biome_parser::prelude::ParsedSyntax::{Absent, Present};
     use biome_parser::Parser;
+    use biome_parser::prelude::ParsedSyntax::{Absent, Present};
 
     use super::{parse_regular_identifier, parse_regular_number, try_parse};
 

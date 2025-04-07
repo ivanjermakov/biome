@@ -15,9 +15,9 @@ use crate::utility_types::static_assert;
 use countme::Count;
 
 use crate::{
+    GreenToken, NodeOrToken, TextRange, TextSize,
     arc::{Arc, HeaderSlice, ThinArc},
     green::{GreenElement, GreenElementRef, RawSyntaxKind},
-    GreenToken, NodeOrToken, TextRange, TextSize,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -142,7 +142,7 @@ impl fmt::Display for GreenNode {
 impl fmt::Display for GreenNodeData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for child in self.slots() {
-            write!(f, "{}", child)?;
+            write!(f, "{child}")?;
         }
         Ok(())
     }
@@ -232,7 +232,6 @@ impl ops::Deref for GreenNode {
     fn deref(&self) -> &GreenNodeData {
         unsafe {
             let repr: &Repr = &self.ptr;
-            #[allow(invalid_reference_casting)]
             let repr: &ReprThin = &*(repr as *const Repr as *const ReprThin);
             mem::transmute::<&ReprThin, &GreenNodeData>(repr)
         }
@@ -291,8 +290,10 @@ impl GreenNode {
 
     #[inline]
     pub(crate) unsafe fn from_raw(ptr: ptr::NonNull<GreenNodeData>) -> GreenNode {
-        let arc = Arc::from_raw(&ptr.as_ref().data as *const ReprThin);
-        let arc = mem::transmute::<Arc<ReprThin>, ThinArc<GreenNodeHead, Slot>>(arc);
+        let arc = unsafe {
+            let arc = Arc::from_raw(&ptr.as_ref().data as *const ReprThin);
+            mem::transmute::<Arc<ReprThin>, ThinArc<GreenNodeHead, Slot>>(arc)
+        };
         GreenNode { ptr: arc }
     }
 }
@@ -385,7 +386,7 @@ impl<'a> Iterator for Slots<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Slots<'a> {
+impl DoubleEndedIterator for Slots<'_> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.raw.next_back()
@@ -473,7 +474,7 @@ impl<'a> Iterator for Children<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Children<'a> {
+impl DoubleEndedIterator for Children<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
             let next = self.slots.next_back()?;
@@ -489,8 +490,8 @@ impl FusedIterator for Children<'_> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::raw_language::{RawLanguageKind, RawSyntaxTreeBuilder};
     use crate::GreenNode;
+    use crate::raw_language::{RawLanguageKind, RawSyntaxTreeBuilder};
 
     fn build_test_list() -> GreenNode {
         let mut builder: RawSyntaxTreeBuilder = RawSyntaxTreeBuilder::new();

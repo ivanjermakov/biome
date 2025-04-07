@@ -1,9 +1,6 @@
 use crate::JsRuleAction;
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsExpression, AnyJsLiteralExpression, JsBooleanLiteralExpression, JsLogicalExpression,
@@ -11,7 +8,7 @@ use biome_js_syntax::{
 };
 use biome_rowan::{AstNode, AstNodeExt, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Discard redundant terms from logical expressions.
     ///
     /// ## Examples
@@ -51,6 +48,7 @@ declare_rule! {
     pub UseSimplifiedLogicExpression {
         version: "1.0.0",
         name: "useSimplifiedLogicExpression",
+        language: "js",
         recommended: false,
         fix_kind: FixKind::Unsafe,
     }
@@ -153,12 +151,12 @@ impl Rule for UseSimplifiedLogicExpression {
             "Discard redundant terms from the logical expression."
         };
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { ""{message}"" }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { ""{message}"" }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

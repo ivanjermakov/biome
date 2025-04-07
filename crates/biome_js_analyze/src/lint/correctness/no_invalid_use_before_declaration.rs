@@ -1,13 +1,14 @@
 use crate::{services::control_flow::AnyJsControlFlowRoot, services::semantic::SemanticServices};
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
-    binding_ext::{AnyJsBindingDeclaration, AnyJsIdentifierBinding},
     AnyJsExportNamedSpecifier, AnyJsIdentifierUsage,
+    binding_ext::{AnyJsBindingDeclaration, AnyJsIdentifierBinding},
 };
 use biome_rowan::{AstNode, SyntaxNodeOptionExt, TextRange};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of variables and function parameters before their declaration
     ///
     /// JavaScript doesn't allow the use of block-scoped variables (`let`, `const`) and function parameters before their declaration.
@@ -60,25 +61,32 @@ declare_rule! {
     pub NoInvalidUseBeforeDeclaration {
         version: "1.5.0",
         name: "noInvalidUseBeforeDeclaration",
+        language: "js",
         sources: &[
             RuleSource::Eslint("no-use-before-define"),
             RuleSource::EslintTypeScript("no-use-before-define"),
         ],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 impl Rule for NoInvalidUseBeforeDeclaration {
     type Query = SemanticServices;
     type State = InvalidUseBeforeDeclaration;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let model = ctx.model();
         let mut result = vec![];
         for binding in model.all_bindings() {
-            let AnyJsIdentifierBinding::JsIdentifierBinding(id) = binding.tree() else {
+            let id = binding.tree();
+            if matches!(
+                id,
+                AnyJsIdentifierBinding::TsIdentifierBinding(_)
+                    | AnyJsIdentifierBinding::TsTypeParameterName(_)
+            ) {
                 // Ignore type declarations (interfaces, type-aliases, ...)
                 continue;
             };
@@ -103,8 +111,8 @@ impl Rule for NoInvalidUseBeforeDeclaration {
                     None
                 };
             for reference in binding.all_references() {
-                let reference_range = reference.range();
-                if reference_range.start() < declaration_end
+                if reference.range_start() < declaration_end {
+                    let reference_syntax = reference.syntax();
                     // References that are exports, such as `export { a }` are always valid,
                     // even when they appear before the declaration.
                     // For example:
@@ -113,45 +121,44 @@ impl Rule for NoInvalidUseBeforeDeclaration {
                     // export { X };
                     // const X = 0;
                     // ```
-                    && reference
-                        .syntax()
+                    if reference_syntax
                         .parent()
                         .kind()
                         .filter(|parent_kind| AnyJsExportNamedSpecifier::can_cast(*parent_kind))
                         .is_none()
-                    // Don't report variables used in another control flow root (function, classes, ...)
-                    // For example:
-                    //
-                    // ```js
-                    // function f() { X; }
-                    // const X = 0;
-                    // ```
-                    && (declaration_control_flow_root.is_none() ||
-                        declaration_control_flow_root == reference
-                            .syntax()
-                            .ancestors()
-                            .skip(1)
-                            .find(|ancestor| AnyJsControlFlowRoot::can_cast(ancestor.kind()))
-                    )
-                    // ignore when used as a type.
-                    // For example:
-                    //
-                    // ```js
-                    // type Y = typeof X;
-                    // const X = 0;
-                    // ```
-                    && !AnyJsIdentifierUsage::cast_ref(reference.syntax())
-                        .is_some_and(|usage| usage.is_only_type())
-                {
-                    result.push(InvalidUseBeforeDeclaration {
-                        declaration_kind,
-                        reference_range: *reference_range,
-                        binding_range: id.range(),
-                    });
+                        // Don't report variables used in another control flow root (function, classes, ...)
+                        // For example:
+                        //
+                        // ```js
+                        // function f() { X; }
+                        // const X = 0;
+                        // ```
+                        && (declaration_control_flow_root.is_none() ||
+                            declaration_control_flow_root == reference_syntax
+                                .ancestors()
+                                .skip(1)
+                                .find(|ancestor| AnyJsControlFlowRoot::can_cast(ancestor.kind()))
+                        )
+                        // ignore when used as a type.
+                        // For example:
+                        //
+                        // ```js
+                        // type Y = typeof X;
+                        // const X = 0;
+                        // ```
+                        && !AnyJsIdentifierUsage::cast_ref(reference_syntax)
+                            .is_some_and(|usage| usage.is_only_type())
+                    {
+                        result.push(InvalidUseBeforeDeclaration {
+                            declaration_kind,
+                            reference_range: reference_syntax.text_trimmed_range(),
+                            binding_range: id.range(),
+                        });
+                    }
                 }
             }
         }
-        result
+        result.into_boxed_slice()
     }
 
     fn diagnostic(_: &RuleContext<Self>, state: &Self::State) -> Option<RuleDiagnostic> {
@@ -161,6 +168,7 @@ impl Rule for NoInvalidUseBeforeDeclaration {
             binding_range: declaration_range,
         } = state;
         let declaration_kind_text = match declaration_kind {
+            DeclarationKind::EnumMember => "enum member",
             DeclarationKind::Parameter => "parameter",
             DeclarationKind::Variable => "variable",
         };
@@ -187,6 +195,7 @@ pub struct InvalidUseBeforeDeclaration {
 
 #[derive(Debug, Copy, Clone)]
 pub enum DeclarationKind {
+    EnumMember,
     Parameter,
     Variable,
 }
@@ -196,6 +205,7 @@ impl TryFrom<&AnyJsBindingDeclaration> for DeclarationKind {
 
     fn try_from(value: &AnyJsBindingDeclaration) -> Result<Self, Self::Error> {
         match value {
+            AnyJsBindingDeclaration::TsEnumMember(_) => Ok(DeclarationKind::EnumMember),
             // Variable declaration
             AnyJsBindingDeclaration::JsArrayBindingPatternElement(_)
             | AnyJsBindingDeclaration::JsArrayBindingPatternRestElement(_)

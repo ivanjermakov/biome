@@ -3,9 +3,9 @@
 #[rustfmt::skip]
 mod tests;
 
-use biome_json_syntax::{JsonSyntaxKind, JsonSyntaxKind::*, TextLen, TextRange, TextSize, T};
+use biome_json_syntax::{JsonSyntaxKind, JsonSyntaxKind::*, T, TextLen, TextRange, TextSize};
 use biome_parser::diagnostic::ParseDiagnostic;
-use biome_unicode_table::{is_js_id_continue, is_js_id_start, lookup_byte, Dispatch::*};
+use biome_unicode_table::{Dispatch::*, is_js_id_continue, is_js_id_start, lookup_byte};
 use std::iter::FusedIterator;
 use std::ops::Add;
 use unicode_bom::Bom;
@@ -307,7 +307,7 @@ impl<'src> Lexer<'src> {
         match dispatched {
             WHS => self.consume_newline_or_whitespaces(),
             QOT => self.lex_string_literal(current),
-            IDT => self.lex_identifier(current),
+            IDT | DOL => self.lex_identifier(current),
             COM => self.eat_byte(T![,]),
             MIN | DIG | ZER => self.lex_number(current),
             COL => self.eat_byte(T![:]),
@@ -343,7 +343,7 @@ impl<'src> Lexer<'src> {
 
         let char = self.current_char_unchecked();
         let err = ParseDiagnostic::new(
-            format!("unexpected character `{}`", char),
+            format!("unexpected character `{char}`"),
             self.text_position()..self.text_position() + char.text_len(),
         );
         self.diagnostics.push(err);
@@ -462,28 +462,28 @@ impl<'src> Lexer<'src> {
             LexNumberState::Invalid { position, reason } => {
                 let diagnostic = match reason {
                     InvalidNumberReason::Fraction => ParseDiagnostic::new(
-
                         "Invalid fraction part",
                         position..position + TextSize::from(1),
                     ),
                     InvalidNumberReason::Exponent => ParseDiagnostic::new(
-
                         "Invalid exponent part",
                         position..position + TextSize::from(1),
                     ),
                     InvalidNumberReason::Octal => ParseDiagnostic::new(
-
                         "The JSON standard doesn't allow octal number notation (numbers starting with zero)",
                         position..position + TextSize::from(1),
                     ),
                     InvalidNumberReason::MissingExponent => {
-                        ParseDiagnostic::new( "Missing exponent", start..position)
-                            .with_detail(position..position + TextSize::from(1), "Expected a digit as the exponent")
+                        ParseDiagnostic::new("Missing exponent", start..position).with_detail(
+                            position..position + TextSize::from(1),
+                            "Expected a digit as the exponent",
+                        )
                     }
-                    InvalidNumberReason::MissingFraction => {
-                        ParseDiagnostic::new( "Missing fraction", position..position + TextSize::from(1))
-                            .with_hint("Remove the `.`")
-                    }
+                    InvalidNumberReason::MissingFraction => ParseDiagnostic::new(
+                        "Missing fraction",
+                        position..position + TextSize::from(1),
+                    )
+                    .with_hint("Remove the `.`"),
                 };
 
                 self.diagnostics.push(diagnostic);
@@ -689,7 +689,7 @@ impl<'src> Lexer<'src> {
         while let Some(byte) = self.current_byte() {
             self.current_char_unchecked();
             match lookup_byte(byte) {
-                IDT | DIG | ZER => {
+                IDT | DOL | DIG | ZER => {
                     keyword = keyword.next_character(byte);
                     self.advance(1)
                 }

@@ -1,11 +1,14 @@
 use std::ops::Range;
 
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{
+    Ast, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
+};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::JsRegexLiteralExpression;
 use biome_rowan::{TextRange, TextSize};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow empty character classes in regular expression literals.
     ///
     /// Empty character classes don't match anything.
@@ -41,48 +44,49 @@ declare_rule! {
     pub NoEmptyCharacterClassInRegex {
         version: "1.3.0",
         name: "noEmptyCharacterClassInRegex",
+        language: "js",
         sources: &[RuleSource::Eslint("no-empty-character-class")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 impl Rule for NoEmptyCharacterClassInRegex {
     type Query = Ast<JsRegexLiteralExpression>;
     type State = Range<usize>;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let mut empty_classes = vec![];
         let regex = ctx.query();
         let Ok((pattern, flags)) = regex.decompose() else {
-            return empty_classes;
+            return empty_classes.into_boxed_slice();
         };
         let has_v_flag = flags.text().contains('v');
         let trimmed_text = pattern.text();
         let mut class_start_index = None;
         let mut is_negated_class = false;
-        // We use `char_indices` to get the byte index of every character
-        let mut enumerated_char_iter = trimmed_text.char_indices();
+        let mut enumerated_char_iter = trimmed_text.bytes().enumerate();
         while let Some((i, ch)) = enumerated_char_iter.next() {
             match ch {
-                '\\' => {
+                b'\\' => {
                     // We eat the next character because it is escaped with `\`
                     enumerated_char_iter.next();
                 }
-                '[' => {
+                b'[' => {
                     // The `v` flag allows to embed a class in another class.
                     if class_start_index.is_none() || has_v_flag {
                         class_start_index = Some(i);
                         is_negated_class = false;
                     }
                 }
-                '^' => {
+                b'^' => {
                     if let Some(class_start_index) = class_start_index {
                         is_negated_class = (i - class_start_index) == 1;
                     }
                 }
-                ']' => {
+                b']' => {
                     if let Some(class_start_index) = class_start_index.take() {
                         let empty_class_len = if is_negated_class { 2 } else { 1 };
                         if (i - class_start_index) == empty_class_len {
@@ -93,7 +97,7 @@ impl Rule for NoEmptyCharacterClassInRegex {
                 _ => {}
             }
         }
-        empty_classes
+        empty_classes.into_boxed_slice()
     }
 
     fn diagnostic(

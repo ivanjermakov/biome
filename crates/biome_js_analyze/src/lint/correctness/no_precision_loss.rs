@@ -2,14 +2,15 @@ use std::num::IntErrorKind;
 use std::ops::RangeInclusive;
 
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 
-use biome_js_syntax::numbers::split_into_radix_and_number;
 use biome_js_syntax::JsNumberLiteralExpression;
+use biome_js_syntax::numbers::split_into_radix_and_number;
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow literal numbers that lose precision
     ///
     ///
@@ -48,12 +49,14 @@ declare_rule! {
     pub NoPrecisionLoss {
         version: "1.0.0",
         name: "noPrecisionLoss",
+        language: "js",
         sources: &[
             RuleSource::Eslint("no-loss-of-precision"),
             RuleSource::EslintTypeScript("no-loss-of-precision"),
             RuleSource::Clippy("lossy_float_literal")
         ],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -122,7 +125,7 @@ fn is_precision_lost_in_base_other(num: &str, radix: u8) -> bool {
             return matches!(
                 e.kind(),
                 IntErrorKind::PosOverflow | IntErrorKind::NegOverflow
-            )
+            );
         }
     };
 

@@ -1,21 +1,21 @@
 use std::borrow::Cow;
 
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource, RuleSourceKind,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, RuleSourceKind, context::RuleContext,
+    declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{AnyJsStatement, JsIfStatement, JsStatementList, JsSyntaxKind};
 use biome_rowan::{
-    chain_trivia_pieces, trim_leading_trivia_pieces, AstNode, AstNodeList, BatchMutationExt,
-    SyntaxNodeOptionExt,
+    AstNode, AstNodeList, BatchMutationExt, SyntaxNodeOptionExt, chain_trivia_pieces,
+    trim_leading_trivia_pieces,
 };
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow `else` block when the `if` block breaks early.
     ///
     /// If an `if` block breaks early using a breaking statement (`return`, `break`, `continue`, or `throw`),
@@ -88,12 +88,14 @@ declare_rule! {
     pub NoUselessElse {
         version: "1.3.0",
         name: "noUselessElse",
+        language: "js",
         sources: &[
             RuleSource::Eslint("no-else-return"),
             RuleSource::Clippy("redundant_else 	"),
         ],
         source_kind: RuleSourceKind::Inspired,
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -101,15 +103,15 @@ declare_rule! {
 impl Rule for NoUselessElse {
     type Query = Ast<JsIfStatement>;
     type State = JsIfStatement;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
-        let mut result = vec![];
+        let mut result = Vec::new();
         let if_stmt = ctx.query();
         // Check an `if` statement only once.
         if if_stmt.syntax().parent().kind() == Some(JsSyntaxKind::JS_ELSE_CLAUSE) {
-            return result;
+            return result.into_boxed_slice();
         }
         let mut if_stmt = Cow::Borrowed(if_stmt);
         while let (Ok(if_consequent), Some(else_clause)) =
@@ -131,7 +133,7 @@ impl Rule for NoUselessElse {
             };
             if_stmt = Cow::Owned(stmt);
         }
-        result
+        result.into_boxed_slice()
     }
 
     fn diagnostic(_ctx: &RuleContext<Self>, if_stmt: &Self::State) -> Option<RuleDiagnostic> {
@@ -176,12 +178,12 @@ impl Rule for NoUselessElse {
             let new_stmts_list = make::js_statement_list(new_stmts);
             let mut mutation = ctx.root().begin();
             mutation.replace_node_discard_trivia(stmts_list, new_stmts_list);
-            return Some(JsRuleAction {
-                category: ActionCategory::QuickFix,
-                applicability: Applicability::MaybeIncorrect,
-                message: markup! { "Omit the "<Emphasis>"else"</Emphasis>" clause." }.to_owned(),
+            return Some(JsRuleAction::new(
+                ctx.metadata().action_category(ctx.category(), ctx.group()),
+                ctx.metadata().applicability(),
+                markup! { "Omit the "<Emphasis>"else"</Emphasis>" clause." }.to_owned(),
                 mutation,
-            });
+            ));
         }
         None
     }

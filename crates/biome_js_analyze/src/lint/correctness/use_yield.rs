@@ -1,13 +1,14 @@
 use biome_analyze::context::RuleContext;
 use biome_analyze::{
-    declare_rule, AddVisitor, Phases, QueryMatch, Queryable, Rule, RuleDiagnostic, RuleSource,
-    ServiceBag, Visitor, VisitorContext,
+    AddVisitor, Phases, QueryMatch, Queryable, Rule, RuleDiagnostic, RuleSource, ServiceBag,
+    Visitor, VisitorContext, declare_lint_rule,
 };
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{AnyFunctionLike, JsLanguage, JsYieldExpression, TextRange, WalkEvent};
 use biome_rowan::{AstNode, AstNodeList, Language, SyntaxNode, TextSize};
 
-declare_rule! {
+declare_lint_rule! {
     /// Require generator functions to contain `yield`.
     ///
     /// This rule generates warnings for generator functions that do not have the `yield` keyword.
@@ -39,8 +40,10 @@ declare_rule! {
     pub UseYield {
         version: "1.0.0",
         name: "useYield",
+        language: "js",
         sources: &[RuleSource::Eslint("require-yield")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

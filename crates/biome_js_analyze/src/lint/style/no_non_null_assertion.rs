@@ -1,17 +1,16 @@
 use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
-    AnyJsExpression, TsNonNullAssertionAssignment, TsNonNullAssertionExpression, T,
+    AnyJsExpression, T, TsNonNullAssertionAssignment, TsNonNullAssertionExpression,
 };
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt};
+use biome_rowan::{AstNode, BatchMutationExt, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow non-null assertions using the `!` postfix operator.
     ///
     /// TypeScript's `!` non-null assertion operator asserts to the type system that an expression is non-nullable, as
@@ -27,7 +26,7 @@ declare_rule! {
     /// interface Example {
     ///   property?: string;
     /// }
-    /// declare const example: Example;
+    /// declare const foo: Example;
     /// const includesBaz = foo.property!.includes('baz');
     /// ```
     /// ```ts,expect_diagnostic
@@ -41,15 +40,17 @@ declare_rule! {
     ///   property?: string;
     /// }
     ///
-    /// declare const example: Example;
+    /// declare const foo: Example;
     /// const includesBaz = foo.property?.includes('baz') ?? false;
     /// ```
     ///
     pub NoNonNullAssertion {
         version: "1.0.0",
         name: "noNonNullAssertion",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("no-non-null-assertion")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -153,13 +154,13 @@ impl Rule for NoNonNullAssertion {
                     }
                 };
 
-                Some(JsRuleAction {
-                    category: ActionCategory::QuickFix,
-                    applicability: Applicability::MaybeIncorrect,
-                    message: markup! { "Replace with optional chain operator "<Emphasis>"?."</Emphasis>" This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator" }
+                Some(JsRuleAction::new(
+                    ctx.metadata().action_category(ctx.category(), ctx.group()),
+                    ctx.metadata().applicability(),
+                     markup! { "Replace with optional chain operator "<Emphasis>"?."</Emphasis>" This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator" }
                         .to_owned(),
                     mutation,
-                })
+                ))
             }
         }
     }

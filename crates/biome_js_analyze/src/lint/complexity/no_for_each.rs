@@ -1,9 +1,17 @@
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{
+    Ast, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
+};
 use biome_console::markup;
+use biome_deserialize::{
+    DeserializableValidator, DeserializationContext, DeserializationDiagnostic,
+};
+use biome_deserialize_macros::Deserializable;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{AnyJsExpression, AnyJsMemberExpression, JsCallExpression};
-use biome_rowan::{AstNode, AstSeparatedList};
+use biome_rowan::{AstNode, AstSeparatedList, TextRange};
+use serde::{Deserialize, Serialize};
 
-declare_rule! {
+declare_lint_rule! {
     /// Prefer `for...of` statement instead of `Array.forEach`.
     ///
     /// Here's a summary of why `forEach` may be disallowed, and why `for...of` is preferred for almost any use-case of `forEach`:
@@ -58,14 +66,38 @@ declare_rule! {
     /// }
     /// ```
     ///
+    /// ## Options
+    ///
+    /// The rule provides a `validIdentifiers` option that allows specific variable names to call `forEach`.
+    /// In the following configuration, it's allowed to call `forEach` with expressions that match `Effect` or `_`:
+    ///
+    /// ```json,options
+    /// {
+    ///     "options": {
+    ///         "allowedIdentifiers": ["Effect", "_"]
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// ```js,use_options
+    /// Effect.forEach((el) => {
+    ///   f(el);
+    /// })
+    /// _.forEach((el) => {
+    ///   f(el);
+    /// })
+    /// ```
+    ///
+    /// Values with dots (e.g., "lib._") will not be accepted.
     pub NoForEach {
         version: "1.0.0",
         name: "noForEach",
+        language: "js",
         sources: &[
             RuleSource::EslintUnicorn("no-array-for-each"),
             RuleSource::Clippy("needless_for_each"),
         ],
-        recommended: true,
+        severity: Severity::Warning,
     }
 }
 
@@ -73,15 +105,33 @@ impl Rule for NoForEach {
     type Query = Ast<JsCallExpression>;
     type State = ();
     type Signals = Option<Self::State>;
-    type Options = ();
+    type Options = NoForEachOptions;
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
         let member_expression =
-            AnyJsMemberExpression::cast_ref(node.callee().ok()?.omit_parentheses().syntax())?;
+            AnyJsMemberExpression::cast(node.callee().ok()?.omit_parentheses().into_syntax())?;
         if member_expression.member_name()?.text() != "forEach" {
             return None;
         }
+
+        let options = ctx.options();
+        // Check if `forEach` is called by a valid identifier.
+        if !options.allowed_identifiers.is_empty() {
+            let object = member_expression.object().ok()?;
+            if let Some(reference) = object.as_js_reference_identifier() {
+                let value_token = reference.value_token().ok()?;
+                let name = value_token.text_trimmed();
+                if options
+                    .allowed_identifiers
+                    .iter()
+                    .any(|identifier| identifier.as_ref() == name)
+                {
+                    return None;
+                }
+            }
+        }
+
         // Extract first parameter and ensure we have no more than 2 parameters.
         let [Some(first), _, None] = node.arguments().ok()?.get_arguments_by_index([0, 1, 2])
         else {
@@ -111,5 +161,41 @@ impl Rule for NoForEach {
         ).note(markup!{
             <Emphasis>"forEach"</Emphasis>" may lead to performance issues when working with large arrays. When combined with functions like "<Emphasis>"filter"</Emphasis>" or "<Emphasis>"map"</Emphasis>", this causes multiple iterations over the same type."
         }))
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
+#[deserializable(with_validator)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+pub struct NoForEachOptions {
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    /// A list of variable names allowed for `forEach` calls.
+    pub allowed_identifiers: Box<[Box<str>]>,
+}
+
+impl DeserializableValidator for NoForEachOptions {
+    fn validate(
+        &mut self,
+        ctx: &mut impl DeserializationContext,
+        _name: &str,
+        range: TextRange,
+    ) -> bool {
+        if self
+            .allowed_identifiers
+            .iter()
+            .any(|identifier| identifier.is_empty() || identifier.contains('.'))
+        {
+            ctx
+                .report(
+                    DeserializationDiagnostic::new(markup!(
+                        <Emphasis>"'allowedIdentifiers'"</Emphasis>" does not accept empty values or values with dots."
+                    ))
+                    .with_range(range)
+                );
+            return false;
+        }
+
+        true
     }
 }

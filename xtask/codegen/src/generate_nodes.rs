@@ -1,11 +1,5 @@
-use crate::css_kinds_src::CSS_KINDS_SRC;
-use crate::graphql_kind_src::GRAPHQL_KINDS_SRC;
-use crate::grit_kinds_src::GRIT_KINDS_SRC;
-use crate::html_kinds_src::HTML_KINDS_SRC;
-use crate::js_kinds_src::{AstNodeSrc, AstSrc, Field, TokenKind, JS_KINDS_SRC};
-use crate::json_kinds_src::JSON_KINDS_SRC;
+use crate::js_kinds_src::{AstNodeSrc, AstSrc, Field, TokenKind};
 use crate::language_kind::LanguageKind;
-use crate::yaml_kinds_src::YAML_KINDS_SRC;
 use biome_string_case::Case;
 use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
@@ -202,7 +196,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
 
                     /// Construct the `slot_map` for this node by checking the `kind` of
                     /// each child of `syntax` against the defined grammar for the node.
-                    #[allow(clippy::explicit_counter_loop)]
+                    #![allow(clippy::explicit_counter_loop)]
                     pub fn build_slot_map(syntax: &SyntaxNode) -> #slot_map_type {
                         #slot_map_builder_impl
                     }
@@ -244,6 +238,27 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
                 Default::default()
             };
 
+            let debug_fmt_impl = if fields.len() > 0 {
+                quote! {
+                    thread_local! { static DEPTH: std::cell::Cell<u8> = const { std::cell::Cell::new(0) } };
+                    let current_depth = DEPTH.get();
+                    let result = if current_depth < 16 {
+                        DEPTH.set(current_depth + 1);
+                        f.debug_struct(#string_name)
+                            #(#fields)*
+                            .finish()
+                    } else {
+                        f.debug_struct(#string_name).finish()
+                    };
+                    DEPTH.set(current_depth);
+                    result
+                }
+            } else {
+                quote! {
+                    f.debug_struct(#string_name).finish()
+                }
+            };
+
             (
                 quote! {
                     // TODO: review documentation
@@ -266,17 +281,16 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
                         #(#methods)*
                     }
 
-                    #[cfg(feature = "serde")]
-                        impl Serialize for #name {
-                            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-                            where
-                            S: Serializer,
-                            {
-                                self.as_fields().serialize(serializer)
-                            }
+                    impl Serialize for #name {
+                        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+                        where
+                        S: Serializer,
+                        {
+                            self.as_fields().serialize(serializer)
+                        }
                     }
 
-                    #[cfg_attr(feature = "serde", derive(Serialize))]
+                    #[derive(Serialize)]
                     pub struct #slots_name {
                         #( pub #slot_fields, )*
                     }
@@ -302,9 +316,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
 
                     impl std::fmt::Debug for #name {
                         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                            f.debug_struct(#string_name)
-                                #(#fields)*
-                                .finish()
+                            #debug_fmt_impl
                         }
                     }
 
@@ -422,12 +434,15 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
                     let variant_name = format_ident!("{}", en);
                     let variable_name = format_ident!("{}", Case::Snake.convert(en.as_str()));
                     (
-                        // cast() code
+                        // try_cast() code
                         if i != variant_of_variants.len() - 1 {
                             quote! {
-                            if let Some(#variable_name) = #variant_name::cast(syntax.clone()) {
+                            let syntax = match #variant_name::try_cast(syntax) {
+                                Ok(#variable_name) => {
                                     return Some(#name::#variant_name(#variable_name));
-                            }}
+                                }
+                                Err(syntax) => syntax,
+                            };}
                         } else {
                             // if this is the last variant, do not clone syntax
                             quote! {
@@ -540,8 +555,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
             (
                 quote! {
                     // #[doc = #doc]
-                    #[derive(Clone, PartialEq, Eq, Hash)]
-                    #[cfg_attr(feature = "serde", derive(Serialize))]
+                    #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
                     pub enum #name {
                         #(#variants_for_union),*
                     }
@@ -645,8 +659,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
         let kind = format_ident!("{}", Case::Constant.convert(bogus_name));
 
         quote! {
-            #[derive(Clone, PartialEq, Eq, Hash)]
-            #[cfg_attr(feature = "serde", derive(Serialize))]
+            #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
             pub struct #ident {
                 syntax: SyntaxNode
             }
@@ -714,6 +727,29 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
         }
     });
 
+    let any_bogus = {
+        let kinds = ast.bogus.iter().enumerate().map(|(i, bogus_name)| {
+            let ident = format_ident!("{bogus_name}");
+            if i == 0 {
+                quote! { #ident }
+            } else {
+                quote! { | #ident }
+            }
+        });
+        let ident = format_ident!(
+            "Any{}BogusNode",
+            ast.bogus
+                .iter()
+                .find_map(|bogus_name| bogus_name.strip_suffix("Bogus"))
+                .expect("expected a plain *Bogus node")
+        );
+        quote! {
+            biome_rowan::declare_node_union! {
+                pub #ident = #(#kinds)*
+            }
+        }
+    };
+
     let lists = ast.lists().map(|(name, list)| {
         let list_name = format_ident!("{}", name);
         let list_kind = format_ident!("{}", Case::Constant.convert(name));
@@ -759,11 +795,10 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
             }
         };
 
-        let padded_name = format!("{} ", name);
+        let padded_name = format!("{name} ");
 
         let list_impl = if list.separator.is_some() {
             quote! {
-                #[cfg(feature = "serde")]
                 impl Serialize for #list_name {
                     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
                         where
@@ -815,7 +850,6 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
             }
         } else {
             quote! {
-                #[cfg(feature = "serde")]
                 impl Serialize for #list_name {
                     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
                         where
@@ -888,33 +922,28 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
     let language = language_kind.language();
 
     let serde_import = quote! {
-        #[cfg(feature = "serde")]
         use serde::{Serialize, Serializer};
-        #[cfg(feature = "serde")]
         use serde::ser::SerializeSeq;
     };
 
     let ast = quote! {
-        #![allow(clippy::enum_variant_names)]
-        // sometimes we generate comparison of simple tokens
-        #![allow(clippy::match_like_matches_macro)]
+        #![allow(dead_code)]
+        #![allow(unused)]
         use crate::{
             macros::map_syntax_node,
             #language as Language, #syntax_element as SyntaxElement, #syntax_element_children as SyntaxElementChildren,
             #syntax_kind::{self as SyntaxKind, *},
             #syntax_list as SyntaxList, #syntax_node as SyntaxNode, #syntax_token as SyntaxToken,
         };
-        #[allow(unused)]
         use biome_rowan::{
-            AstNodeList, AstNodeListIterator,  AstNodeSlotMap, AstSeparatedList, AstSeparatedListNodesIterator
+            AstNodeList, AstNodeListIterator,  AstNodeSlotMap, AstSeparatedList, AstSeparatedListNodesIterator,
+            support, AstNode,SyntaxKindSet, RawSyntaxKind, SyntaxResult
         };
-        use biome_rowan::{support, AstNode,SyntaxKindSet, RawSyntaxKind, SyntaxResult};
         use std::fmt::{Debug, Formatter};
         #serde_import
 
         /// Sentinel value indicating a missing element in a dynamic node, where
         /// the slots are not statically known.
-        #[allow(dead_code)]
         pub(crate) const SLOT_MAP_EMPTY_VALUE: u8 = u8::MAX;
 
         #(#node_defs)*
@@ -923,6 +952,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
         #(#union_boilerplate_impls)*
         #(#display_impls)*
         #(#bogus)*
+        #any_bogus
         #(#lists)*
 
         #[derive(Clone)]
@@ -963,15 +993,7 @@ pub fn generate_nodes(ast: &AstSrc, language_kind: LanguageKind) -> Result<Strin
 pub(crate) fn token_kind_to_code(name: &str, language_kind: LanguageKind) -> TokenStream {
     let kind_variant_name = Case::Constant.convert(name);
 
-    let kind_source = match language_kind {
-        LanguageKind::Js => JS_KINDS_SRC,
-        LanguageKind::Css => CSS_KINDS_SRC,
-        LanguageKind::Json => JSON_KINDS_SRC,
-        LanguageKind::Grit => GRIT_KINDS_SRC,
-        LanguageKind::Html => HTML_KINDS_SRC,
-        LanguageKind::Graphql => GRAPHQL_KINDS_SRC,
-        LanguageKind::Yaml => YAML_KINDS_SRC,
-    };
+    let kind_source = language_kind.kinds();
     if kind_source.literals.contains(&kind_variant_name.as_str())
         || kind_source.tokens.contains(&kind_variant_name.as_str())
     {
@@ -991,9 +1013,9 @@ pub(crate) fn token_kind_to_code(name: &str, language_kind: LanguageKind) -> Tok
         let token: TokenStream = token.parse().unwrap();
         quote! { T![#token] }
     } else {
-        // $ is valid syntax in rust and it's part of macros,
+        // `$`, `[`, and `]` is valid syntax in rust and it's part of macros,
         // so we need to decorate the tokens with quotes
-        if matches!(name, "$=" | "$_") {
+        if should_token_be_quoted(name) {
             let token = Literal::string(name);
             quote! { T![#token] }
         } else {
@@ -1156,4 +1178,14 @@ pub(crate) fn group_fields_for_ordering(node: &AstNodeSrc) -> Vec<Vec<&Field>> {
 
     groups.push(current_group);
     groups
+}
+
+/// Whether or not a token should be surrounded by quotes when being printed in the generated code.
+///
+/// Some tokens need to be quoted in the `T![]` macro because they conflict with Rust syntax.
+pub fn should_token_be_quoted(token: &str) -> bool {
+    matches!(
+        token,
+        "$=" | "$_" | "U+" | "<![CDATA[" | "]]>" | "   " | "_" | "__" | "`" | "```"
+    )
 }

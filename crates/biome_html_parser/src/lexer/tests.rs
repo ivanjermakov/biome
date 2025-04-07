@@ -1,5 +1,4 @@
 #![cfg(test)]
-#![allow(unused_mut, unused_variables, unused_assignments)]
 
 use super::{HtmlLexer, TextSize};
 use crate::token_source::HtmlLexContext;
@@ -32,12 +31,7 @@ fn losslessness(string: String) -> bool {
     });
     let token_ranges = receiver
         .recv_timeout(Duration::from_secs(2))
-        .unwrap_or_else(|_| {
-            panic!(
-                "Lexer is infinitely recursing with this code: ->{}<-",
-                string
-            )
-        });
+        .unwrap_or_else(|_| panic!("Lexer is infinitely recursing with this code: ->{string}<-"));
 
     let mut new_str = String::with_capacity(string.len());
     let mut idx = TextSize::from(0);
@@ -53,7 +47,7 @@ fn losslessness(string: String) -> bool {
 // Assert the result of lexing a piece of source code,
 // and make sure the tokens yielded are fully lossless and the source can be reconstructed from only the tokens
 macro_rules! assert_lex {
-    ($src:expr, $($kind:ident:$len:expr $(,)?)*) => {{
+    ($context:expr, $src:expr, $($kind:ident:$len:expr $(,)?)*) => {{
         let mut lexer = HtmlLexer::from_str($src);
         let mut idx = 0;
         let mut tok_idx = TextSize::default();
@@ -61,7 +55,7 @@ macro_rules! assert_lex {
         let mut new_str = String::with_capacity($src.len());
         let mut tokens = vec![];
 
-        while lexer.next_token(HtmlLexContext::default()) != EOF {
+        while lexer.next_token($context) != EOF {
             tokens.push((lexer.current(), lexer.current_range()));
         }
 
@@ -102,11 +96,15 @@ macro_rules! assert_lex {
 
         assert_eq!($src, new_str, "Failed to reconstruct input");
     }};
+    ($src:expr, $($kind:ident:$len:expr $(,)?)*) => {
+        assert_lex!(HtmlLexContext::default(), $src, $($kind:$len,)*);
+    };
 }
 
 #[test]
 fn doctype_key() {
     assert_lex! {
+        HtmlLexContext::Doctype,
         "doctype",
         DOCTYPE_KW: 7,
     }
@@ -115,6 +113,7 @@ fn doctype_key() {
 #[test]
 fn doctype_upper_key() {
     assert_lex! {
+            HtmlLexContext::Doctype,
         "DOCTYPE",
         DOCTYPE_KW: 7,
     }
@@ -155,14 +154,24 @@ fn element() {
 }
 
 #[test]
+fn html_text() {
+    assert_lex! {
+        HtmlLexContext::OutsideTag,
+        "abcdefghijklmnopqrstuvwxyz!@_-:;",
+        HTML_LITERAL: 32,
+    }
+}
+
+#[test]
 fn doctype_with_quirk() {
     assert_lex! {
+        HtmlLexContext::Doctype,
         "<!DOCTYPE HTML>",
         L_ANGLE: 1,
         BANG: 1,
         DOCTYPE_KW: 7,
         WHITESPACE: 1,
-        HTML_LITERAL: 4,
+        HTML_KW: 4,
         R_ANGLE: 1,
     }
 }
@@ -170,12 +179,13 @@ fn doctype_with_quirk() {
 #[test]
 fn doctype_with_quirk_and_system() {
     assert_lex! {
+        HtmlLexContext::Doctype,
         "<!DOCTYPE HTML \"+//silmaril//dtd html pro v0r11 19970101//\">",
         L_ANGLE: 1,
         BANG: 1,
         DOCTYPE_KW: 7,
         WHITESPACE: 1,
-        HTML_LITERAL: 4,
+        HTML_KW: 4,
         WHITESPACE: 1,
         HTML_STRING_LITERAL: 44,
         R_ANGLE: 1,
@@ -193,5 +203,160 @@ fn element_with_attributes() {
         EQ:1,
         HTML_STRING_LITERAL: 19,
         R_ANGLE: 1,
+    }
+}
+
+#[test]
+fn element_with_dashed_attributes() {
+    assert_lex! {
+        "<div aria-hidden>",
+        L_ANGLE: 1,
+        HTML_LITERAL: 3,
+        WHITESPACE: 1,
+        HTML_LITERAL: 11,
+        R_ANGLE: 1,
+    }
+}
+
+#[test]
+fn html_element() {
+    assert_lex! {
+        "<html></html>",
+        L_ANGLE: 1,
+        HTML_LITERAL: 4,
+        R_ANGLE: 1,
+        L_ANGLE: 1,
+        SLASH: 1,
+        HTML_LITERAL: 4,
+        R_ANGLE: 1,
+    }
+}
+
+#[test]
+fn html_text_spaces() {
+    assert_lex! {
+        HtmlLexContext::OutsideTag,
+        "Lorem ipsum dolor sit amet, consectetur.",
+        HTML_LITERAL: 40,
+    }
+}
+
+#[test]
+fn html_text_spaces_with_lines() {
+    assert_lex! {
+        HtmlLexContext::OutsideTag,
+        "Lorem ipsum dolor sit
+        amet, consectetur.",
+        HTML_LITERAL: 21,
+        NEWLINE: 1,
+        WHITESPACE: 8,
+        HTML_LITERAL: 18,
+    }
+}
+
+#[test]
+fn long_text() {
+    assert_lex! {
+        HtmlLexContext::OutsideTag,
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed dapibus velit non justo",
+        HTML_LITERAL: 84,
+    }
+}
+
+#[test]
+fn text_trailing_whitespace() {
+    assert_lex! {
+        HtmlLexContext::OutsideTag,
+        "Lorem ipsum dolor <a",
+        HTML_LITERAL: 17,
+        WHITESPACE: 1,
+        L_ANGLE: 1,
+        HTML_LITERAL: 1,
+    }
+}
+
+#[test]
+fn text_trailing_whitespace_multiple() {
+    assert_lex! {
+        HtmlLexContext::OutsideTag,
+        "Lorem ipsum dolor  <a",
+        HTML_LITERAL: 17,
+        WHITESPACE: 2,
+        L_ANGLE: 1,
+        HTML_LITERAL: 1,
+    }
+}
+
+#[test]
+fn unquoted_attribute_value_1() {
+    assert_lex! {
+        HtmlLexContext::AttributeValue,
+        "value",
+        HTML_STRING_LITERAL: 5,
+    }
+}
+
+#[test]
+fn unquoted_attribute_value_2() {
+    assert_lex! {
+        HtmlLexContext::AttributeValue,
+        "value value\tvalue\n",
+        HTML_STRING_LITERAL: 5,
+        WHITESPACE: 1,
+        HTML_STRING_LITERAL: 5,
+        WHITESPACE: 1,
+        HTML_STRING_LITERAL: 5,
+        NEWLINE: 1,
+    }
+}
+
+#[test]
+fn unquoted_attribute_value_invalid_chars() {
+    assert_lex! {
+        HtmlLexContext::AttributeValue,
+        "?<='\"`",
+        ERROR_TOKEN: 1,
+        L_ANGLE: 1,
+        ERROR_TOKEN: 1,
+        ERROR_TOKEN: 3,
+    }
+}
+
+#[test]
+fn comment_start() {
+    assert_lex! {
+        "<!--",
+        COMMENT_START: 4,
+    }
+}
+
+#[test]
+fn comment_end() {
+    assert_lex! {
+        HtmlLexContext::Comment,
+        "-->",
+        COMMENT_END: 3,
+    }
+}
+
+#[test]
+fn comment_full() {
+    assert_lex! {
+        HtmlLexContext::Comment,
+        "<!-- foo -->",
+        COMMENT_START: 4,
+        HTML_LITERAL: 5,
+        COMMENT_END: 3,
+    }
+}
+
+#[test]
+fn cdata_full() {
+    assert_lex! {
+        HtmlLexContext::CdataSection,
+        "<![CDATA[1]]>",
+        CDATA_START: 9,
+        HTML_LITERAL: 1,
+        CDATA_END: 3,
     }
 }

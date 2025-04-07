@@ -1,9 +1,8 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsExpression, AnyJsLiteralExpression, JsConditionalExpression, JsSyntaxKind,
@@ -13,7 +12,7 @@ use biome_rowan::{AstNode, BatchMutationExt};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow ternary operators when simpler alternatives exist.
     ///
     /// It’s a common mistake in JavaScript to use a conditional expression to select between two
@@ -56,8 +55,10 @@ declare_rule! {
     pub NoUselessTernary {
         version: "1.5.0",
         name: "noUselessTernary",
+        language: "js",
         sources: &[RuleSource::Eslint("no-unneeded-ternary")],
         recommended: true,
+        severity: Severity::Information,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -205,12 +206,12 @@ impl Rule for NoUselessTernary {
         }
 
         mutation.replace_element(node.clone().into(), new_node.into());
-        return Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove the conditional expression with" }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the conditional expression with" }.to_owned(),
             mutation,
-        });
+        ))
     }
 }
 

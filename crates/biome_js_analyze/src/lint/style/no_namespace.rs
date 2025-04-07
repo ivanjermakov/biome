@@ -1,9 +1,11 @@
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{
+    Ast, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
+};
 use biome_console::markup;
 use biome_js_syntax::TsModuleDeclaration;
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of TypeScript's `namespace`s.
     ///
     /// Namespaces are an old way to organize your code in TypeScript.
@@ -48,6 +50,7 @@ declare_rule! {
     pub NoNamespace {
         version: "1.0.0",
         name: "noNamespace",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("no-namespace")],
         recommended: false,
     }

@@ -1,12 +1,13 @@
 use crate::ControlFlowGraph;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_control_flow::{builder::ROOT_BLOCK_ID, ExceptionHandlerKind, InstructionKind};
+use biome_control_flow::{ExceptionHandlerKind, InstructionKind, builder::ROOT_BLOCK_ID};
+use biome_diagnostics::Severity;
 use biome_js_syntax::{JsGetterClassMember, JsGetterObjectMember, JsReturnStatement};
 use biome_rowan::{AstNode, NodeOrToken, TextRange};
 use roaring::RoaringBitmap;
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce `get` methods to always return a value.
     ///
     /// ## Examples
@@ -60,15 +61,17 @@ declare_rule! {
     pub UseGetterReturn {
         version: "1.0.0",
         name: "useGetterReturn",
+        language: "js",
         sources: &[RuleSource::Eslint("getter-return")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
 impl Rule for UseGetterReturn {
     type Query = ControlFlowGraph;
     type State = InvalidGetterReturn;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
@@ -77,7 +80,7 @@ impl Rule for UseGetterReturn {
         let mut invalid_returns = Vec::new();
         if !JsGetterClassMember::can_cast(node_kind) && !JsGetterObjectMember::can_cast(node_kind) {
             // The node is not a getter.
-            return invalid_returns;
+            return invalid_returns.into_boxed_slice();
         }
         // stack of blocks to process
         let mut block_stack = vec![ROOT_BLOCK_ID];
@@ -112,8 +115,8 @@ impl Rule for UseGetterReturn {
                         }
                     }
                     InstructionKind::Return => {
-                        if let Some(NodeOrToken::Node(ref node)) = instruction.node {
-                            if let Some(ref return_stmt) = JsReturnStatement::cast_ref(node) {
+                        if let Some(NodeOrToken::Node(node)) = &instruction.node {
+                            if let Some(return_stmt) = JsReturnStatement::cast_ref(node) {
                                 if return_stmt.argument().is_none() {
                                     invalid_returns.push(InvalidGetterReturn::EmptyReturn(
                                         return_stmt.range(),
@@ -129,7 +132,7 @@ impl Rule for UseGetterReturn {
                 }
             }
         }
-        invalid_returns
+        invalid_returns.into_boxed_slice()
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, invalid_return: &Self::State) -> Option<RuleDiagnostic> {

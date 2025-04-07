@@ -1,23 +1,21 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_syntax::{
     AnyJsClassMember, AnyJsClassMemberName, AnyJsFormalParameter, AnyJsName,
     JsAssignmentExpression, JsAssignmentOperator, JsClassDeclaration, JsSyntaxKind, JsSyntaxNode,
     TsAccessibilityModifier, TsPropertyParameter,
 };
 use biome_rowan::{
-    declare_node_union, AstNode, AstNodeList, AstSeparatedList, BatchMutationExt,
-    SyntaxNodeOptionExt, TextRange,
+    AstNode, AstNodeList, AstSeparatedList, BatchMutationExt, SyntaxNodeOptionExt, TextRange,
+    declare_node_union,
 };
 use rustc_hash::FxHashSet;
 
-use crate::{utils::is_node_equal, JsRuleAction};
+use crate::{JsRuleAction, utils::is_node_equal};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow unused private class members
     ///
     /// Private class members that are declared and not used anywhere in the code are most likely an error due to incomplete refactoring.
@@ -64,6 +62,7 @@ declare_rule! {
     pub NoUnusedPrivateClassMembers {
         version: "1.3.3",
         name: "noUnusedPrivateClassMembers",
+        language: "js",
         sources: &[RuleSource::Eslint("no-unused-private-class-members")],
         recommended: false,
         fix_kind: FixKind::Unsafe,
@@ -77,18 +76,18 @@ declare_node_union! {
 impl Rule for NoUnusedPrivateClassMembers {
     type Query = Ast<JsClassDeclaration>;
     type State = AnyMember;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
         let private_members: FxHashSet<AnyMember> = get_all_declared_private_members(node);
-
         if private_members.is_empty() {
-            return vec![];
+            Vec::new()
+        } else {
+            traverse_members_usage(node.syntax(), private_members)
         }
-
-        traverse_members_usage(node.syntax(), private_members)
+        .into_boxed_slice()
     }
 
     fn diagnostic(_: &RuleContext<Self>, state: &Self::State) -> Option<RuleDiagnostic> {
@@ -106,12 +105,12 @@ impl Rule for NoUnusedPrivateClassMembers {
 
         mutation.remove_node(state.clone());
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove unused declaration." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove unused declaration." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 
@@ -265,22 +264,22 @@ impl AnyMember {
                     AnyJsClassMember::JsGetterClassMember(member) => member
                         .modifiers()
                         .iter()
-                        .filter_map(|x| TsAccessibilityModifier::cast_ref(x.syntax()))
+                        .filter_map(|x| TsAccessibilityModifier::cast(x.into_syntax()))
                         .any(|accessibility| accessibility.is_private()),
                     AnyJsClassMember::JsMethodClassMember(member) => member
                         .modifiers()
                         .iter()
-                        .filter_map(|x| TsAccessibilityModifier::cast_ref(x.syntax()))
+                        .filter_map(|x| TsAccessibilityModifier::cast(x.into_syntax()))
                         .any(|accessibility| accessibility.is_private()),
                     AnyJsClassMember::JsPropertyClassMember(member) => member
                         .modifiers()
                         .iter()
-                        .filter_map(|x| TsAccessibilityModifier::cast_ref(x.syntax()))
+                        .filter_map(|x| TsAccessibilityModifier::cast(x.into_syntax()))
                         .any(|accessibility| accessibility.is_private()),
                     AnyJsClassMember::JsSetterClassMember(member) => member
                         .modifiers()
                         .iter()
-                        .filter_map(|x| TsAccessibilityModifier::cast_ref(x.syntax()))
+                        .filter_map(|x| TsAccessibilityModifier::cast(x.into_syntax()))
                         .any(|accessibility| accessibility.is_private()),
                     _ => false,
                 };
@@ -291,7 +290,7 @@ impl AnyMember {
                 param
                     .modifiers()
                     .iter()
-                    .filter_map(|x| TsAccessibilityModifier::cast_ref(x.syntax()))
+                    .filter_map(|x| TsAccessibilityModifier::cast(x.into_syntax()))
                     .any(|accessibility| accessibility.is_private()),
             ),
         }
@@ -310,7 +309,8 @@ impl AnyMember {
             },
             AnyMember::TsPropertyParameter(ts_property) => {
                 match ts_property.formal_parameter().ok()? {
-                    AnyJsFormalParameter::JsBogusParameter(_) => None,
+                    AnyJsFormalParameter::JsBogusParameter(_)
+                    | AnyJsFormalParameter::JsMetavariable(_) => None,
                     AnyJsFormalParameter::JsFormalParameter(param) => Some(
                         param
                             .binding()
@@ -348,7 +348,8 @@ impl AnyMember {
             },
             AnyMember::TsPropertyParameter(ts_property) => {
                 match ts_property.formal_parameter().ok()? {
-                    AnyJsFormalParameter::JsBogusParameter(_) => None,
+                    AnyJsFormalParameter::JsBogusParameter(_)
+                    | AnyJsFormalParameter::JsMetavariable(_) => None,
                     AnyJsFormalParameter::JsFormalParameter(param) => Some(
                         param
                             .binding()

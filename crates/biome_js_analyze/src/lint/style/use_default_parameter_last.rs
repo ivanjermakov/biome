@@ -1,13 +1,13 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{JsFormalParameter, JsInitializerClause, JsSyntaxToken, TsPropertyParameter};
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt, Direction};
+use biome_rowan::{AstNode, BatchMutationExt, Direction, declare_node_union};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce default function parameters and optional function parameters to be last.
     ///
     /// Default and optional parameters that precede a required parameter cannot be omitted at call site.
@@ -51,11 +51,13 @@ declare_rule! {
     pub UseDefaultParameterLast {
         version: "1.0.0",
         name: "useDefaultParameterLast",
+        language: "js",
         sources: &[
             RuleSource::Eslint("default-param-last"),
             RuleSource::EslintTypeScript("default-param-last")
         ],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -159,13 +161,12 @@ impl Rule for UseDefaultParameterLast {
             mutation.replace_token_discard_trivia(prev_token, new_token);
             mutation.remove_node(initializer);
         }
-        Some(JsRuleAction {
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {"Turn the parameter into a "<Emphasis>"required parameter"</Emphasis>"."}
+                .to_owned(),
             mutation,
-            message:
-                markup! {"Turn the parameter into a "<Emphasis>"required parameter"</Emphasis>"."}
-                    .to_owned(),
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-        })
+        ))
     }
 }

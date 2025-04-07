@@ -5,17 +5,18 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::vec;
 
 use super::{
-    js_kinds_src::{AstSrc, Field},
     Mode,
+    js_kinds_src::{AstSrc, Field},
 };
 use crate::generate_node_factory::generate_node_factory;
 use crate::generate_nodes_mut::generate_nodes_mut;
 use crate::generate_syntax_factory::generate_syntax_factory;
+use crate::generate_target_language_constants::generate_target_language_constants;
 use crate::js_kinds_src::{
     AstEnumSrc, AstListSeparatorConfiguration, AstListSrc, AstNodeSrc, TokenKind,
 };
-use crate::language_kind::{LanguageKind, ALL_LANGUAGE_KIND};
-use crate::termcolorful::{println_string_with_fg_color, Color};
+use crate::language_kind::{ALL_LANGUAGE_KIND, LanguageKind};
+use crate::termcolorful::{Color, println_string_with_fg_color};
 use crate::{
     generate_macros::generate_macros, generate_nodes::generate_nodes,
     generate_syntax_kinds::generate_syntax_kinds, update,
@@ -24,7 +25,7 @@ use biome_string_case::Case;
 use biome_ungrammar::{Grammar, Rule, Token};
 use std::fmt::Write;
 use std::str::FromStr;
-use xtask::{project_root, Result};
+use xtask::{Result, project_root};
 
 // these node won't generate any code
 pub const SYNTAX_ELEMENT_TYPE: &str = "SyntaxElement";
@@ -76,6 +77,9 @@ pub(crate) fn generate_syntax(ast: AstSrc, mode: &Mode, language_kind: LanguageK
         .join("crates")
         .join(language_kind.factory_crate_name())
         .join("src/generated");
+    let target_language_path = project_root()
+        .join("crates/biome_grit_patterns/src/grit_target_language")
+        .join(language_kind.grit_target_language_module_name());
 
     let kind_src = language_kind.kinds();
 
@@ -102,6 +106,12 @@ pub(crate) fn generate_syntax(ast: AstSrc, mode: &Mode, language_kind: LanguageK
     let ast_macros_file = syntax_generated_path.join("macros.rs");
     let contents = generate_macros(&ast, language_kind)?;
     update(ast_macros_file.as_path(), &contents, mode)?;
+
+    if language_kind.supports_grit() {
+        let target_language_constants_file = target_language_path.join("constants.rs");
+        let contents = generate_target_language_constants(&ast, language_kind)?;
+        update(target_language_constants_file.as_path(), &contents, mode)?;
+    }
 
     Ok(())
 }
@@ -140,16 +150,16 @@ fn check_unions(unions: &[AstEnumSrc]) {
                     union_queue.extend(&current_union.variants);
                 } else {
                     // We either have a circular dependency or 2 variants referencing the same type
-                    println!("{}", stack_string);
+                    println!("{stack_string}");
                     panic!("Variant '{variant}' used twice or circular dependency");
                 }
             } else {
                 // The variant isn't another enum
                 // stack_string.push_str(&format!());
-                write!(stack_string, "\nBASE-VAR CHECK : {}", variant).unwrap();
+                write!(stack_string, "\nBASE-VAR CHECK : {variant}").unwrap();
                 if !union_set.insert(variant) {
                     // The variant already used
-                    println!("{}", stack_string);
+                    println!("{stack_string}");
                     panic!("Variant '{variant}' used twice");
                 }
             }
@@ -335,7 +345,7 @@ fn clean_token_name(grammar: &Grammar, token: &Token) -> String {
     // that can't be recognized by [quote].
     // Hence, they need to be decorated with single quotes.
     if "[]{}()`".contains(&name) {
-        name = format!("'{}'", name);
+        name = format!("'{name}'");
     }
     name
 }
@@ -388,7 +398,7 @@ fn handle_rule(
         }
 
         Rule::Rep(_) => {
-            panic!("Create a list node for *many* children {:?}", label);
+            panic!("Create a list node for *many* children {label:?}");
         }
         Rule::Opt(rule) => {
             handle_rule(fields, grammar, rule, label, true, false);
@@ -398,8 +408,7 @@ fn handle_rule(
             // within an Opt, like `(A | B)?`. For those, make a new Rule.
             if optional {
                 panic!(
-                    "Alternates cannot be nested within an optional Rule. Use a new Node to contain the alternate {:?}",
-                    label
+                    "Alternates cannot be nested within an optional Rule. Use a new Node to contain the alternate {label:?}"
                 );
             }
             for rule in rules {
@@ -441,9 +450,11 @@ struct CommaList<'a> {
 fn handle_comma_list<'a>(grammar: &'a Grammar, rules: &[Rule]) -> Option<CommaList<'a>> {
     // Does it match (T * ',')?
     let (node, repeat, trailing_separator) = match rules {
-        [Rule::Node(node), Rule::Rep(repeat), Rule::Opt(trailing_separator)] => {
-            (node, repeat, Some(trailing_separator))
-        }
+        [
+            Rule::Node(node),
+            Rule::Rep(repeat),
+            Rule::Opt(trailing_separator),
+        ] => (node, repeat, Some(trailing_separator)),
         [Rule::Node(node), Rule::Rep(repeat)] => (node, repeat, None),
         _ => return None,
     };
@@ -474,7 +485,7 @@ fn handle_comma_list<'a>(grammar: &'a Grammar, rules: &[Rule]) -> Option<CommaLi
 
     let separator_name = match comma {
         Rule::Token(token) => &grammar[*token].name,
-        _ => panic!("The separator in rule {:?} must be a token", rules),
+        _ => panic!("The separator in rule {rules:?} must be a token"),
     };
 
     Some(CommaList {

@@ -35,9 +35,9 @@ use crate::syntax::is_at_identifier;
 use crate::syntax::parse_error::expected_any_pseudo_class;
 use biome_css_syntax::CssSyntaxKind::*;
 use biome_css_syntax::T;
+use biome_parser::Parser;
 use biome_parser::prelude::ParsedSyntax;
 use biome_parser::prelude::ParsedSyntax::{Absent, Present};
-use biome_parser::Parser;
 use function_compound_selector::{
     is_at_pseudo_class_function_compound_selector, parse_pseudo_class_function_compound_selector,
 };
@@ -52,13 +52,15 @@ pub(crate) fn parse_pseudo_class_selector(p: &mut CssParser) -> ParsedSyntax {
 
     p.bump(T![:]);
 
-    let kind = if parse_pseudo_class(p)
-        .or_add_diagnostic(p, expected_any_pseudo_class)
-        .is_some()
-    {
-        CSS_PSEUDO_CLASS_SELECTOR
-    } else {
-        CSS_BOGUS_SUB_SELECTOR
+    // Show the error under the token next to the ':'
+    let range = p.cur_range();
+
+    let kind = match parse_pseudo_class(p) {
+        Present(_) => CSS_PSEUDO_CLASS_SELECTOR,
+        Absent => {
+            p.error(expected_any_pseudo_class(p, range));
+            CSS_BOGUS_SUB_SELECTOR
+        }
     };
 
     Present(m.complete(p, kind))

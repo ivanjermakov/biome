@@ -1,20 +1,18 @@
 use crate::JsRuleAction;
 use biome_analyze::RuleSource;
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_factory::make::ts_type_alias_declaration;
 use biome_js_syntax::AnyTsType::TsThisType;
 use biome_js_syntax::{
-    AnyJsDeclarationClause, AnyTsReturnType, AnyTsType, JsSyntaxKind, TsCallSignatureTypeMember,
-    TsFunctionType, TsInterfaceDeclaration, TsObjectType, TsTypeMemberList, T,
+    AnyJsDeclarationClause, AnyTsReturnType, AnyTsType, JsSyntaxKind, T, TsCallSignatureTypeMember,
+    TsFunctionType, TsInterfaceDeclaration, TsObjectType, TsTypeMemberList,
 };
 use biome_rowan::{AstNode, AstNodeList, BatchMutationExt, SyntaxNodeOptionExt, TriviaPieceKind};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce using function types instead of object type with call signatures.
     ///
     /// TypeScript allows for two common ways to declare a type for a function:
@@ -81,8 +79,10 @@ declare_rule! {
     pub UseShorthandFunctionType {
         version: "1.5.0",
         name: "useShorthandFunctionType",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("prefer-function-type")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Safe,
     }
 }
@@ -152,12 +152,12 @@ impl Rule for UseShorthandFunctionType {
                 AnyJsDeclarationClause::from(interface_decl),
                 AnyJsDeclarationClause::from(type_alias_declaration),
             );
-            return Some(JsRuleAction {
-                category: ActionCategory::QuickFix,
-                applicability: Applicability::Always,
-                message: markup! { "Alias a function type instead of using an interface with a call signature." }.to_owned(),
+            return Some(JsRuleAction::new(
+                ctx.metadata().action_category(ctx.category(), ctx.group()),
+                ctx.metadata().applicability(),
+                 markup! { "Alias a function type instead of using an interface with a call signature." }.to_owned(),
                 mutation,
-            });
+            ));
         }
 
         if let Some(ts_object_type) = ts_type_member_list.parent::<TsObjectType>() {
@@ -194,12 +194,13 @@ impl Rule for UseShorthandFunctionType {
             };
 
             mutation.replace_node(AnyTsType::from(ts_object_type), new_function_type);
-            return Some(JsRuleAction {
-                category: ActionCategory::QuickFix,
-                applicability: Applicability::Always,
-                message: markup! { "Use a function type instead of an object type with a call signature." }.to_owned(),
+            return Some(JsRuleAction::new(
+                ctx.metadata().action_category(ctx.category(), ctx.group()),
+                ctx.metadata().applicability(),
+                markup! { "Use a function type instead of an object type with a call signature." }
+                    .to_owned(),
                 mutation,
-            });
+            ));
         }
 
         None

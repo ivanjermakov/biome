@@ -1,9 +1,6 @@
-use crate::{services::semantic::Semantic, utils::batch::JsBatchMutation, JsRuleAction};
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
-};
+use crate::{JsRuleAction, services::semantic::Semantic, utils::batch::JsBatchMutation};
+use biome_analyze::{FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make::{js_literal_member_name, js_property_object_member};
 use biome_js_semantic::{Reference, ReferencesExtensions};
 use biome_js_syntax::{
@@ -14,7 +11,7 @@ use biome_js_syntax::{
 };
 use biome_rowan::{AstNode, BatchMutationExt, SyntaxNodeCast, SyntaxToken};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of constants which its value is the upper-case version of its name.
     ///
     /// ## Examples
@@ -47,6 +44,7 @@ declare_rule! {
     pub NoShoutyConstants {
         version: "1.0.0",
         name: "noShoutyConstants",
+        language: "js",
         recommended: false,
         fix_kind: FixKind::Unsafe,
     }
@@ -176,7 +174,7 @@ impl Rule for NoShoutyConstants {
                         JsReferenceIdentifier::cast_ref(state.reference.syntax())?
                             .value_token()
                             .ok()?
-                            .text(),
+                            .text_trimmed(),
                         [],
                         [],
                     ),
@@ -190,11 +188,11 @@ impl Rule for NoShoutyConstants {
             return None;
         }
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Use the constant value directly" }.to_owned(),
-            mutation: batch,
-        })
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use the constant value directly" }.to_owned(),
+            batch,
+        ))
     }
 }

@@ -9,9 +9,9 @@ use countme::Count;
 
 use crate::green::trivia::GreenTrivia;
 use crate::{
+    TextSize,
     arc::{Arc, HeaderSlice, ThinArc},
     green::RawSyntaxKind,
-    TextSize,
 };
 
 #[derive(PartialEq, Eq, Hash)]
@@ -147,8 +147,7 @@ impl GreenTokenData {
 
 impl GreenToken {
     #[inline]
-    #[cfg(test)]
-    pub fn new(kind: RawSyntaxKind, text: &str) -> GreenToken {
+    pub fn new_raw(kind: RawSyntaxKind, text: &str) -> Self {
         let leading = GreenTrivia::empty();
         let trailing = leading.clone();
 
@@ -161,7 +160,7 @@ impl GreenToken {
         text: &str,
         leading: GreenTrivia,
         trailing: GreenTrivia,
-    ) -> GreenToken {
+    ) -> Self {
         let head = GreenTokenHead {
             kind,
             leading,
@@ -169,7 +168,7 @@ impl GreenToken {
             _c: Count::new(),
         };
         let ptr = ThinArc::from_header_and_iter(head, text.bytes());
-        GreenToken { ptr }
+        Self { ptr }
     }
 
     #[inline]
@@ -178,10 +177,12 @@ impl GreenToken {
     }
 
     #[inline]
-    pub(crate) unsafe fn from_raw(ptr: ptr::NonNull<GreenTokenData>) -> GreenToken {
-        let arc = Arc::from_raw(&ptr.as_ref().data as *const ReprThin);
-        let arc = mem::transmute::<Arc<ReprThin>, ThinArc<GreenTokenHead, u8>>(arc);
-        GreenToken { ptr: arc }
+    pub(crate) unsafe fn from_raw(ptr: ptr::NonNull<GreenTokenData>) -> Self {
+        let arc = unsafe {
+            let arc = Arc::from_raw(&ptr.as_ref().data as *const ReprThin);
+            mem::transmute::<Arc<ReprThin>, ThinArc<GreenTokenHead, u8>>(arc)
+        };
+        Self { ptr: arc }
     }
 }
 
@@ -192,7 +193,6 @@ impl ops::Deref for GreenToken {
     fn deref(&self) -> &GreenTokenData {
         unsafe {
             let repr: &Repr = &self.ptr;
-            #[allow(invalid_reference_casting)]
             let repr: &ReprThin = &*(repr as *const Repr as *const ReprThin);
             mem::transmute::<&ReprThin, &GreenTokenData>(repr)
         }
@@ -218,7 +218,7 @@ mod tests {
 
         assert_eq!("let", t.text_trimmed());
 
-        assert_eq!("\n\t let \t\t", format!("{}", t));
+        assert_eq!("\n\t let \t\t", format!("{t}"));
     }
 
     #[test]

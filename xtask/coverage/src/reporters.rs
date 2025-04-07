@@ -7,7 +7,7 @@ use colored::Colorize;
 use indicatif::ProgressBar;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::io::{stdout, IsTerminal, Write};
+use std::io::{IsTerminal, Write, stdout};
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -125,9 +125,11 @@ impl FromStr for SummaryDetailLevel {
             "coverage" => SummaryDetailLevel::Coverage,
             "failing" => SummaryDetailLevel::Failing,
             "debug" => SummaryDetailLevel::Debug,
-            _ => return Err(String::from(
-                "Unknown summary detail level. Valid values are: 'coverage', 'failing, and 'rast'.",
-            )),
+            _ => {
+                return Err(String::from(
+                    "Unknown summary detail level. Valid values are: 'coverage', 'failing, and 'rast'.",
+                ));
+            }
         })
     }
 }
@@ -201,7 +203,7 @@ impl SummaryReporter {
     }
 
     fn writeln(&mut self, msg: &str) {
-        writeln!(self.buffer, "{}", msg).unwrap();
+        writeln!(self.buffer, "{msg}").unwrap();
     }
 
     fn summary_table(results: HashMap<String, Summary>) -> String {
@@ -364,7 +366,7 @@ impl TestReporter for SummaryReporter {
             .write_all(self.buffer.as_slice())
             .unwrap();
 
-        writeln!(self.output_target, "{}", table).unwrap();
+        writeln!(self.output_target, "{table}").unwrap();
     }
 }
 

@@ -1,11 +1,14 @@
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{
+    Ast, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
+};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsExpression, JsAssignmentOperator, JsBinaryOperator, JsForStatement,
     JsIdentifierAssignment, JsIdentifierExpression, JsPostUpdateOperator, JsUnaryOperator,
 };
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce "for" loop update clause moving the counter in the right direction.
     ///
     /// A for loop with a stop condition that can never be reached,
@@ -41,8 +44,10 @@ declare_rule! {
     pub UseValidForDirection {
         version: "1.0.0",
         name: "useValidForDirection",
+        language: "js",
         sources: &[RuleSource::Eslint("for-direction")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

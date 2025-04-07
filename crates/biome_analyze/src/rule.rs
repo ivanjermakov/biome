@@ -2,22 +2,25 @@ use crate::categories::{ActionCategory, RuleCategory};
 use crate::context::RuleContext;
 use crate::registry::{RegistryVisitor, RuleLanguage, RuleSuppressions};
 use crate::{
-    Phase, Phases, Queryable, SuppressionCommentEmitter, SuppressionCommentEmitterPayload,
+    Phase, Phases, Queryable, SourceActionKind, SuppressionAction, SuppressionCommentEmitterPayload,
 };
-use biome_console::fmt::Display;
-use biome_console::{markup, MarkupBuf};
+use biome_console::fmt::{Display, Formatter};
+use biome_console::{MarkupBuf, Padding, markup};
 use biome_diagnostics::advice::CodeSuggestionAdvice;
 use biome_diagnostics::location::AsSpan;
-use biome_diagnostics::Applicability;
 use biome_diagnostics::{
     Advices, Category, Diagnostic, DiagnosticTags, Location, LogCategory, MessageAndDescription,
     Visit,
 };
+use biome_diagnostics::{Applicability, Severity};
 use biome_rowan::{AstNode, BatchMutation, BatchMutationExt, Language, TextRange};
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 /// Static metadata containing information about a rule
 pub struct RuleMetadata {
     /// It marks if a rule is deprecated, and if so a reason has to be provided.
@@ -28,19 +31,187 @@ pub struct RuleMetadata {
     pub name: &'static str,
     /// The content of the documentation comments for this rule
     pub docs: &'static str,
+    /// The language that the rule applies to.
+    pub language: &'static str,
     /// Whether a rule is recommended or not
     pub recommended: bool,
     /// The kind of fix
-    pub fix_kind: Option<FixKind>,
+    pub fix_kind: FixKind,
     /// The source URL of the rule
     pub sources: &'static [RuleSource],
     /// The source kind of the rule
     pub source_kind: Option<RuleSourceKind>,
+    /// The default severity of the rule
+    pub severity: Severity,
+    /// Domains applied by this rule
+    pub domains: &'static [RuleDomain],
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+impl biome_console::fmt::Display for RuleMetadata {
+    fn fmt(&self, fmt: &mut Formatter) -> std::io::Result<()> {
+        fmt.write_markup(markup! {
+            <Emphasis>"Summary"</Emphasis>
+        })?;
+        fmt.write_str("\n")?;
+        fmt.write_str("\n")?;
+
+        fmt.write_markup(markup! {
+            "- Name: "<Emphasis>{self.name}</Emphasis>
+        })?;
+        fmt.write_str("\n")?;
+        match self.fix_kind {
+            FixKind::None => {
+                fmt.write_markup(markup! {
+                    "- No fix available."
+                })?;
+            }
+            kind => {
+                fmt.write_markup(markup! {
+                    "- Fix: "<Emphasis>{kind}</Emphasis>
+                })?;
+            }
+        }
+        fmt.write_str("\n")?;
+
+        fmt.write_markup(markup! {
+            "- Default severity: "<Emphasis>{self.severity}</Emphasis>
+        })?;
+        fmt.write_str("\n")?;
+
+        fmt.write_markup(markup! {
+            "- Available from version: "<Emphasis>{self.version}</Emphasis>
+        })?;
+        fmt.write_str("\n")?;
+
+        if self.domains.is_empty() && self.recommended {
+            fmt.write_markup(markup! {
+                "- This rule is recommended"
+            })?;
+        }
+
+        let domains = DisplayDomains(self.domains, self.recommended);
+
+        fmt.write_str("\n")?;
+
+        fmt.write_markup(markup!({ domains }))?;
+
+        fmt.write_str("\n")?;
+
+        fmt.write_markup(markup! {
+            <Emphasis>"Description"</Emphasis>
+        })?;
+        fmt.write_str("\n")?;
+        fmt.write_str("\n")?;
+
+        for line in self.docs.lines() {
+            if let Some((_, remainder)) = line.split_once("## ") {
+                fmt.write_markup(markup! {
+                    <Emphasis>{remainder.trim_start()}</Emphasis>
+                })?;
+            } else if let Some((_, remainder)) = line.split_once("### ") {
+                fmt.write_markup(markup! {
+                    <Emphasis>{remainder.trim_start()}</Emphasis>
+                })?;
+            } else {
+                fmt.write_str(line)?;
+            }
+
+            fmt.write_str("\n")?;
+        }
+
+        Ok(())
+    }
+}
+
+struct DisplayDomains(&'static [RuleDomain], bool);
+
+impl Display for DisplayDomains {
+    fn fmt(&self, fmt: &mut Formatter) -> std::io::Result<()> {
+        let domains = self.0;
+        let recommended = self.1;
+
+        if domains.is_empty() {
+            return Ok(());
+        }
+
+        fmt.write_markup(markup!(
+            <Emphasis>"Domains"</Emphasis>
+        ))?;
+        fmt.write_str("\n")?;
+        fmt.write_str("\n")?;
+
+        for domain in domains {
+            let dependencies = domain.manifest_dependencies();
+
+            fmt.write_markup(markup! {
+                "- Name: "<Emphasis>{domain}</Emphasis>
+            })?;
+            fmt.write_str("\n")?;
+
+            if recommended {
+                fmt.write_markup(markup! {
+                    "- The rule is recommended for this domain"
+                })?;
+                fmt.write_str("\n")?;
+            }
+
+            if !dependencies.is_empty() {
+                fmt.write_markup(markup! {
+                    "- The rule is enabled when one of these dependencies are detected:"
+                })?;
+                fmt.write_str("\n")?;
+                let padding = Padding::new(2);
+                for (index, (dep, range)) in dependencies.iter().enumerate() {
+                    fmt.write_markup(
+                        markup! { {padding}"- "<Emphasis>{dep}"@"{range}</Emphasis> },
+                    )?;
+                    if index + 1 < dependencies.len() {
+                        fmt.write_str("\n")?;
+                    }
+                }
+                fmt.write_str("\n")?;
+            }
+
+            let globals = domain.globals();
+
+            if !globals.is_empty() {
+                fmt.write_markup(markup! {
+                    "- The rule adds the following globals: "
+                })?;
+                fmt.write_str("\n")?;
+
+                let padding = Padding::new(2);
+                for (index, global) in globals.iter().enumerate() {
+                    fmt.write_markup(markup! { {padding}"- "<Emphasis>{global}</Emphasis> })?;
+                    if index + 1 < globals.len() {
+                        fmt.write_str("\n")?;
+                    }
+                }
+                fmt.write_str("\n")?;
+            }
+            fmt.write_str("\n")?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(
+        biome_deserialize_macros::Deserializable,
+        serde::Deserialize,
+        serde::Serialize
+    )
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 /// Used to identify the kind of code action emitted by a rule
 pub enum FixKind {
+    /// The rule doesn't emit code actions.
+    #[default]
+    None,
     /// The rule emits a code action that is safe to apply. Usually these fixes don't change the semantic of the program.
     Safe,
     /// The rule emits a code action that is _unsafe_ to apply. Usually these fixes remove comments, or change
@@ -51,18 +222,37 @@ pub enum FixKind {
 impl Display for FixKind {
     fn fmt(&self, fmt: &mut biome_console::fmt::Formatter) -> std::io::Result<()> {
         match self {
-            FixKind::Safe => fmt.write_str("Safe"),
-            FixKind::Unsafe => fmt.write_str("Unsafe"),
+            FixKind::None => fmt.write_markup(markup!("none")),
+            FixKind::Safe => fmt.write_markup(markup!(<Success>"safe"</Success>)),
+            FixKind::Unsafe => fmt.write_markup(markup!(<Warn>"unsafe"</Warn>)),
+        }
+    }
+}
+
+impl TryFrom<FixKind> for Applicability {
+    type Error = &'static str;
+    fn try_from(value: FixKind) -> Result<Self, Self::Error> {
+        match value {
+            FixKind::None => Err("The fix kind is None"),
+            FixKind::Safe => Ok(Applicability::Always),
+            FixKind::Unsafe => Ok(Applicability::MaybeIncorrect),
         }
     }
 }
 
 #[derive(Debug, Clone, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub enum RuleSource {
     /// Rules from [Rust Clippy](https://rust-lang.github.io/rust-clippy/master/index.html)
     Clippy(&'static str),
     /// Rules from [Eslint](https://eslint.org/)
     Eslint(&'static str),
+    /// Rules from [GraphQL-ESLint](https://github.com/dimaMachina/graphql-eslint)
+    EslintGraphql(&'static str),
+    /// Rules from [graphql-schema-linter](https://github.com/cjoudrey/graphql-schema-linter)
+    EslintGraphqlSchemaLinter(&'static str),
     /// Rules from [Eslint Plugin Import](https://github.com/import-js/eslint-plugin-import)
     EslintImport(&'static str),
     /// Rules from [Eslint Plugin Import Access](https://github.com/uhyo/eslint-plugin-import-access)
@@ -75,6 +265,8 @@ pub enum RuleSource {
     EslintReact(&'static str),
     /// Rules from [Eslint Plugin React Hooks](https://github.com/facebook/react/blob/main/packages/eslint-plugin-react-hooks/README.md)
     EslintReactHooks(&'static str),
+    /// Rules from [Eslint Plugin React Refresh](https://github.com/ArnaudBarre/eslint-plugin-react-refresh)
+    EslintReactRefresh(&'static str),
     /// Rules from [Eslint Plugin Solid](https://github.com/solidjs-community/eslint-plugin-solid)
     EslintSolid(&'static str),
     /// Rules from [Eslint Plugin Sonar](https://github.com/SonarSource/eslint-plugin-sonarjs)
@@ -85,12 +277,22 @@ pub enum RuleSource {
     EslintTypeScript(&'static str),
     /// Rules from [Eslint Plugin Unicorn](https://github.com/sindresorhus/eslint-plugin-unicorn)
     EslintUnicorn(&'static str),
+    /// Rules from [Eslint Plugin Unused Imports](https://github.com/sweepline/eslint-plugin-unused-imports)
+    EslintUnusedImports(&'static str),
     /// Rules from [Eslint Plugin Mysticatea](https://github.com/mysticatea/eslint-plugin)
     EslintMysticatea(&'static str),
     /// Rules from [Eslint Plugin Barrel Files](https://github.com/thepassle/eslint-plugin-barrel-files)
     EslintBarrelFiles(&'static str),
+    /// Rules from [Eslint Plugin N](https://github.com/eslint-community/eslint-plugin-n)
+    EslintN(&'static str),
+    /// Rules from [Eslint Plugin Next](https://github.com/vercel/next.js/tree/canary/packages/eslint-plugin-next)
+    EslintNext(&'static str),
     /// Rules from [Stylelint](https://github.com/stylelint/stylelint)
     Stylelint(&'static str),
+    /// Rules from [Eslint Plugin No Secrets](https://github.com/nickdeis/eslint-plugin-no-secrets)
+    EslintNoSecrets(&'static str),
+    /// Rules from [deno lint](https://github.com/denoland/deno_lint)
+    DenoLint(&'static str),
 }
 
 impl PartialEq for RuleSource {
@@ -102,22 +304,30 @@ impl PartialEq for RuleSource {
 impl std::fmt::Display for RuleSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RuleSource::Clippy(_) => write!(f, "Clippy"),
-            RuleSource::Eslint(_) => write!(f, "ESLint"),
-            RuleSource::EslintImport(_) => write!(f, "eslint-plugin-import"),
-            RuleSource::EslintImportAccess(_) => write!(f, "eslint-plugin-import-access"),
-            RuleSource::EslintJest(_) => write!(f, "eslint-plugin-jest"),
-            RuleSource::EslintJsxA11y(_) => write!(f, "eslint-plugin-jsx-a11y"),
-            RuleSource::EslintReact(_) => write!(f, "eslint-plugin-react"),
-            RuleSource::EslintReactHooks(_) => write!(f, "eslint-plugin-react-hooks"),
-            RuleSource::EslintSolid(_) => write!(f, "eslint-plugin-solid"),
-            RuleSource::EslintSonarJs(_) => write!(f, "eslint-plugin-sonarjs"),
-            RuleSource::EslintStylistic(_) => write!(f, "eslint-plugin-stylistic"),
-            RuleSource::EslintTypeScript(_) => write!(f, "typescript-eslint"),
-            RuleSource::EslintUnicorn(_) => write!(f, "eslint-plugin-unicorn"),
-            RuleSource::EslintMysticatea(_) => write!(f, "@mysticatea/eslint-plugin"),
-            RuleSource::EslintBarrelFiles(_) => write!(f, "eslint-plugin-barrel-files"),
-            RuleSource::Stylelint(_) => write!(f, "Stylelint"),
+            Self::Clippy(_) => write!(f, "Clippy"),
+            Self::Eslint(_) => write!(f, "ESLint"),
+            Self::EslintGraphql(_) => write!(f, "GraphQL-ESLint"),
+            Self::EslintGraphqlSchemaLinter(_) => write!(f, "graphql-schema-linter"),
+            Self::EslintImport(_) => write!(f, "eslint-plugin-import"),
+            Self::EslintImportAccess(_) => write!(f, "eslint-plugin-import-access"),
+            Self::EslintJest(_) => write!(f, "eslint-plugin-jest"),
+            Self::EslintJsxA11y(_) => write!(f, "eslint-plugin-jsx-a11y"),
+            Self::EslintReact(_) => write!(f, "eslint-plugin-react"),
+            Self::EslintReactHooks(_) => write!(f, "eslint-plugin-react-hooks"),
+            Self::EslintReactRefresh(_) => write!(f, "eslint-plugin-react-refresh"),
+            Self::EslintSolid(_) => write!(f, "eslint-plugin-solid"),
+            Self::EslintSonarJs(_) => write!(f, "eslint-plugin-sonarjs"),
+            Self::EslintStylistic(_) => write!(f, "eslint-plugin-stylistic"),
+            Self::EslintTypeScript(_) => write!(f, "typescript-eslint"),
+            Self::EslintUnicorn(_) => write!(f, "eslint-plugin-unicorn"),
+            Self::EslintUnusedImports(_) => write!(f, "eslint-plugin-unused-imports"),
+            Self::EslintMysticatea(_) => write!(f, "@mysticatea/eslint-plugin"),
+            Self::EslintBarrelFiles(_) => write!(f, "eslint-plugin-barrel-files"),
+            Self::EslintN(_) => write!(f, "eslint-plugin-n"),
+            Self::EslintNext(_) => write!(f, "@next/eslint-plugin-next"),
+            Self::Stylelint(_) => write!(f, "Stylelint"),
+            Self::EslintNoSecrets(_) => write!(f, "eslint-plugin-no-secrets"),
+            Self::DenoLint(_) => write!(f, "deno-lint"),
         }
     }
 }
@@ -149,61 +359,85 @@ impl RuleSource {
         match self {
             Self::Clippy(rule_name)
             | Self::Eslint(rule_name)
+            | Self::EslintGraphql(rule_name)
+            | Self::EslintGraphqlSchemaLinter(rule_name)
             | Self::EslintImport(rule_name)
             | Self::EslintImportAccess(rule_name)
             | Self::EslintJest(rule_name)
             | Self::EslintJsxA11y(rule_name)
             | Self::EslintReact(rule_name)
             | Self::EslintReactHooks(rule_name)
+            | Self::EslintReactRefresh(rule_name)
             | Self::EslintTypeScript(rule_name)
             | Self::EslintSolid(rule_name)
             | Self::EslintSonarJs(rule_name)
             | Self::EslintStylistic(rule_name)
             | Self::EslintUnicorn(rule_name)
+            | Self::EslintUnusedImports(rule_name)
             | Self::EslintMysticatea(rule_name)
             | Self::EslintBarrelFiles(rule_name)
-            | Self::Stylelint(rule_name) => rule_name,
+            | Self::EslintN(rule_name)
+            | Self::EslintNext(rule_name)
+            | Self::EslintNoSecrets(rule_name)
+            | Self::Stylelint(rule_name)
+            | Self::DenoLint(rule_name) => rule_name,
         }
     }
 
     pub fn to_namespaced_rule_name(&self) -> String {
         match self {
             Self::Clippy(rule_name) | Self::Eslint(rule_name) => (*rule_name).to_string(),
+            Self::EslintGraphql(rule_name) => format!("graphql/{rule_name}"),
+            Self::EslintGraphqlSchemaLinter(rule_name) => format!("graphql/{rule_name}"),
             Self::EslintImport(rule_name) => format!("import/{rule_name}"),
             Self::EslintImportAccess(rule_name) => format!("import-access/{rule_name}"),
             Self::EslintJest(rule_name) => format!("jest/{rule_name}"),
             Self::EslintJsxA11y(rule_name) => format!("jsx-a11y/{rule_name}"),
             Self::EslintReact(rule_name) => format!("react/{rule_name}"),
             Self::EslintReactHooks(rule_name) => format!("react-hooks/{rule_name}"),
+            Self::EslintReactRefresh(rule_name) => format!("react-refresh/{rule_name}"),
             Self::EslintTypeScript(rule_name) => format!("@typescript-eslint/{rule_name}"),
             Self::EslintSolid(rule_name) => format!("solidjs/{rule_name}"),
             Self::EslintSonarJs(rule_name) => format!("sonarjs/{rule_name}"),
             Self::EslintStylistic(rule_name) => format!("@stylistic/{rule_name}"),
             Self::EslintUnicorn(rule_name) => format!("unicorn/{rule_name}"),
+            Self::EslintUnusedImports(rule_name) => format!("unused-imports/{rule_name}"),
             Self::EslintMysticatea(rule_name) => format!("@mysticatea/{rule_name}"),
             Self::EslintBarrelFiles(rule_name) => format!("barrel-files/{rule_name}"),
+            Self::EslintN(rule_name) => format!("n/{rule_name}"),
+            Self::EslintNext(rule_name) => format!("@next/{rule_name}"),
             Self::Stylelint(rule_name) => format!("stylelint/{rule_name}"),
+            Self::EslintNoSecrets(rule_name) => format!("no-secrets/{rule_name}"),
+            Self::DenoLint(rule_name) => format!("deno-lint/{rule_name}"),
         }
     }
 
     pub fn to_rule_url(&self) -> String {
         match self {
-            Self::Clippy(rule_name) => format!("https://rust-lang.github.io/rust-clippy/master/#/{rule_name}"),
+            Self::Clippy(rule_name) => format!("https://rust-lang.github.io/rust-clippy/master/#{rule_name}"),
             Self::Eslint(rule_name) => format!("https://eslint.org/docs/latest/rules/{rule_name}"),
+            Self::EslintGraphql(rule_name) => format!("https://the-guild.dev/graphql/eslint/rules/{rule_name}"),
+            Self::EslintGraphqlSchemaLinter(rule_name) => format!("https://github.com/cjoudrey/graphql-schema-linter?tab=readme-ov-file#{rule_name}"),
             Self::EslintImport(rule_name) => format!("https://github.com/import-js/eslint-plugin-import/blob/main/docs/rules/{rule_name}.md"),
             Self::EslintImportAccess(_) => "https://github.com/uhyo/eslint-plugin-import-access".to_string(),
             Self::EslintJest(rule_name) => format!("https://github.com/jest-community/eslint-plugin-jest/blob/main/docs/rules/{rule_name}.md"),
             Self::EslintJsxA11y(rule_name) => format!("https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/{rule_name}.md"),
             Self::EslintReact(rule_name) => format!("https://github.com/jsx-eslint/eslint-plugin-react/blob/master/docs/rules/{rule_name}.md"),
             Self::EslintReactHooks(_) =>  "https://github.com/facebook/react/blob/main/packages/eslint-plugin-react-hooks/README.md".to_string(),
+            Self::EslintReactRefresh(_) => "https://github.com/ArnaudBarre/eslint-plugin-react-refresh".to_string(),
             Self::EslintTypeScript(rule_name) => format!("https://typescript-eslint.io/rules/{rule_name}"),
-            Self::EslintSolid(rule_name) => format!("https://github.com/solidjs-community/eslint-plugin-solid/blob/main/docs/{rule_name}.md"),
+            Self::EslintSolid(rule_name) => format!("https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/{rule_name}.md"),
             Self::EslintSonarJs(rule_name) => format!("https://github.com/SonarSource/eslint-plugin-sonarjs/blob/HEAD/docs/rules/{rule_name}.md"),
             Self::EslintStylistic(rule_name) => format!("https://eslint.style/rules/default/{rule_name}"),
             Self::EslintUnicorn(rule_name) => format!("https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/{rule_name}.md"),
+            Self::EslintUnusedImports(rule_name) => format!("https://github.com/sweepline/eslint-plugin-unused-imports/blob/master/docs/rules/{rule_name}.md"),
             Self::EslintMysticatea(rule_name) => format!("https://github.com/mysticatea/eslint-plugin/blob/master/docs/rules/{rule_name}.md"),
             Self::EslintBarrelFiles(rule_name) => format!("https://github.com/thepassle/eslint-plugin-barrel-files/blob/main/docs/rules/{rule_name}.md"),
+            Self::EslintN(rule_name) => format!("https://github.com/eslint-community/eslint-plugin-n/blob/master/docs/rules/{rule_name}.md"),
+            Self::EslintNext(rule_name) => format!("https://nextjs.org/docs/messages/{rule_name}"),
             Self::Stylelint(rule_name) => format!("https://github.com/stylelint/stylelint/blob/main/lib/rules/{rule_name}/README.md"),
+            Self::EslintNoSecrets(_) => "https://github.com/nickdeis/eslint-plugin-no-secrets/blob/master/README.md".to_string(),
+            Self::DenoLint(rule_name) => format!("https://lint.deno.land/rules/{rule_name}"),
         }
     }
 
@@ -218,7 +452,7 @@ impl RuleSource {
 
     /// All ESLint plugins, exception for the TypeScript one
     pub const fn is_eslint_plugin(&self) -> bool {
-        !matches!(self, Self::Clippy(_) | Self::Eslint(_))
+        !matches!(self, Self::Clippy(_) | Self::Eslint(_) | Self::Stylelint(_))
     }
 
     pub const fn is_stylelint(&self) -> bool {
@@ -227,6 +461,9 @@ impl RuleSource {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum RuleSourceKind {
     /// The rule implements the same logic of the source
     #[default]
@@ -241,17 +478,113 @@ impl RuleSourceKind {
     }
 }
 
+/// Rule domains
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(
+    feature = "serde",
+    derive(
+        serde::Deserialize,
+        serde::Serialize,
+        biome_deserialize_macros::Deserializable
+    )
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub enum RuleDomain {
+    /// React library rules
+    React,
+    /// Testing rules
+    Test,
+    /// Solid.js framework rules
+    Solid,
+    /// Next.js framework rules
+    Next,
+}
+
+impl Display for RuleDomain {
+    fn fmt(&self, fmt: &mut Formatter) -> std::io::Result<()> {
+        // use lower case naming, it needs to match the name of the configuration
+        match self {
+            RuleDomain::React => fmt.write_str("react"),
+            RuleDomain::Test => fmt.write_str("test"),
+            RuleDomain::Solid => fmt.write_str("solid"),
+            RuleDomain::Next => fmt.write_str("next"),
+        }
+    }
+}
+
+impl Ord for RuleDomain {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Rule domains should be in alphabetical order
+        format!("{self:?}").cmp(&format!("{other:?}"))
+    }
+}
+
+impl PartialOrd for RuleDomain {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl RuleDomain {
+    /// If the project has one of these dependencies, the domain will be automatically enabled, unless it's explicitly disabled by the configuration.
+    ///
+    /// If the array is empty, it means that the rules that belong to a certain domain won't enable themselves automatically.
+    pub const fn manifest_dependencies(self) -> &'static [&'static (&'static str, &'static str)] {
+        match self {
+            RuleDomain::React => &[&("react", ">=16.0.0")],
+            RuleDomain::Test => &[
+                &("jest", ">=26.0.0"),
+                &("mocha", ">=8.0.0"),
+                &("ava", ">=2.0.0"),
+                &("vitest", ">=1.0.0"),
+            ],
+            RuleDomain::Solid => &[&("solid", ">=1.0.0")],
+            RuleDomain::Next => &[&("next", ">=14.0.0")],
+        }
+    }
+
+    /// Global identifiers that should be added to the `globals` of the [crate::AnalyzerConfiguration] type
+    pub const fn globals(self) -> &'static [&'static str] {
+        match self {
+            RuleDomain::React => &[],
+            RuleDomain::Test => &[
+                "after",
+                "afterAll",
+                "afterEach",
+                "before",
+                "beforeEach",
+                "beforeAll",
+                "describe",
+                "it",
+                "expect",
+                "test",
+            ],
+            RuleDomain::Solid => &[],
+            RuleDomain::Next => &[],
+        }
+    }
+}
+
 impl RuleMetadata {
-    pub const fn new(version: &'static str, name: &'static str, docs: &'static str) -> Self {
+    pub const fn new(
+        version: &'static str,
+        name: &'static str,
+        docs: &'static str,
+        language: &'static str,
+    ) -> Self {
         Self {
             deprecated: None,
             version,
             name,
             docs,
+            language,
             recommended: false,
-            fix_kind: None,
+            fix_kind: FixKind::None,
             sources: &[],
             source_kind: None,
+            severity: Severity::Information,
+            domains: &[],
         }
     }
 
@@ -266,7 +599,7 @@ impl RuleMetadata {
     }
 
     pub const fn fix_kind(mut self, kind: FixKind) -> Self {
-        self.fix_kind = Some(kind);
+        self.fix_kind = kind;
         self
     }
 
@@ -281,6 +614,39 @@ impl RuleMetadata {
     pub const fn source_kind(mut self, source_kind: RuleSourceKind) -> Self {
         self.source_kind = Some(source_kind);
         self
+    }
+
+    pub const fn language(mut self, language: &'static str) -> Self {
+        self.language = language;
+        self
+    }
+
+    pub const fn severity(mut self, severity: Severity) -> Self {
+        self.severity = severity;
+        self
+    }
+
+    pub const fn domains(mut self, domains: &'static [RuleDomain]) -> Self {
+        self.domains = domains;
+        self
+    }
+
+    pub fn applicability(&self) -> Applicability {
+        self.fix_kind
+            .try_into()
+            .expect("Fix kind is not set in the rule metadata")
+    }
+
+    pub fn action_category(&self, category: RuleCategory, group: &'static str) -> ActionCategory {
+        match category {
+            RuleCategory::Lint => {
+                ActionCategory::QuickFix(Cow::Owned(format!("{}.{}", group, self.name)))
+            }
+            RuleCategory::Action => {
+                ActionCategory::Source(SourceActionKind::Other(Cow::Borrowed(self.name)))
+            }
+            RuleCategory::Syntax | RuleCategory::Transformation => unimplemented!(""),
+        }
     }
 }
 
@@ -298,7 +664,7 @@ pub trait RuleMeta {
 /// ```rust,ignore
 ///use biome_analyze::declare_rule;
 ///
-/// declare_rule! {
+/// declare_lint_rule! {
 ///     /// Documentation
 ///     pub(crate) ExampleRule {
 ///         version: "1.0.0",
@@ -311,10 +677,95 @@ pub trait RuleMeta {
 /// Check [crate](module documentation) for a better
 /// understanding of how the macro works
 #[macro_export]
-macro_rules! declare_rule {
+macro_rules! declare_lint_rule {
     ( $( #[doc = $doc:literal] )+ $vis:vis $id:ident {
         version: $version:literal,
         name: $name:tt,
+        language: $language:literal,
+        $( $key:ident: $value:expr, )*
+    } ) => {
+
+        biome_analyze::declare_rule!(
+            $( #[doc = $doc] )*
+            $vis $id {
+                version: $version,
+                name: $name,
+                language: $language,
+                $( $key: $value, )*
+            }
+        );
+
+        // Declare a new `rule_category!` macro in the module context that
+        // expands to the category of this rule
+        // This is implemented by calling the `group_category!` macro from the
+        // parent module (that should be declared by a call to `declare_group!`)
+        // and providing it with the name of this rule as a string literal token
+        #[expect(unused_macros)]
+        macro_rules! rule_category {
+            () => { super::group_category!( $name ) };
+        }
+    };
+}
+
+/// This macro is used to declare an analyzer rule type, and implement the
+//  [RuleMeta] trait for it
+///  # Example
+///
+/// The macro itself expect the following syntax:
+///
+/// ```rust,ignore
+///use biome_analyze::declare_syntax_rule;
+///
+/// declare_syntax_rule! {
+///     /// Documentation
+///     pub(crate) ExampleRule {
+///         version: "1.0.0",
+///         name: "ruleName",
+///         recommended: false,
+///     }
+/// }
+/// ```
+///
+/// Check [crate](module documentation) for a better
+/// understanding of how the macro works
+#[macro_export]
+macro_rules! declare_syntax_rule {
+    ( $( #[doc = $doc:literal] )+ $vis:vis $id:ident {
+        version: $version:literal,
+        name: $name:tt,
+        language: $language:literal,
+        $( $key:ident: $value:expr, )*
+    } ) => {
+
+        biome_analyze::declare_rule!(
+            $( #[doc = $doc] )*
+            $vis $id {
+                version: $version,
+                name: $name,
+                language: $language,
+                severity: biome_diagnostics::Severity::Error,
+                $( $key: $value, )*
+            }
+        );
+
+        // Declare a new `rule_category!` macro in the module context that
+        // expands to the category of this rule
+        // This is implemented by calling the `group_category!` macro from the
+        // parent module (that should be declared by a call to `declare_group!`)
+        // and providing it with the name of this rule as a string literal token
+        #[expect(unused_macros)]
+        macro_rules! rule_category {
+            () => { super::group_category!( $name ) };
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! declare_rule {
+        ( $( #[doc = $doc:literal] )+ $vis:vis $id:ident {
+        version: $version:literal,
+        name: $name:tt,
+        language: $language:literal,
         $( $key:ident: $value:expr, )*
     } ) => {
         $( #[doc = $doc] )*
@@ -323,17 +774,55 @@ macro_rules! declare_rule {
         impl $crate::RuleMeta for $id {
             type Group = super::Group;
             const METADATA: $crate::RuleMetadata =
-                $crate::RuleMetadata::new($version, $name, concat!( $( $doc, "\n", )* )) $( .$key($value) )*;
+                $crate::RuleMetadata::new($version, $name, concat!( $( $doc, "\n", )* ), $language) $( .$key($value) )*;
         }
+    }
+}
 
-        // Declare a new `rule_category!` macro in the module context that
-        // expands to the category of this rule
-        // This is implemented by calling the `group_category!` macro from the
-        // parent module (that should be declared by a call to `declare_group!`)
-        // and providing it with the name of this rule as a string literal token
-        #[allow(unused_macros)]
-        macro_rules! rule_category {
-            () => { super::group_category!( $name ) };
+/// This macro is used to declare an analyzer rule type, and implement the
+//  [RuleMeta] trait for it
+///  # Example
+///
+/// The macro itself expect the following syntax:
+///
+/// ```rust,ignore
+///use biome_analyze::declare_refactor_rule;
+///
+/// declare_refactor_rule! {
+///     /// Documentation
+///     pub(crate) ExampleRule {
+///         version: "1.0.0",
+///         name: "ruleName",
+///         recommended: false,
+///     }
+/// }
+/// ```
+///
+/// Check [crate](module documentation) for a better
+/// understanding of how the macro works
+#[macro_export]
+macro_rules! declare_source_rule {
+    ( $( #[doc = $doc:literal] )+ $vis:vis $id:ident {
+        version: $version:literal,
+        name: $name:tt,
+        language: $language:literal,
+        $( $key:ident: $value:expr, )*
+    } ) => {
+        biome_analyze::declare_rule!(
+            $( #[doc = $doc] )*
+            $vis $id {
+                version: $version,
+                name: $name,
+                language: $language,
+                fix_kind: biome_analyze::FixKind::None,
+                $( $key: $value, )*
+            }
+        );
+
+        /// This macro returns the corresponding [ActionCategory] to use inside the [RuleAction]
+        #[expect(unused_macros)]
+        macro_rules! rule_action_category {
+            () => { biome_analyze::ActionCategory::Source(biome_analyze::SourceActionKind::Other(Cow::Borrowed($name)))  };
         }
     };
 }
@@ -353,7 +842,7 @@ pub trait RuleGroup {
 /// This macro is used by the codegen script to declare an analyzer rule group,
 /// and implement the [RuleGroup] trait for it
 #[macro_export]
-macro_rules! declare_group {
+macro_rules! declare_lint_group {
     ( $vis:vis $id:ident { name: $name:tt, rules: [ $( $( $rule:ident )::* , )* ] } ) => {
         $vis enum $id {}
 
@@ -376,9 +865,83 @@ macro_rules! declare_group {
         // name within this group.
         // This is implemented by calling the `category_concat!` macro with the
         // "lint" prefix, the name of this group, and the rule name argument
-        #[allow(unused_macros)]
+        #[expect(unused_macros)]
         macro_rules! group_category {
             ( $rule_name:tt ) => { $crate::category_concat!( "lint", $name, $rule_name ) };
+        }
+
+        // Re-export the macro for child modules, so `declare_rule!` can access
+        // the category of its parent group by using the `super` module
+        pub(self) use group_category;
+    };
+}
+
+/// This macro is used by the codegen script to declare an analyzer rule group,
+/// and implement the [RuleGroup] trait for it
+#[macro_export]
+macro_rules! declare_assist_group {
+    ( $vis:vis $id:ident { name: $name:tt, rules: [ $( $( $rule:ident )::* , )* ] } ) => {
+        $vis enum $id {}
+
+        impl $crate::RuleGroup for $id {
+            type Language = <( $( $( $rule )::* , )* ) as $crate::GroupLanguage>::Language;
+            type Category = super::Category;
+
+            const NAME: &'static str = $name;
+
+            fn record_rules<V: $crate::RegistryVisitor<Self::Language> + ?Sized>(registry: &mut V) {
+                $( registry.record_rule::<$( $rule )::*>(); )*
+            }
+        }
+
+        pub(self) use $id as Group;
+
+        // Declare a `group_category!` macro in the context of this module (and
+        // all its children). This macro takes the name of a rule as a string
+        // literal token and expands to the category of the lint rule with this
+        // name within this group.
+        // This is implemented by calling the `category_concat!` macro with the
+        // "lint" prefix, the name of this group, and the rule name argument
+        #[expect(unused_macros)]
+        macro_rules! group_category {
+            ( $rule_name:tt ) => { $crate::category_concat!( "assist", $name, $rule_name ) };
+        }
+
+        // Re-export the macro for child modules, so `declare_rule!` can access
+        // the category of its parent group by using the `super` module
+        pub(self) use group_category;
+    };
+}
+
+/// This macro is used by the codegen script to declare an analyzer rule group,
+/// and implement the [RuleGroup] trait for it
+#[macro_export]
+macro_rules! declare_syntax_group {
+    ( $vis:vis $id:ident { name: $name:tt, rules: [ $( $( $rule:ident )::* , )* ] } ) => {
+        $vis enum $id {}
+
+        impl $crate::RuleGroup for $id {
+            type Language = <( $( $( $rule )::* , )* ) as $crate::GroupLanguage>::Language;
+            type Category = super::Category;
+
+            const NAME: &'static str = $name;
+
+            fn record_rules<V: $crate::RegistryVisitor<Self::Language> + ?Sized>(registry: &mut V) {
+                $( registry.record_rule::<$( $rule )::*>(); )*
+            }
+        }
+
+        pub(self) use $id as Group;
+
+        // Declare a `group_category!` macro in the context of this module (and
+        // all its children). This macro takes the name of a rule as a string
+        // literal token and expands to the category of the lint rule with this
+        // name within this group.
+        // This is implemented by calling the `category_concat!` macro with the
+        // "lint" prefix, the name of this group, and the rule name argument
+        #[expect(unused_macros)]
+        macro_rules! group_category {
+            ( $rule_name:tt ) => { $crate::category_concat!( "syntax", $name, $rule_name ) };
         }
 
         // Re-export the macro for child modules, so `declare_rule!` can access
@@ -494,6 +1057,36 @@ pub trait Rule: RuleMeta + Sized {
     /// `diagnostic` or `action` on it
     fn run(ctx: &RuleContext<Self>) -> Self::Signals;
 
+    /// Returns the instances associated with the given signal.
+    ///
+    /// This allows suppression of specific instances of a given rule, without
+    /// suppressing other instances of the same rule.
+    ///
+    /// ## Example
+    ///
+    /// Consider the situation where the following two variables are unused:
+    ///
+    /// ```js
+    /// let a, b;
+    /// ```
+    ///
+    /// The rule `noUnusedVariables` will report a diagnostic about it, which we
+    /// can suppress with `// biome-ignore lint/correctness/noUnusedVariables`.
+    ///
+    /// But what if we wanted to suppress the rule for `a`, but not for `b`?
+    ///
+    /// We would need to recognize there are actually two separate instances
+    /// that the rule is reporting on, identified as "a" and "b". This allows
+    /// the user to suppress a specific instance using
+    /// `// biome-ignore lint/correctness/noUnusedVariables(a)`.
+    ///
+    /// *Note: For `noUnusedVariables` the above may not seem very useful (and
+    /// indeed it's not implemented), but for rules such as
+    /// `useExhaustiveDependencies` this is actually desirable.*
+    fn instances_for_signal(_signal: &Self::State) -> Box<[Box<str>]> {
+        Vec::new().into_boxed_slice()
+    }
+
     /// Used by the analyzer to associate a range of source text to a signal in
     /// order to support suppression comments.
     ///
@@ -565,37 +1158,91 @@ pub trait Rule: RuleMeta + Sized {
         None
     }
 
+    fn top_level_suppression(
+        ctx: &RuleContext<Self>,
+        suppression_action: &dyn SuppressionAction<Language = RuleLanguage<Self>>,
+    ) -> Option<SuppressAction<RuleLanguage<Self>>>
+    where
+        Self: 'static,
+    {
+        let category = <Self::Group as RuleGroup>::Category::CATEGORY;
+        if matches!(category, RuleCategory::Lint | RuleCategory::Action) {
+            let rule_category = format!(
+                "{}/{}/{}",
+                category.as_suppression_category(),
+                <Self::Group as RuleGroup>::NAME,
+                Self::METADATA.name
+            );
+            let suppression_text = format!("biome-ignore-all {rule_category}");
+            let root = ctx.root();
+
+            if let Some(first_token) = root.syntax().first_token() {
+                let mut mutation = root.begin();
+                let comment =
+                    suppression_action.suppression_top_level_comment(suppression_text.as_str());
+                suppression_action.apply_top_level_suppression(
+                    &mut mutation,
+                    first_token,
+                    comment.as_str(),
+                );
+                let message = if category == RuleCategory::Action {
+                    "action"
+                } else {
+                    "rule"
+                };
+                return Some(SuppressAction {
+                    mutation,
+                    message:
+                        markup! { "Suppress " {message} " " {rule_category} " for the whole file."}
+                            .to_owned(),
+                });
+            }
+        }
+        None
+    }
+
     /// Create a code action that allows to suppress the rule. The function
     /// returns the node to which the suppression comment is applied.
-    fn suppress(
+    fn inline_suppression(
         ctx: &RuleContext<Self>,
         text_range: &TextRange,
-        apply_suppression_comment: SuppressionCommentEmitter<RuleLanguage<Self>>,
+        suppression_action: &dyn SuppressionAction<Language = RuleLanguage<Self>>,
+        suppression_reason: Option<&str>,
     ) -> Option<SuppressAction<RuleLanguage<Self>>>
     where
         Self: 'static,
     {
         // if the rule belongs to `Lint`, we auto generate an action to suppress the rule
-        if <Self::Group as RuleGroup>::Category::CATEGORY == RuleCategory::Lint {
+        let category = <Self::Group as RuleGroup>::Category::CATEGORY;
+        if matches!(category, RuleCategory::Lint | RuleCategory::Action) {
             let rule_category = format!(
-                "lint/{}/{}",
+                "{}/{}/{}",
+                category.as_suppression_category(),
                 <Self::Group as RuleGroup>::NAME,
                 Self::METADATA.name
             );
-            let suppression_text = format!("biome-ignore {}", rule_category);
+            let suppression_text = format!("biome-ignore {rule_category}");
             let root = ctx.root();
             let token = root.syntax().token_at_offset(text_range.start());
             let mut mutation = root.begin();
-            apply_suppression_comment(SuppressionCommentEmitterPayload {
+            suppression_action.inline_suppression(SuppressionCommentEmitterPayload {
                 suppression_text: suppression_text.as_str(),
                 mutation: &mut mutation,
                 token_offset: token,
                 diagnostic_text_range: text_range,
+                suppression_reason: suppression_reason.unwrap_or("<explanation>"),
             });
+
+            let message = if category == RuleCategory::Action {
+                "action"
+            } else {
+                "rule"
+            };
 
             Some(SuppressAction {
                 mutation,
-                message: markup! { "Suppress rule " {rule_category} }.to_owned(),
+                message: markup! { "Suppress " {message} " " {rule_category} " for this line."}
+                    .to_owned(),
             })
         } else {
             None
@@ -612,10 +1259,11 @@ pub trait Rule: RuleMeta + Sized {
 }
 
 /// Diagnostic object returned by a single analysis rule
-#[derive(Debug, Diagnostic)]
+#[derive(Clone, Debug, Diagnostic)]
 pub struct RuleDiagnostic {
     #[category]
     pub(crate) category: &'static Category,
+    pub(crate) subcategory: Option<String>,
     #[location(span)]
     pub(crate) span: Option<TextRange>,
     #[message]
@@ -625,9 +1273,11 @@ pub struct RuleDiagnostic {
     pub(crate) tags: DiagnosticTags,
     #[advice]
     pub(crate) rule_advice: RuleAdvice,
+    #[severity]
+    pub(crate) severity: Severity,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 /// It contains possible advices to show when printing a diagnostic that belong to the rule
 pub struct RuleAdvice {
     pub(crate) details: Vec<Detail>,
@@ -636,7 +1286,7 @@ pub struct RuleAdvice {
     pub(crate) code_suggestion_list: Vec<CodeSuggestionAdvice<MarkupBuf>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SuggestionList {
     pub(crate) message: MarkupBuf,
     pub(crate) list: Vec<MarkupBuf>,
@@ -678,7 +1328,7 @@ impl Advices for RuleAdvice {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Detail {
     pub log_category: LogCategory,
     pub message: MarkupBuf,
@@ -692,10 +1342,12 @@ impl RuleDiagnostic {
         let message = markup!({ title }).to_owned();
         Self {
             category,
+            subcategory: None,
             span: span.as_span(),
             message: MessageAndDescription::from(message),
             tags: DiagnosticTags::empty(),
             rule_advice: RuleAdvice::default(),
+            severity: Severity::default(),
         }
     }
 
@@ -720,6 +1372,14 @@ impl RuleDiagnostic {
     /// This does not have any influence on the diagnostic rendering.
     pub fn unnecessary(mut self) -> Self {
         self.tags |= DiagnosticTags::UNNECESSARY_CODE;
+        self
+    }
+
+    /// Marks this diagnostic as verbose.
+    ///
+    /// The diagnostic will only be shown when using the `--verbose` argument.
+    pub fn verbose(mut self) -> Self {
+        self.tags |= DiagnosticTags::VERBOSE;
         self
     }
 
@@ -755,17 +1415,18 @@ impl RuleDiagnostic {
 
     /// It creates a new footer note which contains a message and a list of possible suggestions.
     /// Useful when there's need to suggest a list of things inside a diagnostic.
-    pub fn footer_list(mut self, message: impl Display, list: &[impl Display]) -> Self {
-        if !list.is_empty() {
-            self.rule_advice.suggestion_list = Some(SuggestionList {
-                message: markup! { {message} }.to_owned(),
-                list: list
-                    .iter()
-                    .map(|msg| markup! { {msg} }.to_owned())
-                    .collect(),
-            });
-        }
-
+    pub fn footer_list(
+        mut self,
+        message: impl Display,
+        list: impl IntoIterator<Item = impl Display>,
+    ) -> Self {
+        self.rule_advice.suggestion_list = Some(SuggestionList {
+            message: markup! { {message} }.to_owned(),
+            list: list
+                .into_iter()
+                .map(|msg| markup! {{msg}}.to_owned())
+                .collect(),
+        });
         self
     }
 
@@ -774,21 +1435,57 @@ impl RuleDiagnostic {
         self.footer(LogCategory::Warn, msg)
     }
 
-    pub(crate) fn span(&self) -> Option<TextRange> {
+    #[inline]
+    pub fn span(&self) -> Option<TextRange> {
         self.span
     }
 
     pub fn advices(&self) -> &RuleAdvice {
         &self.rule_advice
     }
+
+    pub fn subcategory(mut self, subcategory: String) -> Self {
+        self.subcategory = Some(subcategory);
+        self
+    }
+
+    /// Assigns an explicit severity.
+    ///
+    /// In most cases, severity should _not_ be explicitly assigned, since rule
+    /// categories and configuration define the severity. Currently this is only
+    /// used for plugins to allow plugin authors to assign an explicit severity.
+    pub fn with_severity(mut self, severity: Severity) -> Self {
+        self.severity = severity;
+        self
+    }
 }
 
 /// Code Action object returned by a single analysis rule
 pub struct RuleAction<L: Language> {
     pub category: ActionCategory,
-    pub applicability: Applicability,
+    applicability: Applicability,
     pub message: MarkupBuf,
     pub mutation: BatchMutation<L>,
+}
+
+impl<L: Language> RuleAction<L> {
+    pub fn new(
+        category: ActionCategory,
+        applicability: impl Into<Applicability>,
+        message: impl Display,
+        mutation: BatchMutation<L>,
+    ) -> Self {
+        Self {
+            category,
+            applicability: applicability.into(),
+            message: markup! {{message}}.to_owned(),
+            mutation,
+        }
+    }
+
+    pub fn applicability(&self) -> Applicability {
+        self.applicability
+    }
 }
 
 /// An action meant to suppress a lint rule

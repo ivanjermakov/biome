@@ -1,27 +1,29 @@
+use crate::TestFormatLanguage;
 use crate::check_reformat::CheckReformat;
 use crate::snapshot_builder::{SnapshotBuilder, SnapshotOutput};
 use crate::utils::strip_rome_placeholders;
-use crate::TestFormatLanguage;
-use biome_configuration::PartialConfiguration;
+use biome_configuration::Configuration;
 use biome_console::EnvConsole;
 use biome_deserialize::json::deserialize_from_str;
 use biome_diagnostics::print_diagnostic_to_string;
-use biome_formatter::{FormatOptions, Printed};
+use biome_formatter::{FormatLanguage, FormatOptions, Printed};
 use biome_fs::BiomePath;
 use biome_parser::AnyParse;
 use biome_rowan::{TextRange, TextSize};
-use biome_service::settings::{ServiceLanguage, Settings};
-use biome_service::workspace::{
-    DocumentFileSource, FeaturesBuilder, RegisterProjectFolderParams, SupportsFeatureParams,
-};
 use biome_service::App;
+use biome_service::projects::ProjectKey;
+use biome_service::settings::Settings;
+use biome_service::workspace::{
+    DocumentFileSource, FeaturesBuilder, OpenProjectParams, SupportsFeatureParams,
+    UpdateSettingsParams,
+};
+use camino::{Utf8Path, Utf8PathBuf};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct SpecTestFile<'a> {
     input_file: BiomePath,
-    root_path: &'a Path,
+    root_path: &'a Utf8Path,
 
     input_code: String,
 
@@ -30,28 +32,40 @@ pub struct SpecTestFile<'a> {
 }
 
 impl<'a> SpecTestFile<'a> {
-    pub fn try_from_file(input_file: &'a str, root_path: &'a Path) -> Option<SpecTestFile<'a>> {
+    pub fn try_from_file(
+        input_file: &'a str,
+        root_path: &'a Utf8Path,
+        settings_fn: impl FnOnce(ProjectKey) -> Option<UpdateSettingsParams>,
+    ) -> Option<SpecTestFile<'a>> {
+        if input_file.ends_with("options.json") {
+            return None;
+        }
         let mut console = EnvConsole::default();
         let app = App::with_console(&mut console);
         let file_path = &input_file;
-        let spec_input_file = Path::new(input_file);
+        let spec_input_file = Utf8Path::new(input_file);
 
         assert!(
             spec_input_file.is_file(),
-            "The input '{}' must exist and be a file.",
-            spec_input_file.display()
+            "The input '{spec_input_file}' must exist and be a file.",
         );
 
-        app.workspace
-            .register_project_folder(RegisterProjectFolderParams {
-                set_as_current_workspace: true,
-                path: None,
+        let project_key = app
+            .workspace
+            .open_project(OpenProjectParams {
+                path: BiomePath::new(""),
+                open_uninitialized: true,
             })
             .unwrap();
+
+        if let Some(settings) = settings_fn(project_key) {
+            app.workspace.update_settings(settings).unwrap();
+        }
         let mut input_file = BiomePath::new(file_path);
         let can_format = app
             .workspace
             .file_features(SupportsFeatureParams {
+                project_key,
                 path: input_file.clone(),
                 features: FeaturesBuilder::new().with_formatter().build(),
             })
@@ -81,7 +95,7 @@ impl<'a> SpecTestFile<'a> {
     }
 
     pub fn file_name(&self) -> &str {
-        self.input_file.file_name().unwrap().to_str().unwrap()
+        self.input_file.file_name().unwrap()
     }
 
     pub fn input_file(&self) -> &BiomePath {
@@ -97,8 +111,7 @@ impl<'a> SpecTestFile<'a> {
                     self.root_path, self.input_file
                 )
             })
-            .to_str()
-            .expect("failed to get relative file name")
+            .as_str()
     }
 
     fn range(&self) -> (Option<usize>, Option<usize>) {
@@ -111,9 +124,9 @@ where
     L: TestFormatLanguage,
 {
     test_file: SpecTestFile<'a>,
-    test_directory: PathBuf,
+    test_directory: Utf8PathBuf,
     language: L,
-    options: <L::ServiceLanguage as ServiceLanguage>::FormatOptions,
+    format_language: L::FormatLanguage,
 }
 
 impl<'a, L> SpecSnapshot<'a, L>
@@ -124,22 +137,22 @@ where
         test_file: SpecTestFile<'a>,
         test_directory: &str,
         language: L,
-        options: <L::ServiceLanguage as ServiceLanguage>::FormatOptions,
+        format_language: L::FormatLanguage,
     ) -> Self {
-        let test_directory = PathBuf::from(test_directory);
+        let test_directory = Utf8PathBuf::from(test_directory);
 
         SpecSnapshot {
             test_file,
             test_directory,
             language,
-            options,
+            format_language,
         }
     }
 
     fn formatted(
         &self,
         parsed: &AnyParse,
-        options: <L::ServiceLanguage as ServiceLanguage>::FormatOptions,
+        format_language: L::FormatLanguage,
     ) -> (String, Printed) {
         let has_errors = parsed.has_errors();
         let syntax = parsed.syntax();
@@ -148,7 +161,7 @@ where
 
         let result = match range {
             (Some(start), Some(end)) => self.language.format_range(
-                options.clone(),
+                format_language.clone(),
                 &syntax,
                 TextRange::new(
                     TextSize::try_from(start).unwrap(),
@@ -157,7 +170,7 @@ where
             ),
             _ => self
                 .language
-                .format_node(options.clone(), &syntax)
+                .format_node(format_language.clone(), &syntax)
                 .map(|formatted| formatted.print().unwrap()),
         };
         let formatted = result.expect("formatting failed");
@@ -192,7 +205,7 @@ where
                         output_code,
                         self.test_file.file_name(),
                         &self.language,
-                        options,
+                        format_language,
                     );
                     check_reformat.check_reformat();
                 }
@@ -214,14 +227,14 @@ where
 
         let parsed = self.language.parse(self.test_file.input_code());
 
-        let (output_code, printed) = self.formatted(&parsed, self.options.clone());
+        let (output_code, printed) = self.formatted(&parsed, self.format_language.clone());
 
-        let max_width = self.options.line_width().get() as usize;
+        let max_width = self.format_language.options().line_width().value() as usize;
 
         snapshot_builder = snapshot_builder
             .with_output_and_options(
                 SnapshotOutput::new(&output_code).with_index(1),
-                self.options.clone(),
+                self.format_language.options().clone(),
             )
             .with_unimplemented(&printed)
             .with_lines_exceeding_max_width(&output_code, max_width);
@@ -232,12 +245,11 @@ where
 
             let mut settings = Settings::default();
             // SAFETY: we checked its existence already, we assume we have rights to read it
-            let (test_options, diagnostics) = deserialize_from_str::<PartialConfiguration>(
-                options_path.get_buffer_from_file().as_str(),
-            )
-            .consume();
+            let (test_options, diagnostics) =
+                deserialize_from_str::<Configuration>(options_path.get_buffer_from_file().as_str())
+                    .consume();
             settings
-                .merge_with_configuration(test_options.unwrap_or_default(), None, None, &[])
+                .merge_with_configuration(test_options.unwrap_or_default(), None)
                 .unwrap();
 
             if !diagnostics.is_empty() {
@@ -248,13 +260,13 @@ where
                 panic!("Configuration is invalid");
             }
 
-            let options = self
+            let format_language = self
                 .language
-                .to_options(&settings, &DocumentFileSource::from_path(input_file));
+                .to_format_language(&settings, &DocumentFileSource::from_path(input_file));
 
-            let (mut output_code, printed) = self.formatted(&parsed, options.clone());
+            let (mut output_code, printed) = self.formatted(&parsed, format_language.clone());
 
-            let max_width = options.line_width().get() as usize;
+            let max_width = format_language.options().line_width().value() as usize;
 
             // There are some logs that print different line endings, and we can't snapshot those
             // otherwise we risk automatically having them replaced with LF by git.
@@ -267,7 +279,10 @@ where
                 .replace(CR_PATTERN, "<CR>\n");
 
             snapshot_builder = snapshot_builder
-                .with_output_and_options(SnapshotOutput::new(&output_code).with_index(1), options)
+                .with_output_and_options(
+                    SnapshotOutput::new(&output_code).with_index(1),
+                    format_language.options(),
+                )
                 .with_unimplemented(&printed)
                 .with_lines_exceeding_max_width(&output_code, max_width);
         }

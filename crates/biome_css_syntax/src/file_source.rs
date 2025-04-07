@@ -1,13 +1,13 @@
 use biome_rowan::FileSourceError;
-use std::{ffi::OsStr, path::Path};
+use biome_string_case::StrLikeExtension;
+use camino::Utf8Path;
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(
     Debug, Clone, Default, Copy, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct CssFileSource {
-    // Unused until we potentially support postcss/less/sass
-    #[allow(unused)]
     variant: CssVariant,
 }
 
@@ -19,6 +19,7 @@ pub struct CssFileSource {
 #[derive(
     Debug, Clone, Default, Copy, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "camelCase")]
 enum CssVariant {
     #[default]
     Standard,
@@ -32,19 +33,17 @@ impl CssFileSource {
     }
 
     /// Try to return the CSS file source corresponding to this file name from well-known files
-    pub fn try_from_well_known(file_name: &str) -> Result<Self, FileSourceError> {
+    pub fn try_from_well_known(_: &Utf8Path) -> Result<Self, FileSourceError> {
         // TODO: to be implemented
-        Err(FileSourceError::UnknownFileName(file_name.into()))
+        Err(FileSourceError::UnknownFileName)
     }
 
     /// Try to return the CSS file source corresponding to this file extension
     pub fn try_from_extension(extension: &str) -> Result<Self, FileSourceError> {
+        // We assume the file extension is normalized to lowercase
         match extension {
             "css" => Ok(Self::css()),
-            _ => Err(FileSourceError::UnknownExtension(
-                Default::default(),
-                extension.into(),
-            )),
+            _ => Err(FileSourceError::UnknownExtension),
         }
     }
 
@@ -57,32 +56,24 @@ impl CssFileSource {
     pub fn try_from_language_id(language_id: &str) -> Result<Self, FileSourceError> {
         match language_id {
             "css" => Ok(Self::css()),
-            _ => Err(FileSourceError::UnknownLanguageId(language_id.into())),
+            _ => Err(FileSourceError::UnknownLanguageId),
         }
     }
 }
 
-impl TryFrom<&Path> for CssFileSource {
+impl TryFrom<&Utf8Path> for CssFileSource {
     type Error = FileSourceError;
 
-    fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        let file_name = path
-            .file_name()
-            .and_then(OsStr::to_str)
-            .ok_or_else(|| FileSourceError::MissingFileName(path.into()))?;
-
-        if let Ok(file_source) = Self::try_from_well_known(file_name) {
+    fn try_from(path: &Utf8Path) -> Result<Self, Self::Error> {
+        if let Ok(file_source) = Self::try_from_well_known(path) {
             return Ok(file_source);
         }
 
+        let Some(extension) = path.extension() else {
+            return Err(FileSourceError::MissingFileExtension);
+        };
         // We assume the file extensions are case-insensitive
         // and we use the lowercase form of them for pattern matching
-        let extension = &path
-            .extension()
-            .and_then(OsStr::to_str)
-            .map(str::to_lowercase)
-            .ok_or_else(|| FileSourceError::MissingFileExtension(path.into()))?;
-
-        Self::try_from_extension(extension)
+        Self::try_from_extension(&extension.to_ascii_lowercase_cow())
     }
 }

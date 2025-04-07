@@ -1,20 +1,19 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsExpression, JsAssignmentExpression, JsAssignmentOperator, JsBinaryExpression,
 };
 use biome_rowan::{AstNode, BatchMutationExt};
 
 use crate::{
-    utils::{find_variable_position, VariablePosition},
     JsRuleAction,
+    utils::{VariablePosition, find_variable_position},
 };
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow shorthand assign when variable appears on both sides.
     ///
     /// This rule helps to avoid potential bugs related to incorrect assignments or unintended
@@ -52,8 +51,10 @@ declare_rule! {
     pub NoMisrefactoredShorthandAssign {
         version: "1.3.0",
         name: "noMisrefactoredShorthandAssign",
+        language: "js",
         sources: &[RuleSource::Clippy("misrefactored_assign_op")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -79,7 +80,7 @@ impl Rule for NoMisrefactoredShorthandAssign {
         let binary_expression = match right {
             AnyJsExpression::JsBinaryExpression(binary_expression) => binary_expression,
             AnyJsExpression::JsParenthesizedExpression(param) => {
-                JsBinaryExpression::cast_ref(param.expression().ok()?.syntax())?
+                JsBinaryExpression::cast(param.expression().ok()?.into_syntax())?
             }
             _ => return None,
         };
@@ -95,7 +96,7 @@ impl Rule for NoMisrefactoredShorthandAssign {
 
         let left = node.left().ok()?;
         let left = left.as_any_js_assignment()?;
-        let left_text = left.text();
+        let left_text = left.to_trimmed_string();
 
         let variable_position_in_expression =
             find_variable_position(&binary_expression, &left_text)?;
@@ -139,12 +140,11 @@ impl Rule for NoMisrefactoredShorthandAssign {
 
         mutation.replace_node(node.clone(), replacement_node);
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use "<Emphasis>""{replacement_text}""</Emphasis>" instead." }.to_owned(),
             mutation,
-            message: markup! { "Use "<Emphasis>""{replacement_text}""</Emphasis>" instead." }
-                .to_owned(),
-        })
+        ))
     }
 }

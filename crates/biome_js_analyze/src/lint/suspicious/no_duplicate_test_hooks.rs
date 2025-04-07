@@ -1,12 +1,13 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, AddVisitor, Phases, QueryMatch, Queryable, Rule,
-    RuleDiagnostic, RuleSource, RuleSourceKind, ServiceBag, Visitor, VisitorContext,
+    AddVisitor, Phases, QueryMatch, Queryable, Rule, RuleDiagnostic, RuleDomain, RuleSource,
+    RuleSourceKind, ServiceBag, Visitor, VisitorContext, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{AnyJsExpression, JsCallExpression, JsLanguage, TextRange};
 use biome_rowan::{AstNode, Language, SyntaxNode, WalkEvent};
 
-declare_rule! {
+declare_lint_rule! {
     /// A `describe` block should not contain duplicate hooks.
     ///
     /// ## Examples
@@ -59,9 +60,12 @@ declare_rule! {
     pub NoDuplicateTestHooks {
         version: "1.6.0",
         name: "noDuplicateTestHooks",
+        language: "js",
         recommended: true,
+        severity: Severity::Error,
         sources: &[RuleSource::EslintJest("no-duplicate-hooks")],
         source_kind: RuleSourceKind::Inspired,
+        domains: &[RuleDomain::Test],
     }
 }
 
@@ -109,42 +113,51 @@ impl Visitor for DuplicateHooksVisitor {
     ) {
         match event {
             WalkEvent::Enter(node) => {
+                let Some(node) = JsCallExpression::cast_ref(node) else {
+                    return;
+                };
+
                 // When the visitor enters a function node, push a new entry on the stack
-                if let Some(node) = JsCallExpression::cast_ref(node) {
-                    if let Ok(callee) = node.callee() {
-                        if callee.contains_a_test_pattern() == Ok(true) {
-                            if let Some(function_name) = callee.get_callee_object_name() {
-                                if function_name.text_trimmed() == "describe" {
-                                    self.stack.push(HooksContext::default());
-                                }
+                if let Ok(callee) = node.callee() {
+                    if callee.contains_a_test_pattern() == Ok(true) {
+                        if let Some(function_name) = callee.get_callee_object_name() {
+                            if function_name.text_trimmed() == "describe" {
+                                self.stack.push(HooksContext::default());
+                            }
+                        }
+                    }
+                    // describe.each has a different syntax
+                    else if let AnyJsExpression::JsCallExpression(call_expression) = callee {
+                        if let Ok(callee) = call_expression.callee() {
+                            if matches!(
+                                callee.to_trimmed_string().as_str(),
+                                "describe.each" | "describe.only.each" | "fdescribe.each"
+                            ) {
+                                self.stack.push(HooksContext::default());
                             }
                         }
                     }
                 }
 
-                if let Some(node) = JsCallExpression::cast_ref(node) {
-                    if let Ok(AnyJsExpression::JsIdentifierExpression(identifier)) = node.callee() {
-                        identifier
-                            .name()
-                            .and_then(|name| name.value_token())
-                            .map_or((), |name| {
-                                if let Some(hooks_context) = self.stack.last_mut() {
-                                    match name.text_trimmed() {
-                                        "beforeEach" | "beforeAll" | "afterEach" | "afterAll"
-                                        | "after" | "before" => {
-                                            let counter = HooksContext::add(
-                                                hooks_context,
-                                                name.text_trimmed(),
-                                            );
-                                            if counter > 1 {
-                                                ctx.match_query(DuplicateHooks(node.clone()));
-                                            }
+                if let Ok(AnyJsExpression::JsIdentifierExpression(identifier)) = node.callee() {
+                    identifier
+                        .name()
+                        .and_then(|name| name.value_token())
+                        .map_or((), |name| {
+                            if let Some(hooks_context) = self.stack.last_mut() {
+                                match name.text_trimmed() {
+                                    "beforeEach" | "beforeAll" | "afterEach" | "afterAll"
+                                    | "after" | "before" => {
+                                        let counter =
+                                            HooksContext::add(hooks_context, name.text_trimmed());
+                                        if counter > 1 {
+                                            ctx.match_query(DuplicateHooks(node.clone()));
                                         }
-                                        _ => {}
-                                    };
+                                    }
+                                    _ => {}
                                 };
-                            })
-                    }
+                            };
+                        })
                 }
             }
             WalkEvent::Leave(node) => {

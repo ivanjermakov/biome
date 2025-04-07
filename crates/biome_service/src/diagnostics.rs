@@ -1,18 +1,22 @@
-use crate::workspace::DocumentFileSource;
-use biome_configuration::{CantLoadExtendFile, ConfigurationDiagnostic};
+use crate::workspace::{CheckFileSizeResult, DocumentFileSource};
+use biome_analyze::RuleError;
+use biome_configuration::diagnostics::{ConfigurationDiagnostic, EditorConfigDiagnostic};
+use biome_configuration::{BiomeDiagnostic, CantLoadExtendFile};
 use biome_console::fmt::Bytes;
 use biome_console::markup;
+use biome_css_parser::ParseDiagnostic;
 use biome_diagnostics::{
-    category, Advices, Category, Diagnostic, DiagnosticTags, Location, LogCategory, Severity, Visit,
+    Advices, Category, Diagnostic, DiagnosticTags, Location, LogCategory, MessageAndDescription,
+    Severity, Visit, category,
 };
 use biome_formatter::{FormatError, PrintError};
 use biome_fs::{BiomePath, FileSystemDiagnostic};
 use biome_grit_patterns::CompileError;
 use biome_js_analyze::utils::rename::RenameError;
-use biome_js_analyze::RuleError;
+use biome_plugin_loader::PluginDiagnostic;
+use camino::Utf8Path;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::process::{ExitCode, Termination};
@@ -20,10 +24,6 @@ use std::process::{ExitCode, Termination};
 /// Generic errors thrown during biome operations
 #[derive(Deserialize, Diagnostic, Serialize)]
 pub enum WorkspaceError {
-    /// Can't export the report of the CLI into a file
-    ReportNotSerializable(ReportNotSerializable),
-    /// The project contains uncommitted changes
-    DirtyWorkspace(DirtyWorkspace),
     /// The file does not exist in the [crate::Workspace]
     NotFound(NotFound),
     /// A file is not supported. It contains the language and path of the file
@@ -37,28 +37,30 @@ pub enum WorkspaceError {
     FormatWithErrorsDisabled(FormatWithErrorsDisabled),
     /// The file could not be analyzed because a rule caused an error.
     RuleError(RuleError),
-    /// Thrown when Biome can't read a generic directory
-    CantReadDirectory(CantReadDirectory),
     /// Thrown when Biome can't read a generic file
     CantReadFile(CantReadFile),
     /// Error thrown when validating the configuration. Once deserialized, further checks have to be done.
     Configuration(ConfigurationDiagnostic),
+    /// An operation is attempted on the registered project, but there is no registered project.
+    NoProject(NoProject),
     /// Error thrown when Biome cannot rename a symbol.
     RenameError(RenameError),
     /// Error emitted by the underlying transport layer for a remote Workspace
     TransportError(TransportError),
     /// Emitted when the file is ignored and should not be processed
     FileIgnored(FileIgnored),
-    /// Emitted when a file could not be parsed because it's larger than the size limit
-    FileTooLarge(FileTooLarge),
     /// Diagnostics emitted when querying the file system
     FileSystem(FileSystemDiagnostic),
     /// Raised when there's an issue around the VCS integration
     Vcs(VcsDiagnostic),
-    /// Diagnostic raised when a file is protected
+    /// One or more errors occurred during plugin loading.
+    PluginErrors(PluginErrors),
+    /// Diagnostic raised when a file is protected.
     ProtectedFile(ProtectedFile),
     /// Error when searching for a pattern
     SearchError(SearchError),
+    /// Error in the workspace watcher.
+    WatchError(WatchError),
 }
 
 impl WorkspaceError {
@@ -70,12 +72,16 @@ impl WorkspaceError {
         Self::CantReadFile(CantReadFile { path })
     }
 
+    pub fn invalid_pattern() -> Self {
+        Self::SearchError(SearchError::InvalidPattern(InvalidPattern))
+    }
+
     pub fn not_found() -> Self {
         Self::NotFound(NotFound)
     }
 
-    pub fn file_too_large(path: String, size: usize, limit: usize) -> Self {
-        Self::FileTooLarge(FileTooLarge { path, size, limit })
+    pub fn no_project() -> Self {
+        Self::NoProject(NoProject)
     }
 
     pub fn file_ignored(path: String) -> Self {
@@ -94,6 +100,10 @@ impl WorkspaceError {
         })
     }
 
+    pub fn plugin_errors(diagnostics: Vec<PluginDiagnostic>) -> Self {
+        Self::PluginErrors(PluginErrors { diagnostics })
+    }
+
     pub fn vcs_disabled() -> Self {
         Self::Vcs(VcsDiagnostic::DisabledVcs(DisabledVcs {}))
     }
@@ -103,6 +113,13 @@ impl WorkspaceError {
             file_path: file_path.into(),
             verbose_advice: ProtectedFileAdvice,
         })
+    }
+
+    pub fn is_editor_config_error(&self) -> bool {
+        matches!(
+            self,
+            WorkspaceError::Configuration(ConfigurationDiagnostic::EditorConfig(_))
+        )
     }
 }
 
@@ -150,35 +167,28 @@ impl From<FileSystemDiagnostic> for WorkspaceError {
     }
 }
 
-impl From<ConfigurationDiagnostic> for WorkspaceError {
-    fn from(value: ConfigurationDiagnostic) -> Self {
-        Self::Configuration(value)
+impl From<BiomeDiagnostic> for WorkspaceError {
+    fn from(value: BiomeDiagnostic) -> Self {
+        Self::Configuration(value.into())
+    }
+}
+
+impl From<EditorConfigDiagnostic> for WorkspaceError {
+    fn from(value: EditorConfigDiagnostic) -> Self {
+        Self::Configuration(value.into())
     }
 }
 
 impl From<CantLoadExtendFile> for WorkspaceError {
     fn from(value: CantLoadExtendFile) -> Self {
-        WorkspaceError::Configuration(ConfigurationDiagnostic::CantLoadExtendFile(value))
+        WorkspaceError::Configuration(BiomeDiagnostic::CantLoadExtendFile(value).into())
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Diagnostic)]
-#[diagnostic(
-    category = "internalError/fs",
-    message = "Uncommitted changes in repository"
-)]
-pub struct DirtyWorkspace;
-
-#[derive(Debug, Serialize, Deserialize, Diagnostic)]
-#[diagnostic(
-    category = "internalError/fs",
-    message(
-        message("The report can't be serialized, here's why: "{self.reason}),
-        description = "The report can't be serialized, here's why: {reason}"
-    )
-)]
-pub struct ReportNotSerializable {
-    reason: String,
+impl From<WorkspaceError> for biome_diagnostics::serde::Diagnostic {
+    fn from(error: WorkspaceError) -> Self {
+        biome_diagnostics::serde::Diagnostic::new(error)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Diagnostic)]
@@ -189,25 +199,50 @@ pub struct ReportNotSerializable {
 )]
 pub struct NotFound;
 
+#[derive(Debug, Diagnostic, Deserialize, Serialize)]
+#[diagnostic(category = "internalError/panic", severity = Fatal, tags(INTERNAL))]
+pub struct Panic {
+    #[message]
+    #[description]
+    message: MessageAndDescription,
+}
+
+impl From<Panic> for biome_diagnostics::serde::Diagnostic {
+    fn from(error: Panic) -> Self {
+        biome_diagnostics::serde::Diagnostic::new(error)
+    }
+}
+
+impl Panic {
+    pub fn with_file(path: &Utf8Path) -> Self {
+        Self {
+            message: MessageAndDescription::from(
+                markup! {
+                    "A task panicked while processing "<Emphasis>{path.to_string()}</Emphasis>
+                }
+                .to_owned(),
+            ),
+        }
+    }
+
+    pub fn with_file_and_message(path: &Utf8Path, message: impl Into<String>) -> Self {
+        Self {
+            message: MessageAndDescription::from(
+                markup! {
+                    "A task panicked while processing "<Emphasis>{path.to_string()}</Emphasis>": "{message.into()}
+                }
+                .to_owned(),
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Diagnostic)]
 #[diagnostic(
     category = "format",
     message = "Code formatting aborted due to parsing errors. To format code with errors, enable the 'formatter.formatWithErrors' option."
 )]
 pub struct FormatWithErrorsDisabled;
-
-#[derive(Debug, Serialize, Deserialize, Diagnostic)]
-#[diagnostic(
-    category = "internalError/fs",
-    message(
-        message("Biome couldn't read the following directory, maybe for permissions reasons or it doesn't exist: "{self.path}),
-        description = "Biome couldn't read the following directory, maybe for permissions reasons or it doesn't exist: {path}"
-    )
-)]
-pub struct CantReadDirectory {
-    #[location(resource)]
-    path: String,
-}
 
 #[derive(Debug, Serialize, Deserialize, Diagnostic)]
 #[diagnostic(
@@ -236,34 +271,47 @@ pub struct FileIgnored {
     path: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FileTooLarge {
-    path: String,
-    size: usize,
-    limit: usize,
+    pub size: usize,
+    pub limit: usize,
+}
+
+impl From<CheckFileSizeResult> for FileTooLarge {
+    fn from(value: CheckFileSizeResult) -> Self {
+        Self {
+            size: value.file_size,
+            limit: value.limit,
+        }
+    }
 }
 
 impl Diagnostic for FileTooLarge {
-    fn category(&self) -> Option<&'static Category> {
-        Some(category!("internalError/fs"))
+    fn severity(&self) -> Severity {
+        Severity::Information
     }
 
     fn message(&self, fmt: &mut biome_console::fmt::Formatter<'_>) -> std::io::Result<()> {
         fmt.write_markup(
             markup!{
-                "Size of "{self.path}" is "{Bytes(self.size)}" which exceeds configured maximum of "{Bytes(self.limit)}" for this project. The file size limit exists to prevent us inadvertently slowing down and loading large files that we shouldn't."
+                "The size of the file is "{Bytes(self.size)}", which exceeds the configured maximum of "{Bytes(self.limit)}" for this project.
+Use the `files.maxSize` configuration to change the maximum size of files processed, or `files.ignore` to ignore the file."
             }
         )
     }
-
-    fn description(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
-        write!(fmt,
-               "Size of {} is {} which exceeds configured maximum of {} for this project. \
-               The file size limit exists to prevent us inadvertently slowing down and loading large files that we shouldn't.",
-               self.path, Bytes(self.size), Bytes(self.limit)
-        )
-    }
 }
+
+#[derive(Debug, Serialize, Deserialize, Diagnostic)]
+#[diagnostic(
+    category = "project",
+    message(
+        message(
+            "Biome attempted to perform an operation on the registered project, but no project was registered. This is a bug in Biome. If this problem persists, please report here: https://github.com/biomejs/biome/issues/"
+        ),
+        description = "Biome attempted to perform an operation on the registered project, but no project was registered. This is a bug in Biome. If this problem persists, please report here: https://github.com/biomejs/biome/issues/"
+    )
+)]
+pub struct NoProject;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SourceFileNotSupported {
@@ -313,12 +361,29 @@ impl Diagnostic for SourceFileNotSupported {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Diagnostic)]
+#[derive(Debug, Deserialize, Diagnostic, Serialize)]
 pub enum SearchError {
     /// An invalid pattern was given
-    PatternCompilationError(CompileError),
+    PatternCompilationError(PatternCompilationError),
     /// No pattern with the given ID
     InvalidPattern(InvalidPattern),
+    /// Error while executing the search query.
+    QueryError(QueryDiagnostic),
+}
+
+#[derive(Debug, Deserialize, Diagnostic, Serialize)]
+pub struct PatternCompilationError {
+    #[message]
+    #[description]
+    message: MessageAndDescription,
+}
+
+impl From<ParseDiagnostic> for PatternCompilationError {
+    fn from(diagnostic: ParseDiagnostic) -> Self {
+        Self {
+            message: diagnostic.message,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Diagnostic)]
@@ -331,15 +396,40 @@ pub enum SearchError {
 )]
 pub struct InvalidPattern;
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct QueryDiagnostic(pub String);
+
+impl Diagnostic for QueryDiagnostic {
+    fn category(&self) -> Option<&'static Category> {
+        Some(category!("search"))
+    }
+
+    fn severity(&self) -> Severity {
+        Severity::Error
+    }
+
+    fn message(&self, fmt: &mut biome_console::fmt::Formatter<'_>) -> std::io::Result<()> {
+        fmt.write_str("Error executing the Grit query")
+    }
+
+    fn description(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt.write_str(&self.0)
+    }
+
+    fn verbose_advices(&self, visitor: &mut dyn Visit) -> std::io::Result<()> {
+        visitor.record_log(
+            LogCategory::Info,
+            &markup! { "Please consult "<Hyperlink href="https://biomejs.dev/reference/gritql">"our GritQL reference"</Hyperlink>"." }
+        )
+    }
+}
+
 pub fn extension_error(path: &BiomePath) -> WorkspaceError {
     let file_source = DocumentFileSource::from_path(path);
     WorkspaceError::source_file_not_supported(
         file_source,
-        path.clone().display().to_string(),
-        path.clone()
-            .extension()
-            .and_then(OsStr::to_str)
-            .map(|s| s.to_string()),
+        path.clone().to_string(),
+        path.clone().extension().map(|p| p.to_string()),
     )
 }
 
@@ -417,7 +507,15 @@ impl From<VcsDiagnostic> for WorkspaceError {
 
 impl From<CompileError> for WorkspaceError {
     fn from(value: CompileError) -> Self {
-        Self::SearchError(SearchError::PatternCompilationError(value))
+        match value {
+            CompileError::ParsePatternError(diagnostic) => Self::SearchError(
+                SearchError::PatternCompilationError(PatternCompilationError::from(diagnostic)),
+            ),
+            // FIXME: This really needs proper diagnostics
+            _ => Self::SearchError(SearchError::QueryError(QueryDiagnostic(format!(
+                "{value:?}"
+            )))),
+        }
     }
 }
 
@@ -442,6 +540,31 @@ pub struct NoVcsFolderFound {
     message = "Biome couldn't determine a directory for the VCS integration. VCS integration will be disabled."
 )]
 pub struct DisabledVcs {}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PluginErrors {
+    diagnostics: Vec<PluginDiagnostic>,
+}
+
+impl Diagnostic for PluginErrors {
+    fn category(&self) -> Option<&'static Category> {
+        Some(category!("plugin"))
+    }
+
+    fn severity(&self) -> Severity {
+        Severity::Error
+    }
+
+    fn message(&self, fmt: &mut biome_console::fmt::Formatter<'_>) -> std::io::Result<()> {
+        fmt.write_markup(markup!("Error(s) during loading of plugins:\n"))?;
+
+        for diagnostic in &self.diagnostics {
+            diagnostic.message(fmt)?;
+        }
+
+        Ok(())
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Diagnostic)]
 #[diagnostic(
@@ -470,18 +593,27 @@ impl Advices for ProtectedFileAdvice {
     }
 }
 
+#[derive(Debug, Deserialize, Diagnostic, Serialize)]
+#[diagnostic(
+    category = "project",
+    severity = Error,
+    message(
+        message("Biome cannot watch files on disk: "<Info>{self.reason}</Info>),
+        description = "Biome cannot watch files on disk: {reason}",
+    ),
+)]
+pub struct WatchError {
+    pub reason: String,
+}
+
 #[cfg(test)]
 mod test {
-    use crate::diagnostics::{
-        CantReadDirectory, CantReadFile, DirtyWorkspace, FileIgnored, FileTooLarge, NotFound,
-        SourceFileNotSupported,
-    };
+    use crate::diagnostics::{CantReadFile, FileIgnored, NotFound, SourceFileNotSupported};
     use crate::file_handlers::DocumentFileSource;
     use crate::{TransportError, WorkspaceError};
-    use biome_diagnostics::{print_diagnostic_to_string, DiagnosticExt, Error};
+    use biome_diagnostics::{DiagnosticExt, Error, print_diagnostic_to_string};
     use biome_formatter::FormatError;
     use biome_fs::BiomePath;
-    use std::ffi::OsStr;
 
     fn snap_diagnostic(test_name: &str, diagnostic: Error) {
         let content = print_diagnostic_to_string(&diagnostic);
@@ -500,14 +632,6 @@ mod test {
     }
 
     #[test]
-    fn dirty_workspace() {
-        snap_diagnostic(
-            "dirty_workspace",
-            WorkspaceError::DirtyWorkspace(DirtyWorkspace).into(),
-        )
-    }
-
-    #[test]
     fn file_ignored() {
         snap_diagnostic(
             "file_ignored",
@@ -515,17 +639,6 @@ mod test {
                 path: "example.js".to_string(),
             })
             .with_file_path("example.js"),
-        )
-    }
-
-    #[test]
-    fn cant_read_directory() {
-        snap_diagnostic(
-            "cant_read_directory",
-            WorkspaceError::CantReadDirectory(CantReadDirectory {
-                path: "example/".to_string(),
-            })
-            .with_file_path("example/"),
         )
     }
 
@@ -555,26 +668,10 @@ mod test {
             "source_file_not_supported",
             WorkspaceError::SourceFileNotSupported(SourceFileNotSupported {
                 file_source: DocumentFileSource::Unknown,
-                path: path.display().to_string(),
-                extension: path
-                    .extension()
-                    .and_then(OsStr::to_str)
-                    .map(|s| s.to_string()),
+                path: path.to_string(),
+                extension: path.extension().map(str::to_string),
             })
             .with_file_path("not_supported.toml"),
-        )
-    }
-
-    #[test]
-    fn file_too_large() {
-        snap_diagnostic(
-            "file_too_large",
-            WorkspaceError::FileTooLarge(FileTooLarge {
-                path: "example.js".to_string(),
-                limit: 100,
-                size: 500,
-            })
-            .with_file_path("example.js"),
         )
     }
 

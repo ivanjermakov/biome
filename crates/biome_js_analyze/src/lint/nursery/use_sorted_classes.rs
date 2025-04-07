@@ -7,29 +7,26 @@ mod sort;
 mod sort_config;
 mod tailwind_preset;
 
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make::{
     js_literal_member_name, js_string_literal, js_string_literal_expression,
     js_string_literal_single_quotes, js_template_chunk, js_template_chunk_element, jsx_string,
 };
 use biome_rowan::{AstNode, BatchMutationExt};
-use lazy_static::lazy_static;
+use presets::get_config_preset;
+use std::sync::LazyLock;
 
 use crate::JsRuleAction;
 
 pub use self::options::UtilityClassSortingOptions;
 use self::{
-    any_class_string_like::AnyClassStringLike,
-    presets::{get_utilities_preset, UseSortedClassesPreset},
-    sort::sort_class_name,
-    sort_config::SortConfig,
+    any_class_string_like::AnyClassStringLike, presets::UseSortedClassesPreset,
+    sort::get_sort_class_name_range, sort::should_ignore_postfix, sort::should_ignore_prefix,
+    sort::sort_class_name, sort_config::SortConfig,
 };
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce the sorting of CSS utility classes.
     ///
     /// This rule implements the same sorting algorithm as [Tailwind CSS](https://tailwindcss.com/blog/automatic-class-sorting-with-prettier#how-classes-are-sorted), but supports any utility class framework including [UnoCSS](https://unocss.dev/).
@@ -50,10 +47,9 @@ declare_rule! {
     ///
     /// Notably, keep in mind that the following features are not supported yet:
     ///
-    /// - Variant sorting.
+    /// - Screen variant sorting (e.g. `md:`, `max-lg:`). Only static, dynamic and arbitrary variants are supported.
     /// - Custom utilitites and variants (such as ones introduced by Tailwind CSS plugins). Only the default Tailwind CSS configuration is supported.
     /// - Options such as `prefix` and `separator`.
-    /// - Tagged template literals.
     /// - Object properties (e.g. in `clsx` calls).
     ///
     /// Please don't report issues about these features.
@@ -67,15 +63,19 @@ declare_rule! {
     /// <div class="px-2 foo p-4 bar" />;
     /// ```
     ///
+    /// ```jsx,expect_diagnostic
+    /// <div class="hover:focus:m-2 foo hover:px-2 p-4">
+    /// ```
+    ///
     /// ## Options
     ///
     /// ### Code-related
     ///
-    /// ```json
+    /// ```json,options
     /// {
     ///     "options": {
     ///         "attributes": ["classList"],
-    ///         "functions": ["clsx", "cva", "tw"]
+    ///         "functions": ["clsx", "cva", "tw", "tw.*"]
     ///     }
     /// }
     /// ```
@@ -88,22 +88,32 @@ declare_rule! {
     ///
     /// If specified, strings in the indicated functions will be sorted. This is useful when working with libraries like [`clsx`](https://github.com/lukeed/clsx) or [`cva`](https://cva.style/).
     ///
-    /// ```js,ignore
+    /// ```js,expect_diagnostic,use_options
     /// clsx("px-2 foo p-4 bar", {
+    ///     "some-css-class": condition,
+    /// });
+    /// ```
+    ///
+    /// ```js,expect_diagnostic,use_options
+    /// clsx("some-css-class", {
     ///     "block mx-4": condition,
     /// });
     /// ```
     ///
     /// Tagged template literals are also supported, for example:
     ///
-    /// ```js,ignore
+    /// ```js,use_options
     /// tw`px-2`;
     /// tw.div`px-2`;
     /// ```
     ///
-    /// :::caution
-    /// Tagged template literal support has not been implemented yet.
-    /// :::
+    /// ```js,expect_diagnostic,use_options
+    /// tw`px-2 foo p-4 bar`;
+    /// ```
+    ///
+    /// ```js,expect_diagnostic,use_options
+    /// tw.div`px-2 foo p-4 bar`;
+    /// ```
     ///
     /// ### Sort-related
     ///
@@ -121,8 +131,14 @@ declare_rule! {
     ///
     /// This has two implications:
     ///
-    /// - False positives: classes can be wrongly recognized as utilities even though their values are incorrect. For example, if there's a `px-` utility defined in the configuration, it will match all of the following classes: `px-2`, `px-1337`, `px-[not-actually-valid]`, `px-literally-anything`.
-    /// - No distinction between different utilities that share the same prefix: for example, `text-red-500` and `text-lg` are both interpreted as the same type of utility by this rule, even though the former refers to a color and the latter to a font size. This results in all utilities that share the same prefix being sorted together, regardless of their actual values.
+    /// - **False positives:** classes can be wrongly recognized as utilities even though their values are incorrect.
+    ///   For example, if there's a `px-` utility defined in the configuration, it will match all of the following classes:
+    ///   `px-2`, `px-1337`, `px-[not-actually-valid]`, `px-literally-anything`.
+    ///
+    /// - **No distinction between different utilities that share the same prefix:** for example,
+    ///   `text-red-500` and `text-lg` are both interpreted as the same type of utility by this rule,
+    ///    even though the former refers to a color and the latter to a font size. This results in all
+    ///    utilities that share the same prefix being sorted together, regardless of their actual values.
     ///
     /// ### Custom additions must be specified
     ///
@@ -141,17 +157,14 @@ declare_rule! {
     pub UseSortedClasses {
         version: "1.6.0",
         name: "useSortedClasses",
+        language: "js",
         recommended: false,
         fix_kind: FixKind::Unsafe,
     }
 }
 
-lazy_static! {
-    static ref SORT_CONFIG: SortConfig = SortConfig::new(
-        get_utilities_preset(&UseSortedClassesPreset::default()),
-        Vec::new(),
-    );
-}
+static SORT_CONFIG: LazyLock<SortConfig> =
+    LazyLock::new(|| SortConfig::new(&get_config_preset(&UseSortedClassesPreset::default())));
 
 impl Rule for UseSortedClasses {
     type Query = Ast<AnyClassStringLike>;
@@ -165,7 +178,14 @@ impl Rule for UseSortedClasses {
 
         if node.should_visit(options)? {
             if let Some(value) = node.value() {
-                let sorted_value = sort_class_name(&value, &SORT_CONFIG);
+                // Check if the class should be ignored.
+                let ignore_prefix = should_ignore_prefix(node);
+                let ignore_postfix = should_ignore_postfix(node);
+                let sorted_value =
+                    sort_class_name(&value, &SORT_CONFIG, ignore_prefix, ignore_postfix);
+                if sorted_value.is_empty() {
+                    return None;
+                }
                 if value.text() != sorted_value {
                     return Some(sorted_value);
                 }
@@ -175,9 +195,23 @@ impl Rule for UseSortedClasses {
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, _: &Self::State) -> Option<RuleDiagnostic> {
+        let node = ctx.query();
+
+        // Calculate the range offset to account for the ignored prefix and postfix.
+        let sort_range = if let Some(value) = node.value() {
+            let range = node.range();
+            let ignore_prefix = should_ignore_prefix(node);
+            let ignore_postfix = should_ignore_postfix(node);
+            let real_sort_range =
+                get_sort_class_name_range(&value, &range, ignore_prefix, ignore_postfix);
+            real_sort_range.unwrap_or(range)
+        } else {
+            node.range()
+        };
+
         Some(RuleDiagnostic::new(
             rule_category!(),
-            ctx.query().range(),
+            sort_range,
             "These CSS classes should be sorted.",
         ))
     }
@@ -203,7 +237,7 @@ impl Rule for UseSortedClasses {
                 mutation.replace_node(string_literal.clone(), replacement);
             }
             AnyClassStringLike::JsxString(jsx_string_node) => {
-                let replacement = jsx_string(if ctx.as_preferred_quote().is_double() {
+                let replacement = jsx_string(if ctx.as_preferred_jsx_quote().is_double() {
                     js_string_literal(state)
                 } else {
                     js_string_literal_single_quotes(state)
@@ -216,14 +250,14 @@ impl Rule for UseSortedClasses {
             }
         };
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! {
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {
                 "Sort the classes."
             }
             .to_owned(),
             mutation,
-        })
+        ))
     }
 }

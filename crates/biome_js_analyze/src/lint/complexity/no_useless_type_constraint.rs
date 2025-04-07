@@ -1,20 +1,20 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
-    AnyTsType, JsFileSource, JsSyntaxKind, TsTypeConstraintClause, TsTypeParameter,
-    TsTypeParameterList, T,
+    AnyTsType, JsFileSource, JsSyntaxKind, T, TsTypeConstraintClause, TsTypeParameter,
+    TsTypeParameterList,
 };
 use biome_rowan::{
-    trim_leading_trivia_pieces, AstNode, AstSeparatedList, BatchMutationExt, SyntaxNodeOptionExt,
+    AstNode, AstSeparatedList, BatchMutationExt, SyntaxNodeOptionExt, trim_leading_trivia_pieces,
 };
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow using `any` or `unknown` as type constraint.
     ///
     /// Generic type parameters (`<T>`) in TypeScript may be **constrained** with [`extends`](https://www.typescriptlang.org/docs/handbook/generics.html#generic-constraints).
@@ -79,8 +79,10 @@ declare_rule! {
     pub NoUselessTypeConstraint {
         version: "1.0.0",
         name: "noUselessTypeConstraint",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("no-unnecessary-type-constraint")],
         recommended: true,
+        severity: Severity::Information,
         fix_kind: FixKind::Safe,
     }
 }
@@ -149,11 +151,11 @@ impl Rule for NoUselessTypeConstraint {
         } else {
             mutation.remove_node(node.clone());
         }
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Remove the constraint." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the constraint." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

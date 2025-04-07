@@ -1,16 +1,17 @@
 use crate::react::{ReactApiCall, ReactCreateElementCall};
 use crate::services::semantic::Semantic;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_semantic::SemanticModel;
 use biome_js_syntax::{
     JsCallExpression, JsPropertyObjectMember, JsSyntaxNode, JsxAttribute, JsxElement,
     JsxSelfClosingElement,
 };
-use biome_rowan::{declare_node_union, AstNode, AstNodeList, TextRange};
+use biome_rowan::{AstNode, AstNodeList, TextRange, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Report when a DOM element or a component uses both `children` and `dangerouslySetInnerHTML` prop.
     ///
     /// ## Examples
@@ -37,8 +38,10 @@ declare_rule! {
     pub NoDangerouslySetInnerHtmlWithChildren {
         version: "1.0.0",
         name: "noDangerouslySetInnerHtmlWithChildren",
-        sources: &[RuleSource::EslintReact("no-danger")],
+        language: "jsx",
+        sources: &[RuleSource::EslintReact("no-danger-with-children")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -109,12 +112,10 @@ impl AnyJsCreateElement {
 
                 opening_element
                     .find_attribute_by_name("dangerouslySetInnerHTML")
-                    .ok()?
                     .map(DangerousProp::from)
             }
             AnyJsCreateElement::JsxSelfClosingElement(element) => element
                 .find_attribute_by_name("dangerouslySetInnerHTML")
-                .ok()?
                 .map(DangerousProp::from),
             AnyJsCreateElement::JsCallExpression(call_expression) => {
                 let react_create_element =
@@ -134,12 +135,10 @@ impl AnyJsCreateElement {
 
                 opening_element
                     .find_attribute_by_name("children")
-                    .ok()?
                     .map(DangerousProp::from)
             }
             AnyJsCreateElement::JsxSelfClosingElement(element) => element
                 .find_attribute_by_name("children")
-                .ok()?
                 .map(DangerousProp::from),
             AnyJsCreateElement::JsCallExpression(call_expression) => {
                 let react_create_element =

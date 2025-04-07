@@ -1,20 +1,20 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make::js_regex_literal_expression;
 use biome_js_semantic::SemanticModel;
 use biome_js_syntax::{
-    global_identifier, static_value::StaticValue, AnyJsCallArgument, AnyJsExpression,
-    AnyJsLiteralExpression, JsCallArguments, JsComputedMemberExpression, JsNewOrCallExpression,
-    JsSyntaxKind, JsSyntaxToken,
+    AnyJsCallArgument, AnyJsExpression, AnyJsLiteralExpression, JsCallArguments,
+    JsComputedMemberExpression, JsNewOrCallExpression, JsSyntaxKind, JsSyntaxToken,
+    global_identifier, static_value::StaticValue,
 };
-use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt, SyntaxError, TokenText};
+use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt, SyntaxError, TextRange, TokenText};
 
-use crate::{services::semantic::Semantic, JsRuleAction};
+use crate::{JsRuleAction, services::semantic::Semantic};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce the use of the regular expression literals instead of the RegExp constructor if possible.
     ///
     /// There are two ways to create a regular expression:
@@ -46,15 +46,17 @@ declare_rule! {
     pub UseRegexLiterals {
         version: "1.3.0",
         name: "useRegexLiterals",
+        language: "js",
         sources: &[RuleSource::Eslint("prefer-regex-literals")],
         recommended: true,
-        fix_kind: FixKind::Unsafe,
+        severity: Severity::Error,
+        fix_kind: FixKind::Safe,
     }
 }
 
 pub struct UseRegexLiteralsState {
-    pattern: String,
-    flags: Option<String>,
+    pattern: StaticValue,
+    flags: Option<StaticValue>,
 }
 
 impl Rule for UseRegexLiterals {
@@ -79,11 +81,11 @@ impl Rule for UseRegexLiterals {
         let mut args = args.iter();
 
         let pattern = args.next()?;
-        let pattern = create_pattern(pattern, model)?;
+        let pattern = extract_valid_pattern(pattern, model)?;
 
         let flags = match args.next() {
             Some(flags) => {
-                let flags = create_flags(flags)?;
+                let flags = extract_valid_flags(flags)?;
                 Some(flags)
             }
             None => None,
@@ -109,42 +111,41 @@ impl Rule for UseRegexLiterals {
             JsNewOrCallExpression::JsCallExpression(node) => AnyJsExpression::from(node.clone()),
         };
 
-        let token = JsSyntaxToken::new_detached(
-            JsSyntaxKind::JS_REGEX_LITERAL,
-            &format!(
-                "/{}/{}",
-                state.pattern,
-                state.flags.as_deref().unwrap_or_default()
-            ),
-            [],
-            [],
+        let regex = create_regex(
+            state.pattern.text(),
+            state
+                .flags
+                .as_ref()
+                .unwrap_or(&StaticValue::EmptyString(TextRange::empty(0.into()))),
         );
+        let token = JsSyntaxToken::new_detached(JsSyntaxKind::JS_REGEX_LITERAL, &regex, [], []);
         let next = AnyJsExpression::AnyJsLiteralExpression(AnyJsLiteralExpression::from(
             js_regex_literal_expression(token),
         ));
         let mut mutation = ctx.root().begin();
         mutation.replace_node(prev, next);
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! {
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {
                "Use a "<Emphasis>"literal notation"</Emphasis>" instead."
             }
             .to_owned(),
             mutation,
-        })
+        ))
     }
 }
 
-fn create_pattern(
+fn extract_valid_pattern(
     pattern: Result<AnyJsCallArgument, SyntaxError>,
     model: &SemanticModel,
-) -> Option<String> {
-    let pattern = pattern.ok()?;
-    let expr = pattern.as_any_js_expression()?;
-    if let Some(expr) = expr.as_js_template_expression() {
-        if let Some(tag) = expr.tag() {
+) -> Option<StaticValue> {
+    let Ok(AnyJsCallArgument::AnyJsExpression(expr)) = pattern else {
+        return None;
+    };
+    if let Some(template_expr) = expr.as_js_template_expression() {
+        if let Some(tag) = template_expr.tag() {
             let (object, member) = match tag.omit_parentheses() {
                 AnyJsExpression::JsStaticMemberExpression(expr) => {
                     let object = expr.object().ok()?;
@@ -164,22 +165,52 @@ fn create_pattern(
             }
         };
     };
-    let pattern = extract_literal_string(pattern)?;
-    let pattern = pattern.replace("\\\\", "\\");
 
-    // Convert slash to "\/" to avoid parsing error in autofix.
-    let pattern = pattern.replace('/', "\\/");
-
-    // If pattern is empty, (?:) is used instead.
-    if pattern.is_empty() {
-        return Some("(?:)".to_string());
-    }
-
-    // A repetition without quantifiers is invalid.
-    if pattern == "*" || pattern == "+" || pattern == "?" {
+    let pattern = expr.omit_parentheses().as_static_value()?;
+    // A regex cannot contain a repetition without a quantifier.
+    if matches!(pattern.as_string_constant()?, "*" | "+" | "?") {
         return None;
     }
     Some(pattern)
+}
+
+fn create_regex(pattern: &str, flags: &StaticValue) -> String {
+    let flags = flags.text();
+    let mut pattern_bytes = pattern.bytes().enumerate();
+    let mut last_copied_inmdex = 0;
+    // Reserve space for the pattern, its delimiters and its flags
+    let mut new_pattern = String::with_capacity(pattern.len() + 2 + flags.len());
+    new_pattern.push('/');
+    while let Some((index, byte)) = pattern_bytes.next() {
+        match byte {
+            b'\n' => {
+                new_pattern.push_str(&pattern[last_copied_inmdex..index]);
+                new_pattern.push_str(r"\n");
+                last_copied_inmdex = index + 1;
+            }
+            b'\\' => {
+                if matches!(pattern_bytes.next(), Some((_, b'\\'))) {
+                    new_pattern.push_str(&pattern[last_copied_inmdex..index]);
+                    last_copied_inmdex = index + 1;
+                }
+            }
+            // Convert slash to "\/" to avoid parsing error in autofix.
+            b'/' => {
+                new_pattern.push_str(&pattern[last_copied_inmdex..index]);
+                new_pattern.push_str(r"\/");
+                last_copied_inmdex = index + 1;
+            }
+            _ => {}
+        }
+    }
+    if pattern.is_empty() {
+        new_pattern.push_str("(?:)");
+    } else {
+        new_pattern.push_str(&pattern[last_copied_inmdex..]);
+    }
+    new_pattern.push('/');
+    new_pattern.push_str(flags);
+    new_pattern
 }
 
 fn is_regexp_object(expr: AnyJsExpression, model: &SemanticModel) -> bool {
@@ -207,27 +238,16 @@ fn parse_node(node: &JsNewOrCallExpression) -> Option<(AnyJsExpression, JsCallAr
     }
 }
 
-fn create_flags(flags: Result<AnyJsCallArgument, SyntaxError>) -> Option<String> {
-    let flags = flags.ok()?;
-    let flags = extract_literal_string(flags)?;
+fn extract_valid_flags(flags: Result<AnyJsCallArgument, SyntaxError>) -> Option<StaticValue> {
+    let Ok(AnyJsCallArgument::AnyJsExpression(flags)) = flags else {
+        return None;
+    };
+    let flags = flags.omit_parentheses().as_static_value()?;
     // u flag (Unicode mode) and v flag (unicodeSets mode) cannot be combined.
-    if flags == "uv" || flags == "vu" {
+    if matches!(flags.as_string_constant()?, "uv" | "vu") {
         return None;
     }
     Some(flags)
-}
-
-fn extract_literal_string(from: AnyJsCallArgument) -> Option<String> {
-    let AnyJsCallArgument::AnyJsExpression(expr) = from else {
-        return None;
-    };
-    expr.omit_parentheses()
-        .as_static_value()
-        .and_then(|value| match value {
-            StaticValue::String(_) => Some(value.text().to_string().replace('\n', "\\n")),
-            StaticValue::EmptyString(_) => Some(String::new()),
-            _ => None,
-        })
 }
 
 fn extract_inner_text(expr: &JsComputedMemberExpression) -> Option<TokenText> {

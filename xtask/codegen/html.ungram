@@ -43,7 +43,7 @@ HtmlBogusAttribute = SyntaxElement*
 HtmlRoot =
 	bom: 'UNICODE_BOM'?
 	directive: HtmlDirective?
-	html: AnyHtmlElement?
+	html: HtmlElementList
 	eof: 'EOF'
 
 // <!DOCTYPE html>
@@ -68,15 +68,17 @@ AnyHtmlElement =
 	HtmlSelfClosingElement
 	| HtmlElement
 	| HtmlContent
+	| HtmlComment
+	| HtmlCdataSection
 	| HtmlBogusElement
 
 
 // <a />
 HtmlSelfClosingElement =
 	'<'
-	name: HtmlName
+	name: HtmlTagName
 	attributes: HtmlAttributeList
-	'/'
+	'/'?
 	'>'
 
 HtmlElement =
@@ -89,7 +91,7 @@ HtmlElement =
 // ^^        ^
 HtmlOpeningElement =
 	'<'
-	name: HtmlName
+	name: HtmlTagName
 	attributes: HtmlAttributeList
 	'>'
 
@@ -97,8 +99,21 @@ HtmlOpeningElement =
 HtmlClosingElement =
 	'<'
 	'/'
-	name: HtmlName
+	name: HtmlTagName
 	'>'
+
+// <!-- comment -->
+HtmlComment =
+	'<!--'
+	content: 'html_literal'
+	'-->'
+
+// <![CDATA[example]]>
+// Reference: https://html.spec.whatwg.org/multipage/syntax.html#cdata-sections
+HtmlCdataSection =
+	'<![CDATA['
+	content: 'html_literal'
+	']]>'
 
 // ==================================
 // Attributes
@@ -111,17 +126,18 @@ AnyHtmlAttribute =
 	| HtmlBogusAttribute
 
 HtmlAttribute =
-	name: HtmlName
+	name: HtmlAttributeName
 	initializer: HtmlAttributeInitializerClause?
 
 
 // <a href="">
-//       ^^^^
+//        ^^^
 HtmlAttributeInitializerClause =
 	'='
 	value: HtmlString
 
 
 HtmlString = value: 'html_string_literal'
-HtmlName = value: 'html_literal'
+HtmlTagName = value: 'html_literal'
+HtmlAttributeName = value: 'html_literal'
 HtmlContent = value: 'html_literal'

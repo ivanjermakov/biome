@@ -1,7 +1,7 @@
 /// Sorted array of TypeScript ES5 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es5.ts>
-pub const ES_5: &[&str; 119] = &[
+pub const ES_5: &[&str] = &[
     "Array",
     "ArrayBuffer",
     "ArrayBufferConstructor",
@@ -126,7 +126,7 @@ pub const ES_5: &[&str; 119] = &[
 /// Sorted array of TypeScript ES2015 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es2015.ts>
-pub const ES_2015: &[&str; 143] = &[
+pub const ES_2015: &[&str] = &[
     "Array",
     "ArrayBuffer",
     "ArrayBufferConstructor",
@@ -134,10 +134,12 @@ pub const ES_2015: &[&str; 143] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "Awaited",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -197,6 +199,7 @@ pub const ES_2015: &[&str; 143] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -240,6 +243,7 @@ pub const ES_2015: &[&str; 143] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "String",
     "StringConstructor",
     "Symbol",
@@ -272,12 +276,12 @@ pub const ES_2015: &[&str; 143] = &[
     "WeakSetConstructor",
 ];
 
-pub const ES_6: &[&str; 143] = ES_2015;
+pub const ES_6: &[&str] = ES_2015;
 
 /// Sorted array of TypeScript ES2016 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es2016.ts>
-pub const ES_2016: &[&str; 143] = &[
+pub const ES_2016: &[&str] = &[
     "Array",
     "ArrayBuffer",
     "ArrayBufferConstructor",
@@ -285,10 +289,12 @@ pub const ES_2016: &[&str; 143] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "Awaited",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -348,6 +354,7 @@ pub const ES_2016: &[&str; 143] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -391,6 +398,7 @@ pub const ES_2016: &[&str; 143] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "String",
     "StringConstructor",
     "Symbol",
@@ -423,12 +431,12 @@ pub const ES_2016: &[&str; 143] = &[
     "WeakSetConstructor",
 ];
 
-pub const ES_7: &[&str; 143] = ES_2016;
+pub const ES_7: &[&str] = ES_2016;
 
 /// Sorted array of TypeScript ES2017 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es2017.ts>
-pub const ES_2017: &[&str; 146] = &[
+pub const ES_2017: &[&str] = &[
     "Array",
     "ArrayBuffer",
     "ArrayBufferConstructor",
@@ -436,11 +444,13 @@ pub const ES_2017: &[&str; 146] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "Atomics",
     "Awaited",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -500,6 +510,7 @@ pub const ES_2017: &[&str; 146] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -543,6 +554,7 @@ pub const ES_2017: &[&str; 146] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "SharedArrayBuffer",
     "SharedArrayBufferConstructor",
     "String",
@@ -580,7 +592,7 @@ pub const ES_2017: &[&str; 146] = &[
 /// Sorted array of TypeScript ES2018 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es2018.ts>
-pub const ES_2018: &[&str; 152] = &[
+pub const ES_2018: &[&str] = &[
     "Array",
     "ArrayBuffer",
     "ArrayBufferConstructor",
@@ -588,6 +600,7 @@ pub const ES_2018: &[&str; 152] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "AsyncGenerator",
     "AsyncGeneratorFunction",
@@ -599,6 +612,7 @@ pub const ES_2018: &[&str; 152] = &[
     "Awaited",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -658,6 +672,7 @@ pub const ES_2018: &[&str; 152] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -701,6 +716,7 @@ pub const ES_2018: &[&str; 152] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "SharedArrayBuffer",
     "SharedArrayBufferConstructor",
     "String",
@@ -738,7 +754,7 @@ pub const ES_2018: &[&str; 152] = &[
 /// Sorted array of TypeScript ES2019 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es2019.ts>
-pub const ES_2019: &[&str; 153] = &[
+pub const ES_2019: &[&str] = &[
     "Array",
     "ArrayBuffer",
     "ArrayBufferConstructor",
@@ -746,6 +762,7 @@ pub const ES_2019: &[&str; 153] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "AsyncGenerator",
     "AsyncGeneratorFunction",
@@ -757,6 +774,7 @@ pub const ES_2019: &[&str; 153] = &[
     "Awaited",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -817,6 +835,7 @@ pub const ES_2019: &[&str; 153] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -860,6 +879,7 @@ pub const ES_2019: &[&str; 153] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "SharedArrayBuffer",
     "SharedArrayBufferConstructor",
     "String",
@@ -897,7 +917,7 @@ pub const ES_2019: &[&str; 153] = &[
 /// Sorted array of TypeScript ES2020 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es2020.ts>
-pub const ES_2020: &[&str; 163] = &[
+pub const ES_2020: &[&str] = &[
     "Array",
     "ArrayBuffer",
     "ArrayBufferConstructor",
@@ -905,6 +925,7 @@ pub const ES_2020: &[&str; 163] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "AsyncGenerator",
     "AsyncGeneratorFunction",
@@ -923,6 +944,7 @@ pub const ES_2020: &[&str; 163] = &[
     "BigUint64ArrayConstructor",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -983,6 +1005,7 @@ pub const ES_2020: &[&str; 163] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -1025,10 +1048,12 @@ pub const ES_2020: &[&str; 163] = &[
     "RegExpConstructor",
     "RegExpExecArray",
     "RegExpMatchArray",
+    "RegExpStringIterator",
     "Required",
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "SharedArrayBuffer",
     "SharedArrayBufferConstructor",
     "String",
@@ -1066,7 +1091,7 @@ pub const ES_2020: &[&str; 163] = &[
 /// Sorted array of TypeScript ES2021 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es2021.ts>
-pub const ES_2021: &[&str; 169] = &[
+pub const ES_2021: &[&str] = &[
     "AggregateError",
     "AggregateErrorConstructor",
     "Array",
@@ -1076,6 +1101,7 @@ pub const ES_2021: &[&str; 169] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "AsyncGenerator",
     "AsyncGeneratorFunction",
@@ -1094,6 +1120,7 @@ pub const ES_2021: &[&str; 169] = &[
     "BigUint64ArrayConstructor",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -1156,6 +1183,7 @@ pub const ES_2021: &[&str; 169] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -1202,6 +1230,7 @@ pub const ES_2021: &[&str; 169] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "SharedArrayBuffer",
     "SharedArrayBufferConstructor",
     "String",
@@ -1241,7 +1270,7 @@ pub const ES_2021: &[&str; 169] = &[
 /// Sorted array of TypeScript ES2022 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es2022.ts>
-pub const ES_2022: &[&str; 171] = &[
+pub const ES_2022: &[&str] = &[
     "AggregateError",
     "AggregateErrorConstructor",
     "Array",
@@ -1251,6 +1280,7 @@ pub const ES_2022: &[&str; 171] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "AsyncGenerator",
     "AsyncGeneratorFunction",
@@ -1269,6 +1299,7 @@ pub const ES_2022: &[&str; 171] = &[
     "BigUint64ArrayConstructor",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -1332,6 +1363,7 @@ pub const ES_2022: &[&str; 171] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -1379,6 +1411,7 @@ pub const ES_2022: &[&str; 171] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "SharedArrayBuffer",
     "SharedArrayBufferConstructor",
     "String",
@@ -1418,7 +1451,7 @@ pub const ES_2022: &[&str; 171] = &[
 /// Sorted array of TypeScript ES2023 builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/esnext.ts>
-pub const ES_2023: &[&str; 171] = &[
+pub const ES_2023: &[&str] = &[
     "AggregateError",
     "AggregateErrorConstructor",
     "Array",
@@ -1428,6 +1461,7 @@ pub const ES_2023: &[&str; 171] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "AsyncGenerator",
     "AsyncGeneratorFunction",
@@ -1446,6 +1480,7 @@ pub const ES_2023: &[&str; 171] = &[
     "BigUint64ArrayConstructor",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -1509,6 +1544,7 @@ pub const ES_2023: &[&str; 171] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -1556,6 +1592,7 @@ pub const ES_2023: &[&str; 171] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "SharedArrayBuffer",
     "SharedArrayBufferConstructor",
     "String",
@@ -1595,7 +1632,7 @@ pub const ES_2023: &[&str; 171] = &[
 /// Sorted array of TypeScript ESNext builtin
 ///
 /// Source: <https://github.com/typescript-eslint/typescript-eslint/blob/4d6d0d5950f587780dec998816d458ae4b27a513/packages/scope-manager/src/lib/es5.ts>
-pub const ES_NEXT: &[&str; 180] = &[
+pub const ES_NEXT: &[&str] = &[
     "AggregateError",
     "AggregateErrorConstructor",
     "Array",
@@ -1605,6 +1642,7 @@ pub const ES_NEXT: &[&str; 180] = &[
     "ArrayBufferTypes",
     "ArrayBufferView",
     "ArrayConstructor",
+    "ArrayIterator",
     "ArrayLike",
     "AsyncDisposable",
     "AsyncDisposableStack",
@@ -1626,6 +1664,7 @@ pub const ES_NEXT: &[&str; 180] = &[
     "BigUint64ArrayConstructor",
     "Boolean",
     "BooleanConstructor",
+    "BuiltinIteratorReturn",
     "CallableFunction",
     "Capitalize",
     "ClassAccessorDecoratorContext",
@@ -1692,6 +1731,7 @@ pub const ES_NEXT: &[&str; 180] = &[
     "Lowercase",
     "Map",
     "MapConstructor",
+    "MapIterator",
     "Math",
     "MethodDecorator",
     "NewableFunction",
@@ -1740,6 +1780,7 @@ pub const ES_NEXT: &[&str; 180] = &[
     "ReturnType",
     "Set",
     "SetConstructor",
+    "SetIterator",
     "SharedArrayBuffer",
     "SharedArrayBufferConstructor",
     "String",

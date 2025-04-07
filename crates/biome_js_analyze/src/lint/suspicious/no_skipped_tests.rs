@@ -1,16 +1,15 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, Ast, FixKind, Rule, RuleDiagnostic, RuleSource,
-    RuleSourceKind,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, RuleSourceKind, context::RuleContext,
+    declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::JsCallExpression;
 use biome_rowan::{BatchMutationExt, TextRange};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow disabled tests.
     ///
     /// Disabled test are useful when developing and debugging, although they should not be committed in production.
@@ -37,6 +36,7 @@ declare_rule! {
     pub NoSkippedTests {
         version: "1.6.0",
         name: "noSkippedTests",
+        language: "js",
         recommended: false,
         sources: &[RuleSource::EslintJest("no-disabled-tests")],
         source_kind: RuleSourceKind::Inspired,
@@ -114,11 +114,11 @@ impl Rule for NoSkippedTests {
             _ => {}
         };
 
-        Some(JsRuleAction {
-            category: biome_analyze::ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Enable the test." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Enable the test." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

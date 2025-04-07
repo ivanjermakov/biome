@@ -1,10 +1,11 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
-use biome_console::{markup, MarkupBuf};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
+use biome_console::{MarkupBuf, markup};
+use biome_diagnostics::Severity;
 use biome_js_syntax::jsx_ext::AnyJsxElement;
 use biome_rowan::{AstNode, TextRange};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce that all anchors are valid, and they are navigable elements.
     ///
     /// The anchor element (`<a></a>`) - also called **hyperlink** - is an important element
@@ -74,8 +75,10 @@ declare_rule! {
     pub UseValidAnchor {
         version: "1.0.0",
         name: "useValidAnchor",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("anchor-is-valid")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -146,7 +149,7 @@ impl Rule for UseValidAnchor {
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
-        let name = node.name().ok()?.name_value_token()?;
+        let name = node.name().ok()?.name_value_token().ok()?;
 
         if name.text_trimmed() == "a" {
             let anchor_attribute = node.find_attribute_by_name("href");
@@ -159,7 +162,7 @@ impl Rule for UseValidAnchor {
                     }
 
                     let static_value = anchor_attribute.as_static_value()?;
-                    if static_value.as_string_constant().map_or(true, |const_str| {
+                    if static_value.as_string_constant().is_none_or(|const_str| {
                         const_str.is_empty()
                             || const_str.contains('#')
                             || const_str.contains("javascript:")
@@ -173,7 +176,7 @@ impl Rule for UseValidAnchor {
                     }
 
                     let static_value = anchor_attribute.as_static_value()?;
-                    if static_value.as_string_constant().map_or(true, |const_str| {
+                    if static_value.as_string_constant().is_none_or(|const_str| {
                         const_str.is_empty()
                             || const_str == "#"
                             || const_str.contains("javascript:")
@@ -184,7 +187,7 @@ impl Rule for UseValidAnchor {
                 (None, Some(on_click_attribute)) => {
                     return Some(UseValidAnchorState::CantBeAnchor(
                         on_click_attribute.range(),
-                    ))
+                    ));
                 }
                 (None, None) => {
                     if !node.has_spread_prop() {

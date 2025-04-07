@@ -2,7 +2,7 @@ query likeStory }
 
 query likeStory
 
-query like$Story
+query }
 
 # malformed variables
 query ($storyId: ID! {
@@ -60,7 +60,7 @@ query {
 }
 
 query ($storyId: ID!) {
-	likeStory(storyId: $storyId
+	likeStory(storyId: $storyId)
 }
 
 query ($storyId: ID!)  {

@@ -1,15 +1,16 @@
 use crate::react::{ReactApiCall, ReactCreateElementCall};
 use crate::services::semantic::Semantic;
 use biome_analyze::RuleSource;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic};
+use biome_analyze::{Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsxElementName, JsCallExpression, JsxAttribute, JsxOpeningElement, JsxSelfClosingElement,
     TextRange,
 };
-use biome_rowan::{declare_node_union, AstNode};
+use biome_rowan::{AstNode, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforces the usage of the attribute `type` for the element `button`
     ///
     /// ## Examples
@@ -39,8 +40,10 @@ declare_rule! {
     pub UseButtonType {
         version: "1.0.0",
         name: "useButtonType",
+        language: "jsx",
         sources: &[RuleSource::EslintReact("button-has-type")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -69,7 +72,7 @@ impl Rule for UseButtonType {
                 if !is_button(&name)? {
                     return None;
                 }
-                let type_attribute = element.find_attribute_by_name("type").ok()?;
+                let type_attribute = element.find_attribute_by_name("type");
                 let Some(attribute) = type_attribute else {
                     let has_spread_prop = element
                         .attributes()
@@ -91,7 +94,7 @@ impl Rule for UseButtonType {
                 if !is_button(&name)? {
                     return None;
                 }
-                let type_attribute = element.find_attribute_by_name("type").ok()?;
+                let type_attribute = element.find_attribute_by_name("type");
                 let Some(attribute) = type_attribute else {
                     let has_spread_prop = element
                         .attributes()
@@ -112,52 +115,36 @@ impl Rule for UseButtonType {
                 let model = ctx.model();
                 let react_create_element =
                     ReactCreateElementCall::from_call_expression(call_expression, model)?;
-
                 // first argument needs to be a string
                 let first_argument = react_create_element
                     .element_type
                     .as_any_js_expression()?
-                    .as_any_js_literal_expression()?
-                    .as_js_string_literal_expression()?;
-
-                if first_argument.inner_string_text().ok()?.text() == "button" {
-                    return if let Some(props) = react_create_element.props.as_ref() {
-                        let type_member = react_create_element.find_prop_by_name("type");
-                        if let Some(member) = type_member {
-                            let property_value = member.value().ok()?;
-                            let Some(value) = property_value
-                                .as_any_js_literal_expression()?
-                                .as_js_string_literal_expression()
-                            else {
-                                return Some(UseButtonTypeState {
-                                    range: property_value.range(),
-                                    missing_prop: false,
-                                });
-                            };
-
-                            if !ALLOWED_BUTTON_TYPES.contains(&&*value.inner_string_text().ok()?) {
-                                return Some(UseButtonTypeState {
-                                    range: value.range(),
-                                    missing_prop: false,
-                                });
-                            }
-                        }
-
-                        // if we are here, it means that we haven't found the property "type" and
-                        // we have to return a diagnostic
-                        Some(UseButtonTypeState {
-                            range: props.range(),
-                            missing_prop: false,
-                        })
-                    } else {
-                        Some(UseButtonTypeState {
-                            range: first_argument.range(),
-                            missing_prop: true,
-                        })
-                    };
+                    .as_static_value()?;
+                if first_argument.text() != "button" {
+                    return None;
                 }
-
-                None
+                let Some(props) = react_create_element.props.as_ref() else {
+                    return Some(UseButtonTypeState {
+                        range: first_argument.range(),
+                        missing_prop: true,
+                    });
+                };
+                let Some(member) = react_create_element.find_prop_by_name("type") else {
+                    // We haven't found the property `type`
+                    return Some(UseButtonTypeState {
+                        range: props.range(),
+                        missing_prop: false,
+                    });
+                };
+                let property_value = member.value().ok()?.as_static_value()?;
+                if ALLOWED_BUTTON_TYPES.contains(&property_value.text()) {
+                    None
+                } else {
+                    Some(UseButtonTypeState {
+                        range: property_value.range(),
+                        missing_prop: false,
+                    })
+                }
             }
         }
     }

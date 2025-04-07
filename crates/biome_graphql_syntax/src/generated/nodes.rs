@@ -1,29 +1,24 @@
 //! Generated file, do not edit by hand, see `xtask/codegen`
 
-#![allow(clippy::enum_variant_names)]
-#![allow(clippy::match_like_matches_macro)]
+#![allow(dead_code)]
+#![allow(unused)]
 use crate::{
-    macros::map_syntax_node,
     GraphqlLanguage as Language, GraphqlSyntaxElement as SyntaxElement,
     GraphqlSyntaxElementChildren as SyntaxElementChildren,
     GraphqlSyntaxKind::{self as SyntaxKind, *},
     GraphqlSyntaxList as SyntaxList, GraphqlSyntaxNode as SyntaxNode,
     GraphqlSyntaxToken as SyntaxToken,
+    macros::map_syntax_node,
 };
-use biome_rowan::{support, AstNode, RawSyntaxKind, SyntaxKindSet, SyntaxResult};
-#[allow(unused)]
 use biome_rowan::{
-    AstNodeList, AstNodeListIterator, AstNodeSlotMap, AstSeparatedList,
-    AstSeparatedListNodesIterator,
+    AstNode, AstNodeList, AstNodeListIterator, AstNodeSlotMap, AstSeparatedList,
+    AstSeparatedListNodesIterator, RawSyntaxKind, SyntaxKindSet, SyntaxResult, support,
 };
-#[cfg(feature = "serde")]
 use serde::ser::SerializeSeq;
-#[cfg(feature = "serde")]
 use serde::{Serialize, Serializer};
 use std::fmt::{Debug, Formatter};
 #[doc = r" Sentinel value indicating a missing element in a dynamic node, where"]
 #[doc = r" the slots are not statically known."]
-#[allow(dead_code)]
 pub(crate) const SLOT_MAP_EMPTY_VALUE: u8 = u8::MAX;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlAlias {
@@ -45,14 +40,13 @@ impl GraphqlAlias {
             colon_token: self.colon_token(),
         }
     }
-    pub fn value(&self) -> SyntaxResult<GraphqlName> {
+    pub fn value(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 0usize)
     }
     pub fn colon_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlAlias {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -61,9 +55,9 @@ impl Serialize for GraphqlAlias {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlAliasFields {
-    pub value: SyntaxResult<GraphqlName>,
+    pub value: SyntaxResult<GraphqlLiteralName>,
     pub colon_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -87,7 +81,7 @@ impl GraphqlArgument {
             value: self.value(),
         }
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 0usize)
     }
     pub fn colon_token(&self) -> SyntaxResult<SyntaxToken> {
@@ -97,7 +91,6 @@ impl GraphqlArgument {
         support::required_node(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlArgument {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -106,9 +99,9 @@ impl Serialize for GraphqlArgument {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlArgumentFields {
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlLiteralName>,
     pub colon_token: SyntaxResult<SyntaxToken>,
     pub value: SyntaxResult<AnyGraphqlValue>,
 }
@@ -143,7 +136,6 @@ impl GraphqlArguments {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlArguments {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -152,7 +144,7 @@ impl Serialize for GraphqlArguments {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlArgumentsFields {
     pub l_paren_token: SyntaxResult<SyntaxToken>,
     pub arguments: GraphqlArgumentList,
@@ -189,7 +181,6 @@ impl GraphqlArgumentsDefinition {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlArgumentsDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -198,7 +189,7 @@ impl Serialize for GraphqlArgumentsDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlArgumentsDefinitionFields {
     pub l_paren_token: SyntaxResult<SyntaxToken>,
     pub arguments: GraphqlArgumentDefinitionList,
@@ -227,7 +218,6 @@ impl GraphqlBooleanValue {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlBooleanValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -236,7 +226,7 @@ impl Serialize for GraphqlBooleanValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlBooleanValueFields {
     pub value_token: SyntaxResult<SyntaxToken>,
 }
@@ -267,7 +257,6 @@ impl GraphqlDefaultValue {
         support::required_node(&self.syntax, 1usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlDefaultValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -276,7 +265,7 @@ impl Serialize for GraphqlDefaultValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlDefaultValueFields {
     pub eq_token: SyntaxResult<SyntaxToken>,
     pub value: SyntaxResult<AnyGraphqlValue>,
@@ -304,7 +293,6 @@ impl GraphqlDescription {
         support::required_node(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlDescription {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -313,7 +301,7 @@ impl Serialize for GraphqlDescription {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlDescriptionFields {
     pub graphql_string_value: SyntaxResult<GraphqlStringValue>,
 }
@@ -341,14 +329,13 @@ impl GraphqlDirective {
     pub fn at_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn arguments(&self) -> Option<GraphqlArguments> {
         support::node(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlDirective {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -357,10 +344,10 @@ impl Serialize for GraphqlDirective {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlDirectiveFields {
     pub at_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameReference>,
     pub arguments: Option<GraphqlArguments>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -399,7 +386,7 @@ impl GraphqlDirectiveDefinition {
     pub fn at_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 2usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameBinding> {
         support::required_node(&self.syntax, 3usize)
     }
     pub fn arguments(&self) -> Option<GraphqlArgumentsDefinition> {
@@ -418,7 +405,6 @@ impl GraphqlDirectiveDefinition {
         support::list(&self.syntax, 8usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlDirectiveDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -427,12 +413,12 @@ impl Serialize for GraphqlDirectiveDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlDirectiveDefinitionFields {
     pub description: Option<GraphqlDescription>,
     pub directive_token: SyntaxResult<SyntaxToken>,
     pub at_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameBinding>,
     pub arguments: Option<GraphqlArgumentsDefinition>,
     pub repeatable_token: Option<SyntaxToken>,
     pub on_token: SyntaxResult<SyntaxToken>,
@@ -462,7 +448,6 @@ impl GraphqlDirectiveLocation {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlDirectiveLocation {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -471,7 +456,7 @@ impl Serialize for GraphqlDirectiveLocation {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlDirectiveLocationFields {
     pub value_token: SyntaxResult<SyntaxToken>,
 }
@@ -504,7 +489,7 @@ impl GraphqlEnumTypeDefinition {
     pub fn enum_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameBinding> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
@@ -514,7 +499,6 @@ impl GraphqlEnumTypeDefinition {
         support::node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlEnumTypeDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -523,11 +507,11 @@ impl Serialize for GraphqlEnumTypeDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlEnumTypeDefinitionFields {
     pub description: Option<GraphqlDescription>,
     pub enum_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameBinding>,
     pub directives: GraphqlDirectiveList,
     pub enum_values: Option<GraphqlEnumValuesDefinition>,
 }
@@ -551,57 +535,6 @@ impl GraphqlEnumTypeExtension {
             enum_token: self.enum_token(),
             name: self.name(),
             directives: self.directives(),
-        }
-    }
-    pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-    pub fn enum_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 1usize)
-    }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
-        support::required_node(&self.syntax, 2usize)
-    }
-    pub fn directives(&self) -> GraphqlDirectiveList {
-        support::list(&self.syntax, 3usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlEnumTypeExtension {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlEnumTypeExtensionFields {
-    pub extend_token: SyntaxResult<SyntaxToken>,
-    pub enum_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
-    pub directives: GraphqlDirectiveList,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlEnumTypeExtensionWithValues {
-    pub(crate) syntax: SyntaxNode,
-}
-impl GraphqlEnumTypeExtensionWithValues {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> GraphqlEnumTypeExtensionWithValuesFields {
-        GraphqlEnumTypeExtensionWithValuesFields {
-            extend_token: self.extend_token(),
-            enum_token: self.enum_token(),
-            name: self.name(),
-            directives: self.directives(),
             enum_values: self.enum_values(),
         }
     }
@@ -611,18 +544,17 @@ impl GraphqlEnumTypeExtensionWithValues {
     pub fn enum_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 3usize)
     }
-    pub fn enum_values(&self) -> SyntaxResult<GraphqlEnumValuesDefinition> {
-        support::required_node(&self.syntax, 4usize)
+    pub fn enum_values(&self) -> Option<GraphqlEnumValuesDefinition> {
+        support::node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlEnumTypeExtensionWithValues {
+impl Serialize for GraphqlEnumTypeExtension {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -630,13 +562,13 @@ impl Serialize for GraphqlEnumTypeExtensionWithValues {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlEnumTypeExtensionWithValuesFields {
+#[derive(Serialize)]
+pub struct GraphqlEnumTypeExtensionFields {
     pub extend_token: SyntaxResult<SyntaxToken>,
     pub enum_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameReference>,
     pub directives: GraphqlDirectiveList,
-    pub enum_values: SyntaxResult<GraphqlEnumValuesDefinition>,
+    pub enum_values: Option<GraphqlEnumValuesDefinition>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlEnumValue {
@@ -654,14 +586,13 @@ impl GraphqlEnumValue {
     }
     pub fn as_fields(&self) -> GraphqlEnumValueFields {
         GraphqlEnumValueFields {
-            graphql_name: self.graphql_name(),
+            value: self.value(),
         }
     }
-    pub fn graphql_name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn value(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlEnumValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -670,9 +601,9 @@ impl Serialize for GraphqlEnumValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlEnumValueFields {
-    pub graphql_name: SyntaxResult<GraphqlName>,
+    pub value: SyntaxResult<GraphqlLiteralName>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlEnumValueDefinition {
@@ -698,14 +629,13 @@ impl GraphqlEnumValueDefinition {
     pub fn description(&self) -> Option<GraphqlDescription> {
         support::node(&self.syntax, 0usize)
     }
-    pub fn value(&self) -> SyntaxResult<GraphqlEnumValue> {
+    pub fn value(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlEnumValueDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -714,10 +644,10 @@ impl Serialize for GraphqlEnumValueDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlEnumValueDefinitionFields {
     pub description: Option<GraphqlDescription>,
-    pub value: SyntaxResult<GraphqlEnumValue>,
+    pub value: SyntaxResult<GraphqlLiteralName>,
     pub directives: GraphqlDirectiveList,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -751,7 +681,6 @@ impl GraphqlEnumValuesDefinition {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlEnumValuesDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -760,7 +689,7 @@ impl Serialize for GraphqlEnumValuesDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlEnumValuesDefinitionFields {
     pub l_curly_token: SyntaxResult<SyntaxToken>,
     pub values: GraphqlEnumValueList,
@@ -792,7 +721,7 @@ impl GraphqlField {
     pub fn alias(&self) -> Option<GraphqlAlias> {
         support::node(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn arguments(&self) -> Option<GraphqlArguments> {
@@ -805,7 +734,6 @@ impl GraphqlField {
         support::node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlField {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -814,10 +742,10 @@ impl Serialize for GraphqlField {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlFieldFields {
     pub alias: Option<GraphqlAlias>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlLiteralName>,
     pub arguments: Option<GraphqlArguments>,
     pub directives: GraphqlDirectiveList,
     pub selection_set: Option<GraphqlSelectionSet>,
@@ -849,7 +777,7 @@ impl GraphqlFieldDefinition {
     pub fn description(&self) -> Option<GraphqlDescription> {
         support::node(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn arguments(&self) -> Option<GraphqlArgumentsDefinition> {
@@ -865,7 +793,6 @@ impl GraphqlFieldDefinition {
         support::list(&self.syntax, 5usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlFieldDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -874,10 +801,10 @@ impl Serialize for GraphqlFieldDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlFieldDefinitionFields {
     pub description: Option<GraphqlDescription>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlLiteralName>,
     pub arguments: Option<GraphqlArgumentsDefinition>,
     pub colon_token: SyntaxResult<SyntaxToken>,
     pub ty: SyntaxResult<AnyGraphqlType>,
@@ -914,7 +841,6 @@ impl GraphqlFieldsDefinition {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlFieldsDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -923,7 +849,7 @@ impl Serialize for GraphqlFieldsDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlFieldsDefinitionFields {
     pub l_curly_token: SyntaxResult<SyntaxToken>,
     pub fields: GraphqlFieldDefinitionList,
@@ -952,7 +878,6 @@ impl GraphqlFloatValue {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlFloatValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -961,7 +886,7 @@ impl Serialize for GraphqlFloatValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlFloatValueFields {
     pub graphql_float_literal_token: SyntaxResult<SyntaxToken>,
 }
@@ -991,7 +916,7 @@ impl GraphqlFragmentDefinition {
     pub fn fragment_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameBinding> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn type_condition(&self) -> SyntaxResult<GraphqlTypeCondition> {
@@ -1004,7 +929,6 @@ impl GraphqlFragmentDefinition {
         support::required_node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlFragmentDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1013,10 +937,10 @@ impl Serialize for GraphqlFragmentDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlFragmentDefinitionFields {
     pub fragment_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameBinding>,
     pub type_condition: SyntaxResult<GraphqlTypeCondition>,
     pub directives: GraphqlDirectiveList,
     pub selection_set: SyntaxResult<GraphqlSelectionSet>,
@@ -1045,14 +969,13 @@ impl GraphqlFragmentSpread {
     pub fn dotdotdot_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlFragmentSpread {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1061,10 +984,10 @@ impl Serialize for GraphqlFragmentSpread {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlFragmentSpreadFields {
     pub dotdotdot_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameReference>,
     pub directives: GraphqlDirectiveList,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -1098,7 +1021,6 @@ impl GraphqlImplementsInterfaces {
         support::list(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlImplementsInterfaces {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1107,7 +1029,7 @@ impl Serialize for GraphqlImplementsInterfaces {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlImplementsInterfacesFields {
     pub implements_token: SyntaxResult<SyntaxToken>,
     pub amp_token: Option<SyntaxToken>,
@@ -1148,7 +1070,6 @@ impl GraphqlInlineFragment {
         support::required_node(&self.syntax, 3usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlInlineFragment {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1157,7 +1078,7 @@ impl Serialize for GraphqlInlineFragment {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlInlineFragmentFields {
     pub dotdotdot_token: SyntaxResult<SyntaxToken>,
     pub type_condition: Option<GraphqlTypeCondition>,
@@ -1195,7 +1116,6 @@ impl GraphqlInputFieldsDefinition {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlInputFieldsDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1204,7 +1124,7 @@ impl Serialize for GraphqlInputFieldsDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlInputFieldsDefinitionFields {
     pub l_curly_token: SyntaxResult<SyntaxToken>,
     pub fields: GraphqlInputFieldList,
@@ -1239,7 +1159,7 @@ impl GraphqlInputObjectTypeDefinition {
     pub fn input_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameBinding> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
@@ -1249,7 +1169,6 @@ impl GraphqlInputObjectTypeDefinition {
         support::node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlInputObjectTypeDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1258,11 +1177,11 @@ impl Serialize for GraphqlInputObjectTypeDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlInputObjectTypeDefinitionFields {
     pub description: Option<GraphqlDescription>,
     pub input_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameBinding>,
     pub directives: GraphqlDirectiveList,
     pub input_fields: Option<GraphqlInputFieldsDefinition>,
 }
@@ -1286,57 +1205,6 @@ impl GraphqlInputObjectTypeExtension {
             input_token: self.input_token(),
             name: self.name(),
             directives: self.directives(),
-        }
-    }
-    pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-    pub fn input_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 1usize)
-    }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
-        support::required_node(&self.syntax, 2usize)
-    }
-    pub fn directives(&self) -> GraphqlDirectiveList {
-        support::list(&self.syntax, 3usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlInputObjectTypeExtension {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlInputObjectTypeExtensionFields {
-    pub extend_token: SyntaxResult<SyntaxToken>,
-    pub input_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
-    pub directives: GraphqlDirectiveList,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlInputObjectTypeExtensionWithFields {
-    pub(crate) syntax: SyntaxNode,
-}
-impl GraphqlInputObjectTypeExtensionWithFields {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> GraphqlInputObjectTypeExtensionWithFieldsFields {
-        GraphqlInputObjectTypeExtensionWithFieldsFields {
-            extend_token: self.extend_token(),
-            input_token: self.input_token(),
-            name: self.name(),
-            directives: self.directives(),
             input_fields: self.input_fields(),
         }
     }
@@ -1346,18 +1214,17 @@ impl GraphqlInputObjectTypeExtensionWithFields {
     pub fn input_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 3usize)
     }
-    pub fn input_fields(&self) -> SyntaxResult<GraphqlInputFieldsDefinition> {
-        support::required_node(&self.syntax, 4usize)
+    pub fn input_fields(&self) -> Option<GraphqlInputFieldsDefinition> {
+        support::node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlInputObjectTypeExtensionWithFields {
+impl Serialize for GraphqlInputObjectTypeExtension {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -1365,13 +1232,13 @@ impl Serialize for GraphqlInputObjectTypeExtensionWithFields {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlInputObjectTypeExtensionWithFieldsFields {
+#[derive(Serialize)]
+pub struct GraphqlInputObjectTypeExtensionFields {
     pub extend_token: SyntaxResult<SyntaxToken>,
     pub input_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameReference>,
     pub directives: GraphqlDirectiveList,
-    pub input_fields: SyntaxResult<GraphqlInputFieldsDefinition>,
+    pub input_fields: Option<GraphqlInputFieldsDefinition>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlInputValueDefinition {
@@ -1400,7 +1267,7 @@ impl GraphqlInputValueDefinition {
     pub fn description(&self) -> Option<GraphqlDescription> {
         support::node(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 1usize)
     }
     pub fn colon_token(&self) -> SyntaxResult<SyntaxToken> {
@@ -1416,7 +1283,6 @@ impl GraphqlInputValueDefinition {
         support::list(&self.syntax, 5usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlInputValueDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1425,10 +1291,10 @@ impl Serialize for GraphqlInputValueDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlInputValueDefinitionFields {
     pub description: Option<GraphqlDescription>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlLiteralName>,
     pub colon_token: SyntaxResult<SyntaxToken>,
     pub ty: SyntaxResult<AnyGraphqlType>,
     pub default: Option<GraphqlDefaultValue>,
@@ -1457,7 +1323,6 @@ impl GraphqlIntValue {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlIntValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1466,7 +1331,7 @@ impl Serialize for GraphqlIntValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlIntValueFields {
     pub graphql_int_literal_token: SyntaxResult<SyntaxToken>,
 }
@@ -1500,7 +1365,7 @@ impl GraphqlInterfaceTypeDefinition {
     pub fn interface_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameBinding> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn implements(&self) -> Option<GraphqlImplementsInterfaces> {
@@ -1513,7 +1378,6 @@ impl GraphqlInterfaceTypeDefinition {
         support::node(&self.syntax, 5usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlInterfaceTypeDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1522,11 +1386,11 @@ impl Serialize for GraphqlInterfaceTypeDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlInterfaceTypeDefinitionFields {
     pub description: Option<GraphqlDescription>,
     pub interface_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameBinding>,
     pub implements: Option<GraphqlImplementsInterfaces>,
     pub directives: GraphqlDirectiveList,
     pub fields: Option<GraphqlFieldsDefinition>,
@@ -1551,113 +1415,6 @@ impl GraphqlInterfaceTypeExtension {
             interface_token: self.interface_token(),
             name: self.name(),
             implements: self.implements(),
-        }
-    }
-    pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-    pub fn interface_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 1usize)
-    }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
-        support::required_node(&self.syntax, 2usize)
-    }
-    pub fn implements(&self) -> SyntaxResult<GraphqlImplementsInterfaces> {
-        support::required_node(&self.syntax, 3usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlInterfaceTypeExtension {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlInterfaceTypeExtensionFields {
-    pub extend_token: SyntaxResult<SyntaxToken>,
-    pub interface_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
-    pub implements: SyntaxResult<GraphqlImplementsInterfaces>,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlInterfaceTypeExtensionWithDirectives {
-    pub(crate) syntax: SyntaxNode,
-}
-impl GraphqlInterfaceTypeExtensionWithDirectives {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> GraphqlInterfaceTypeExtensionWithDirectivesFields {
-        GraphqlInterfaceTypeExtensionWithDirectivesFields {
-            extend_token: self.extend_token(),
-            interface_token: self.interface_token(),
-            name: self.name(),
-            implements: self.implements(),
-            directives: self.directives(),
-        }
-    }
-    pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-    pub fn interface_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 1usize)
-    }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
-        support::required_node(&self.syntax, 2usize)
-    }
-    pub fn implements(&self) -> Option<GraphqlImplementsInterfaces> {
-        support::node(&self.syntax, 3usize)
-    }
-    pub fn directives(&self) -> GraphqlDirectiveList {
-        support::list(&self.syntax, 4usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlInterfaceTypeExtensionWithDirectives {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlInterfaceTypeExtensionWithDirectivesFields {
-    pub extend_token: SyntaxResult<SyntaxToken>,
-    pub interface_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
-    pub implements: Option<GraphqlImplementsInterfaces>,
-    pub directives: GraphqlDirectiveList,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlInterfaceTypeExtensionWithFields {
-    pub(crate) syntax: SyntaxNode,
-}
-impl GraphqlInterfaceTypeExtensionWithFields {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> GraphqlInterfaceTypeExtensionWithFieldsFields {
-        GraphqlInterfaceTypeExtensionWithFieldsFields {
-            extend_token: self.extend_token(),
-            interface_token: self.interface_token(),
-            name: self.name(),
-            implements: self.implements(),
             directives: self.directives(),
             fields: self.fields(),
         }
@@ -1668,7 +1425,7 @@ impl GraphqlInterfaceTypeExtensionWithFields {
     pub fn interface_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn implements(&self) -> Option<GraphqlImplementsInterfaces> {
@@ -1677,12 +1434,11 @@ impl GraphqlInterfaceTypeExtensionWithFields {
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 4usize)
     }
-    pub fn fields(&self) -> SyntaxResult<GraphqlFieldsDefinition> {
-        support::required_node(&self.syntax, 5usize)
+    pub fn fields(&self) -> Option<GraphqlFieldsDefinition> {
+        support::node(&self.syntax, 5usize)
     }
 }
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlInterfaceTypeExtensionWithFields {
+impl Serialize for GraphqlInterfaceTypeExtension {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -1690,14 +1446,14 @@ impl Serialize for GraphqlInterfaceTypeExtensionWithFields {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlInterfaceTypeExtensionWithFieldsFields {
+#[derive(Serialize)]
+pub struct GraphqlInterfaceTypeExtensionFields {
     pub extend_token: SyntaxResult<SyntaxToken>,
     pub interface_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameReference>,
     pub implements: Option<GraphqlImplementsInterfaces>,
     pub directives: GraphqlDirectiveList,
-    pub fields: SyntaxResult<GraphqlFieldsDefinition>,
+    pub fields: Option<GraphqlFieldsDefinition>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlListType {
@@ -1730,7 +1486,6 @@ impl GraphqlListType {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlListType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1739,7 +1494,7 @@ impl Serialize for GraphqlListType {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlListTypeFields {
     pub l_brack_token: SyntaxResult<SyntaxToken>,
     pub element: SyntaxResult<AnyGraphqlType>,
@@ -1776,7 +1531,6 @@ impl GraphqlListValue {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlListValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1785,17 +1539,17 @@ impl Serialize for GraphqlListValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlListValueFields {
     pub l_brack_token: SyntaxResult<SyntaxToken>,
     pub elements: GraphqlListValueElementList,
     pub r_brack_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlName {
+pub struct GraphqlLiteralName {
     pub(crate) syntax: SyntaxNode,
 }
-impl GraphqlName {
+impl GraphqlLiteralName {
     #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
     #[doc = r""]
     #[doc = r" # Safety"]
@@ -1805,8 +1559,8 @@ impl GraphqlName {
     pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
         Self { syntax }
     }
-    pub fn as_fields(&self) -> GraphqlNameFields {
-        GraphqlNameFields {
+    pub fn as_fields(&self) -> GraphqlLiteralNameFields {
+        GraphqlLiteralNameFields {
             value_token: self.value_token(),
         }
     }
@@ -1814,8 +1568,7 @@ impl GraphqlName {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlName {
+impl Serialize for GraphqlLiteralName {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -1823,15 +1576,15 @@ impl Serialize for GraphqlName {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlNameFields {
+#[derive(Serialize)]
+pub struct GraphqlLiteralNameFields {
     pub value_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlNamedType {
+pub struct GraphqlNameBinding {
     pub(crate) syntax: SyntaxNode,
 }
-impl GraphqlNamedType {
+impl GraphqlNameBinding {
     #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
     #[doc = r""]
     #[doc = r" # Safety"]
@@ -1841,15 +1594,16 @@ impl GraphqlNamedType {
     pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
         Self { syntax }
     }
-    pub fn as_fields(&self) -> GraphqlNamedTypeFields {
-        GraphqlNamedTypeFields { name: self.name() }
+    pub fn as_fields(&self) -> GraphqlNameBindingFields {
+        GraphqlNameBindingFields {
+            value_token: self.value_token(),
+        }
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
-        support::required_node(&self.syntax, 0usize)
+    pub fn value_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlNamedType {
+impl Serialize for GraphqlNameBinding {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -1857,9 +1611,44 @@ impl Serialize for GraphqlNamedType {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlNamedTypeFields {
-    pub name: SyntaxResult<GraphqlName>,
+#[derive(Serialize)]
+pub struct GraphqlNameBindingFields {
+    pub value_token: SyntaxResult<SyntaxToken>,
+}
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct GraphqlNameReference {
+    pub(crate) syntax: SyntaxNode,
+}
+impl GraphqlNameReference {
+    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
+    #[doc = r""]
+    #[doc = r" # Safety"]
+    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
+    #[doc = r" or a match on [SyntaxNode::kind]"]
+    #[inline]
+    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
+        Self { syntax }
+    }
+    pub fn as_fields(&self) -> GraphqlNameReferenceFields {
+        GraphqlNameReferenceFields {
+            value_token: self.value_token(),
+        }
+    }
+    pub fn value_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 0usize)
+    }
+}
+impl Serialize for GraphqlNameReference {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_fields().serialize(serializer)
+    }
+}
+#[derive(Serialize)]
+pub struct GraphqlNameReferenceFields {
+    pub value_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlNonNullType {
@@ -1888,7 +1677,6 @@ impl GraphqlNonNullType {
         support::required_token(&self.syntax, 1usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlNonNullType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1897,7 +1685,7 @@ impl Serialize for GraphqlNonNullType {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlNonNullTypeFields {
     pub base: SyntaxResult<AnyGraphqlPrimitiveType>,
     pub excl_token: SyntaxResult<SyntaxToken>,
@@ -1925,7 +1713,6 @@ impl GraphqlNullValue {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlNullValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1934,7 +1721,7 @@ impl Serialize for GraphqlNullValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlNullValueFields {
     pub null_token: SyntaxResult<SyntaxToken>,
 }
@@ -1959,7 +1746,7 @@ impl GraphqlObjectField {
             value: self.value(),
         }
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 0usize)
     }
     pub fn colon_token(&self) -> SyntaxResult<SyntaxToken> {
@@ -1969,7 +1756,6 @@ impl GraphqlObjectField {
         support::required_node(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlObjectField {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1978,9 +1764,9 @@ impl Serialize for GraphqlObjectField {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlObjectFieldFields {
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlLiteralName>,
     pub colon_token: SyntaxResult<SyntaxToken>,
     pub value: SyntaxResult<AnyGraphqlValue>,
 }
@@ -2014,7 +1800,7 @@ impl GraphqlObjectTypeDefinition {
     pub fn type_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameBinding> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn implements(&self) -> Option<GraphqlImplementsInterfaces> {
@@ -2027,7 +1813,6 @@ impl GraphqlObjectTypeDefinition {
         support::node(&self.syntax, 5usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlObjectTypeDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2036,11 +1821,11 @@ impl Serialize for GraphqlObjectTypeDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlObjectTypeDefinitionFields {
     pub description: Option<GraphqlDescription>,
     pub type_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameBinding>,
     pub implements: Option<GraphqlImplementsInterfaces>,
     pub directives: GraphqlDirectiveList,
     pub fields: Option<GraphqlFieldsDefinition>,
@@ -2065,113 +1850,6 @@ impl GraphqlObjectTypeExtension {
             type_token: self.type_token(),
             name: self.name(),
             implements: self.implements(),
-        }
-    }
-    pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-    pub fn type_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 1usize)
-    }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
-        support::required_node(&self.syntax, 2usize)
-    }
-    pub fn implements(&self) -> SyntaxResult<GraphqlImplementsInterfaces> {
-        support::required_node(&self.syntax, 3usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlObjectTypeExtension {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlObjectTypeExtensionFields {
-    pub extend_token: SyntaxResult<SyntaxToken>,
-    pub type_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
-    pub implements: SyntaxResult<GraphqlImplementsInterfaces>,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlObjectTypeExtensionWithDirectives {
-    pub(crate) syntax: SyntaxNode,
-}
-impl GraphqlObjectTypeExtensionWithDirectives {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> GraphqlObjectTypeExtensionWithDirectivesFields {
-        GraphqlObjectTypeExtensionWithDirectivesFields {
-            extend_token: self.extend_token(),
-            type_token: self.type_token(),
-            name: self.name(),
-            implements: self.implements(),
-            directives: self.directives(),
-        }
-    }
-    pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-    pub fn type_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 1usize)
-    }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
-        support::required_node(&self.syntax, 2usize)
-    }
-    pub fn implements(&self) -> Option<GraphqlImplementsInterfaces> {
-        support::node(&self.syntax, 3usize)
-    }
-    pub fn directives(&self) -> GraphqlDirectiveList {
-        support::list(&self.syntax, 4usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlObjectTypeExtensionWithDirectives {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlObjectTypeExtensionWithDirectivesFields {
-    pub extend_token: SyntaxResult<SyntaxToken>,
-    pub type_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
-    pub implements: Option<GraphqlImplementsInterfaces>,
-    pub directives: GraphqlDirectiveList,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlObjectTypeExtensionWithFields {
-    pub(crate) syntax: SyntaxNode,
-}
-impl GraphqlObjectTypeExtensionWithFields {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> GraphqlObjectTypeExtensionWithFieldsFields {
-        GraphqlObjectTypeExtensionWithFieldsFields {
-            extend_token: self.extend_token(),
-            type_token: self.type_token(),
-            name: self.name(),
-            implements: self.implements(),
             directives: self.directives(),
             fields: self.fields(),
         }
@@ -2182,7 +1860,7 @@ impl GraphqlObjectTypeExtensionWithFields {
     pub fn type_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn implements(&self) -> Option<GraphqlImplementsInterfaces> {
@@ -2191,12 +1869,11 @@ impl GraphqlObjectTypeExtensionWithFields {
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 4usize)
     }
-    pub fn fields(&self) -> SyntaxResult<GraphqlFieldsDefinition> {
-        support::required_node(&self.syntax, 5usize)
+    pub fn fields(&self) -> Option<GraphqlFieldsDefinition> {
+        support::node(&self.syntax, 5usize)
     }
 }
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlObjectTypeExtensionWithFields {
+impl Serialize for GraphqlObjectTypeExtension {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -2204,14 +1881,14 @@ impl Serialize for GraphqlObjectTypeExtensionWithFields {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlObjectTypeExtensionWithFieldsFields {
+#[derive(Serialize)]
+pub struct GraphqlObjectTypeExtensionFields {
     pub extend_token: SyntaxResult<SyntaxToken>,
     pub type_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameReference>,
     pub implements: Option<GraphqlImplementsInterfaces>,
     pub directives: GraphqlDirectiveList,
-    pub fields: SyntaxResult<GraphqlFieldsDefinition>,
+    pub fields: Option<GraphqlFieldsDefinition>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlObjectValue {
@@ -2244,7 +1921,6 @@ impl GraphqlObjectValue {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlObjectValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2253,7 +1929,7 @@ impl Serialize for GraphqlObjectValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlObjectValueFields {
     pub l_curly_token: SyntaxResult<SyntaxToken>,
     pub members: GraphqlObjectValueMemberList,
@@ -2285,7 +1961,7 @@ impl GraphqlOperationDefinition {
     pub fn ty(&self) -> SyntaxResult<GraphqlOperationType> {
         support::required_node(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> Option<GraphqlName> {
+    pub fn name(&self) -> Option<GraphqlNameBinding> {
         support::node(&self.syntax, 1usize)
     }
     pub fn variables(&self) -> Option<GraphqlVariableDefinitions> {
@@ -2298,7 +1974,6 @@ impl GraphqlOperationDefinition {
         support::required_node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlOperationDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2307,10 +1982,10 @@ impl Serialize for GraphqlOperationDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlOperationDefinitionFields {
     pub ty: SyntaxResult<GraphqlOperationType>,
-    pub name: Option<GraphqlName>,
+    pub name: Option<GraphqlNameBinding>,
     pub variables: Option<GraphqlVariableDefinitions>,
     pub directives: GraphqlDirectiveList,
     pub selection_set: SyntaxResult<GraphqlSelectionSet>,
@@ -2338,7 +2013,6 @@ impl GraphqlOperationType {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlOperationType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2347,7 +2021,7 @@ impl Serialize for GraphqlOperationType {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlOperationTypeFields {
     pub value_token: SyntaxResult<SyntaxToken>,
 }
@@ -2382,7 +2056,6 @@ impl GraphqlRoot {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlRoot {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2391,7 +2064,7 @@ impl Serialize for GraphqlRoot {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlRootFields {
     pub bom_token: Option<SyntaxToken>,
     pub definitions: GraphqlDefinitionList,
@@ -2424,11 +2097,10 @@ impl GraphqlRootOperationTypeDefinition {
     pub fn colon_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn named_type(&self) -> SyntaxResult<GraphqlNamedType> {
+    pub fn named_type(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlRootOperationTypeDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2437,11 +2109,56 @@ impl Serialize for GraphqlRootOperationTypeDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlRootOperationTypeDefinitionFields {
     pub operation_type: SyntaxResult<GraphqlOperationType>,
     pub colon_token: SyntaxResult<SyntaxToken>,
-    pub named_type: SyntaxResult<GraphqlNamedType>,
+    pub named_type: SyntaxResult<GraphqlNameReference>,
+}
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct GraphqlRootOperationTypes {
+    pub(crate) syntax: SyntaxNode,
+}
+impl GraphqlRootOperationTypes {
+    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
+    #[doc = r""]
+    #[doc = r" # Safety"]
+    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
+    #[doc = r" or a match on [SyntaxNode::kind]"]
+    #[inline]
+    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
+        Self { syntax }
+    }
+    pub fn as_fields(&self) -> GraphqlRootOperationTypesFields {
+        GraphqlRootOperationTypesFields {
+            l_curly_token: self.l_curly_token(),
+            root_operation_type: self.root_operation_type(),
+            r_curly_token: self.r_curly_token(),
+        }
+    }
+    pub fn l_curly_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 0usize)
+    }
+    pub fn root_operation_type(&self) -> GraphqlRootOperationTypeDefinitionList {
+        support::list(&self.syntax, 1usize)
+    }
+    pub fn r_curly_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 2usize)
+    }
+}
+impl Serialize for GraphqlRootOperationTypes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_fields().serialize(serializer)
+    }
+}
+#[derive(Serialize)]
+pub struct GraphqlRootOperationTypesFields {
+    pub l_curly_token: SyntaxResult<SyntaxToken>,
+    pub root_operation_type: GraphqlRootOperationTypeDefinitionList,
+    pub r_curly_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlScalarTypeDefinition {
@@ -2471,14 +2188,13 @@ impl GraphqlScalarTypeDefinition {
     pub fn scalar_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameBinding> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 3usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlScalarTypeDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2487,11 +2203,11 @@ impl Serialize for GraphqlScalarTypeDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlScalarTypeDefinitionFields {
     pub description: Option<GraphqlDescription>,
     pub scalar_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameBinding>,
     pub directives: GraphqlDirectiveList,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -2522,14 +2238,13 @@ impl GraphqlScalarTypeExtension {
     pub fn scalar_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 3usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlScalarTypeExtension {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2538,11 +2253,11 @@ impl Serialize for GraphqlScalarTypeExtension {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlScalarTypeExtensionFields {
     pub extend_token: SyntaxResult<SyntaxToken>,
     pub scalar_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameReference>,
     pub directives: GraphqlDirectiveList,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -2564,9 +2279,7 @@ impl GraphqlSchemaDefinition {
             description: self.description(),
             schema_token: self.schema_token(),
             directives: self.directives(),
-            l_curly_token: self.l_curly_token(),
-            root_operation_type: self.root_operation_type(),
-            r_curly_token: self.r_curly_token(),
+            root_operation_types: self.root_operation_types(),
         }
     }
     pub fn description(&self) -> Option<GraphqlDescription> {
@@ -2578,17 +2291,10 @@ impl GraphqlSchemaDefinition {
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 2usize)
     }
-    pub fn l_curly_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 3usize)
-    }
-    pub fn root_operation_type(&self) -> GraphqlRootOperationTypeDefinitionList {
-        support::list(&self.syntax, 4usize)
-    }
-    pub fn r_curly_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 5usize)
+    pub fn root_operation_types(&self) -> SyntaxResult<GraphqlRootOperationTypes> {
+        support::required_node(&self.syntax, 3usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlSchemaDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2597,14 +2303,12 @@ impl Serialize for GraphqlSchemaDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlSchemaDefinitionFields {
     pub description: Option<GraphqlDescription>,
     pub schema_token: SyntaxResult<SyntaxToken>,
     pub directives: GraphqlDirectiveList,
-    pub l_curly_token: SyntaxResult<SyntaxToken>,
-    pub root_operation_type: GraphqlRootOperationTypeDefinitionList,
-    pub r_curly_token: SyntaxResult<SyntaxToken>,
+    pub root_operation_types: SyntaxResult<GraphqlRootOperationTypes>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlSchemaExtension {
@@ -2625,6 +2329,7 @@ impl GraphqlSchemaExtension {
             extend_token: self.extend_token(),
             schema_token: self.schema_token(),
             directives: self.directives(),
+            root_operation_types: self.root_operation_types(),
         }
     }
     pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
@@ -2636,8 +2341,10 @@ impl GraphqlSchemaExtension {
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 2usize)
     }
+    pub fn root_operation_types(&self) -> Option<GraphqlRootOperationTypes> {
+        support::node(&self.syntax, 3usize)
+    }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlSchemaExtension {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2646,72 +2353,12 @@ impl Serialize for GraphqlSchemaExtension {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlSchemaExtensionFields {
     pub extend_token: SyntaxResult<SyntaxToken>,
     pub schema_token: SyntaxResult<SyntaxToken>,
     pub directives: GraphqlDirectiveList,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlSchemaExtensionWithRootOperationType {
-    pub(crate) syntax: SyntaxNode,
-}
-impl GraphqlSchemaExtensionWithRootOperationType {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> GraphqlSchemaExtensionWithRootOperationTypeFields {
-        GraphqlSchemaExtensionWithRootOperationTypeFields {
-            extend_token: self.extend_token(),
-            schema_token: self.schema_token(),
-            directives: self.directives(),
-            l_curly_token: self.l_curly_token(),
-            root_operation_type: self.root_operation_type(),
-            r_curly_token: self.r_curly_token(),
-        }
-    }
-    pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-    pub fn schema_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 1usize)
-    }
-    pub fn directives(&self) -> GraphqlDirectiveList {
-        support::list(&self.syntax, 2usize)
-    }
-    pub fn l_curly_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 3usize)
-    }
-    pub fn root_operation_type(&self) -> GraphqlRootOperationTypeDefinitionList {
-        support::list(&self.syntax, 4usize)
-    }
-    pub fn r_curly_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 5usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlSchemaExtensionWithRootOperationType {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlSchemaExtensionWithRootOperationTypeFields {
-    pub extend_token: SyntaxResult<SyntaxToken>,
-    pub schema_token: SyntaxResult<SyntaxToken>,
-    pub directives: GraphqlDirectiveList,
-    pub l_curly_token: SyntaxResult<SyntaxToken>,
-    pub root_operation_type: GraphqlRootOperationTypeDefinitionList,
-    pub r_curly_token: SyntaxResult<SyntaxToken>,
+    pub root_operation_types: Option<GraphqlRootOperationTypes>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlSelectionSet {
@@ -2744,7 +2391,6 @@ impl GraphqlSelectionSet {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlSelectionSet {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2753,7 +2399,7 @@ impl Serialize for GraphqlSelectionSet {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlSelectionSetFields {
     pub l_curly_token: SyntaxResult<SyntaxToken>,
     pub selections: GraphqlSelectionList,
@@ -2782,7 +2428,6 @@ impl GraphqlStringValue {
         support::required_token(&self.syntax, 0usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlStringValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2791,7 +2436,7 @@ impl Serialize for GraphqlStringValue {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlStringValueFields {
     pub graphql_string_literal_token: SyntaxResult<SyntaxToken>,
 }
@@ -2818,11 +2463,10 @@ impl GraphqlTypeCondition {
     pub fn on_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 0usize)
     }
-    pub fn ty(&self) -> SyntaxResult<GraphqlNamedType> {
+    pub fn ty(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 1usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlTypeCondition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2831,10 +2475,10 @@ impl Serialize for GraphqlTypeCondition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlTypeConditionFields {
     pub on_token: SyntaxResult<SyntaxToken>,
-    pub ty: SyntaxResult<GraphqlNamedType>,
+    pub ty: SyntaxResult<GraphqlNameReference>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlUnionMemberTypes {
@@ -2867,7 +2511,6 @@ impl GraphqlUnionMemberTypes {
         support::list(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlUnionMemberTypes {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2876,7 +2519,7 @@ impl Serialize for GraphqlUnionMemberTypes {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlUnionMemberTypesFields {
     pub eq_token: SyntaxResult<SyntaxToken>,
     pub bitwise_or_token: Option<SyntaxToken>,
@@ -2911,7 +2554,7 @@ impl GraphqlUnionTypeDefinition {
     pub fn union_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameBinding> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
@@ -2921,7 +2564,6 @@ impl GraphqlUnionTypeDefinition {
         support::node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlUnionTypeDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -2930,11 +2572,11 @@ impl Serialize for GraphqlUnionTypeDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlUnionTypeDefinitionFields {
     pub description: Option<GraphqlDescription>,
     pub union_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameBinding>,
     pub directives: GraphqlDirectiveList,
     pub union_members: Option<GraphqlUnionMemberTypes>,
 }
@@ -2958,57 +2600,6 @@ impl GraphqlUnionTypeExtension {
             union_token: self.union_token(),
             name: self.name(),
             directives: self.directives(),
-        }
-    }
-    pub fn extend_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 0usize)
-    }
-    pub fn union_token(&self) -> SyntaxResult<SyntaxToken> {
-        support::required_token(&self.syntax, 1usize)
-    }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
-        support::required_node(&self.syntax, 2usize)
-    }
-    pub fn directives(&self) -> GraphqlDirectiveList {
-        support::list(&self.syntax, 3usize)
-    }
-}
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlUnionTypeExtension {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_fields().serialize(serializer)
-    }
-}
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlUnionTypeExtensionFields {
-    pub extend_token: SyntaxResult<SyntaxToken>,
-    pub union_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
-    pub directives: GraphqlDirectiveList,
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlUnionTypeExtensionWithMembers {
-    pub(crate) syntax: SyntaxNode,
-}
-impl GraphqlUnionTypeExtensionWithMembers {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn as_fields(&self) -> GraphqlUnionTypeExtensionWithMembersFields {
-        GraphqlUnionTypeExtensionWithMembersFields {
-            extend_token: self.extend_token(),
-            union_token: self.union_token(),
-            name: self.name(),
-            directives: self.directives(),
             union_members: self.union_members(),
         }
     }
@@ -3018,18 +2609,17 @@ impl GraphqlUnionTypeExtensionWithMembers {
     pub fn union_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 1usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlNameReference> {
         support::required_node(&self.syntax, 2usize)
     }
     pub fn directives(&self) -> GraphqlDirectiveList {
         support::list(&self.syntax, 3usize)
     }
-    pub fn union_members(&self) -> SyntaxResult<GraphqlUnionMemberTypes> {
-        support::required_node(&self.syntax, 4usize)
+    pub fn union_members(&self) -> Option<GraphqlUnionMemberTypes> {
+        support::node(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlUnionTypeExtensionWithMembers {
+impl Serialize for GraphqlUnionTypeExtension {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -3037,19 +2627,19 @@ impl Serialize for GraphqlUnionTypeExtensionWithMembers {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlUnionTypeExtensionWithMembersFields {
+#[derive(Serialize)]
+pub struct GraphqlUnionTypeExtensionFields {
     pub extend_token: SyntaxResult<SyntaxToken>,
     pub union_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlNameReference>,
     pub directives: GraphqlDirectiveList,
-    pub union_members: SyntaxResult<GraphqlUnionMemberTypes>,
+    pub union_members: Option<GraphqlUnionMemberTypes>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct GraphqlVariable {
+pub struct GraphqlVariableBinding {
     pub(crate) syntax: SyntaxNode,
 }
-impl GraphqlVariable {
+impl GraphqlVariableBinding {
     #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
     #[doc = r""]
     #[doc = r" # Safety"]
@@ -3059,8 +2649,8 @@ impl GraphqlVariable {
     pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
         Self { syntax }
     }
-    pub fn as_fields(&self) -> GraphqlVariableFields {
-        GraphqlVariableFields {
+    pub fn as_fields(&self) -> GraphqlVariableBindingFields {
+        GraphqlVariableBindingFields {
             dollar_token: self.dollar_token(),
             name: self.name(),
         }
@@ -3068,12 +2658,11 @@ impl GraphqlVariable {
     pub fn dollar_token(&self) -> SyntaxResult<SyntaxToken> {
         support::required_token(&self.syntax, 0usize)
     }
-    pub fn name(&self) -> SyntaxResult<GraphqlName> {
+    pub fn name(&self) -> SyntaxResult<GraphqlLiteralName> {
         support::required_node(&self.syntax, 1usize)
     }
 }
-#[cfg(feature = "serde")]
-impl Serialize for GraphqlVariable {
+impl Serialize for GraphqlVariableBinding {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -3081,10 +2670,10 @@ impl Serialize for GraphqlVariable {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlVariableFields {
+#[derive(Serialize)]
+pub struct GraphqlVariableBindingFields {
     pub dollar_token: SyntaxResult<SyntaxToken>,
-    pub name: SyntaxResult<GraphqlName>,
+    pub name: SyntaxResult<GraphqlLiteralName>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GraphqlVariableDefinition {
@@ -3109,7 +2698,7 @@ impl GraphqlVariableDefinition {
             directives: self.directives(),
         }
     }
-    pub fn variable(&self) -> SyntaxResult<GraphqlVariable> {
+    pub fn variable(&self) -> SyntaxResult<GraphqlVariableBinding> {
         support::required_node(&self.syntax, 0usize)
     }
     pub fn colon_token(&self) -> SyntaxResult<SyntaxToken> {
@@ -3125,7 +2714,6 @@ impl GraphqlVariableDefinition {
         support::list(&self.syntax, 4usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlVariableDefinition {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -3134,9 +2722,9 @@ impl Serialize for GraphqlVariableDefinition {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlVariableDefinitionFields {
-    pub variable: SyntaxResult<GraphqlVariable>,
+    pub variable: SyntaxResult<GraphqlVariableBinding>,
     pub colon_token: SyntaxResult<SyntaxToken>,
     pub ty: SyntaxResult<AnyGraphqlType>,
     pub default: Option<GraphqlDefaultValue>,
@@ -3173,7 +2761,6 @@ impl GraphqlVariableDefinitions {
         support::required_token(&self.syntax, 2usize)
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlVariableDefinitions {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -3182,78 +2769,74 @@ impl Serialize for GraphqlVariableDefinitions {
         self.as_fields().serialize(serializer)
     }
 }
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub struct GraphqlVariableDefinitionsFields {
     pub l_paren_token: SyntaxResult<SyntaxToken>,
     pub elements: GraphqlVariableDefinitionList,
     pub r_paren_token: SyntaxResult<SyntaxToken>,
 }
 #[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+pub struct GraphqlVariableReference {
+    pub(crate) syntax: SyntaxNode,
+}
+impl GraphqlVariableReference {
+    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
+    #[doc = r""]
+    #[doc = r" # Safety"]
+    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
+    #[doc = r" or a match on [SyntaxNode::kind]"]
+    #[inline]
+    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
+        Self { syntax }
+    }
+    pub fn as_fields(&self) -> GraphqlVariableReferenceFields {
+        GraphqlVariableReferenceFields {
+            dollar_token: self.dollar_token(),
+            name: self.name(),
+        }
+    }
+    pub fn dollar_token(&self) -> SyntaxResult<SyntaxToken> {
+        support::required_token(&self.syntax, 0usize)
+    }
+    pub fn name(&self) -> SyntaxResult<GraphqlLiteralName> {
+        support::required_node(&self.syntax, 1usize)
+    }
+}
+impl Serialize for GraphqlVariableReference {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_fields().serialize(serializer)
+    }
+}
+#[derive(Serialize)]
+pub struct GraphqlVariableReferenceFields {
+    pub dollar_token: SyntaxResult<SyntaxToken>,
+    pub name: SyntaxResult<GraphqlLiteralName>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyGraphqlDefinition {
-    AnyGraphqlEnumTypeExtension(AnyGraphqlEnumTypeExtension),
-    AnyGraphqlInputObjectTypeExtension(AnyGraphqlInputObjectTypeExtension),
-    AnyGraphqlInterfaceTypeExtension(AnyGraphqlInterfaceTypeExtension),
-    AnyGraphqlObjectTypeExtension(AnyGraphqlObjectTypeExtension),
-    AnyGraphqlOperationDefinition(AnyGraphqlOperationDefinition),
-    AnyGraphqlSchemaExtension(AnyGraphqlSchemaExtension),
-    AnyGraphqlUnionTypeExtension(AnyGraphqlUnionTypeExtension),
+    AnyGraphqlTypeDefinition(AnyGraphqlTypeDefinition),
+    AnyGraphqlTypeExtension(AnyGraphqlTypeExtension),
     GraphqlBogusDefinition(GraphqlBogusDefinition),
     GraphqlDirectiveDefinition(GraphqlDirectiveDefinition),
-    GraphqlEnumTypeDefinition(GraphqlEnumTypeDefinition),
     GraphqlFragmentDefinition(GraphqlFragmentDefinition),
-    GraphqlInputObjectTypeDefinition(GraphqlInputObjectTypeDefinition),
-    GraphqlInterfaceTypeDefinition(GraphqlInterfaceTypeDefinition),
-    GraphqlObjectTypeDefinition(GraphqlObjectTypeDefinition),
-    GraphqlScalarTypeDefinition(GraphqlScalarTypeDefinition),
-    GraphqlScalarTypeExtension(GraphqlScalarTypeExtension),
+    GraphqlOperationDefinition(GraphqlOperationDefinition),
     GraphqlSchemaDefinition(GraphqlSchemaDefinition),
-    GraphqlUnionTypeDefinition(GraphqlUnionTypeDefinition),
+    GraphqlSchemaExtension(GraphqlSchemaExtension),
+    GraphqlSelectionSet(GraphqlSelectionSet),
 }
 impl AnyGraphqlDefinition {
-    pub fn as_any_graphql_enum_type_extension(&self) -> Option<&AnyGraphqlEnumTypeExtension> {
+    pub fn as_any_graphql_type_definition(&self) -> Option<&AnyGraphqlTypeDefinition> {
         match &self {
-            AnyGraphqlDefinition::AnyGraphqlEnumTypeExtension(item) => Some(item),
+            AnyGraphqlDefinition::AnyGraphqlTypeDefinition(item) => Some(item),
             _ => None,
         }
     }
-    pub fn as_any_graphql_input_object_type_extension(
-        &self,
-    ) -> Option<&AnyGraphqlInputObjectTypeExtension> {
+    pub fn as_any_graphql_type_extension(&self) -> Option<&AnyGraphqlTypeExtension> {
         match &self {
-            AnyGraphqlDefinition::AnyGraphqlInputObjectTypeExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_any_graphql_interface_type_extension(
-        &self,
-    ) -> Option<&AnyGraphqlInterfaceTypeExtension> {
-        match &self {
-            AnyGraphqlDefinition::AnyGraphqlInterfaceTypeExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_any_graphql_object_type_extension(&self) -> Option<&AnyGraphqlObjectTypeExtension> {
-        match &self {
-            AnyGraphqlDefinition::AnyGraphqlObjectTypeExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_any_graphql_operation_definition(&self) -> Option<&AnyGraphqlOperationDefinition> {
-        match &self {
-            AnyGraphqlDefinition::AnyGraphqlOperationDefinition(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_any_graphql_schema_extension(&self) -> Option<&AnyGraphqlSchemaExtension> {
-        match &self {
-            AnyGraphqlDefinition::AnyGraphqlSchemaExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_any_graphql_union_type_extension(&self) -> Option<&AnyGraphqlUnionTypeExtension> {
-        match &self {
-            AnyGraphqlDefinition::AnyGraphqlUnionTypeExtension(item) => Some(item),
+            AnyGraphqlDefinition::AnyGraphqlTypeExtension(item) => Some(item),
             _ => None,
         }
     }
@@ -3269,47 +2852,15 @@ impl AnyGraphqlDefinition {
             _ => None,
         }
     }
-    pub fn as_graphql_enum_type_definition(&self) -> Option<&GraphqlEnumTypeDefinition> {
-        match &self {
-            AnyGraphqlDefinition::GraphqlEnumTypeDefinition(item) => Some(item),
-            _ => None,
-        }
-    }
     pub fn as_graphql_fragment_definition(&self) -> Option<&GraphqlFragmentDefinition> {
         match &self {
             AnyGraphqlDefinition::GraphqlFragmentDefinition(item) => Some(item),
             _ => None,
         }
     }
-    pub fn as_graphql_input_object_type_definition(
-        &self,
-    ) -> Option<&GraphqlInputObjectTypeDefinition> {
+    pub fn as_graphql_operation_definition(&self) -> Option<&GraphqlOperationDefinition> {
         match &self {
-            AnyGraphqlDefinition::GraphqlInputObjectTypeDefinition(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_interface_type_definition(&self) -> Option<&GraphqlInterfaceTypeDefinition> {
-        match &self {
-            AnyGraphqlDefinition::GraphqlInterfaceTypeDefinition(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_object_type_definition(&self) -> Option<&GraphqlObjectTypeDefinition> {
-        match &self {
-            AnyGraphqlDefinition::GraphqlObjectTypeDefinition(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_scalar_type_definition(&self) -> Option<&GraphqlScalarTypeDefinition> {
-        match &self {
-            AnyGraphqlDefinition::GraphqlScalarTypeDefinition(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_scalar_type_extension(&self) -> Option<&GraphqlScalarTypeExtension> {
-        match &self {
-            AnyGraphqlDefinition::GraphqlScalarTypeExtension(item) => Some(item),
+            AnyGraphqlDefinition::GraphqlOperationDefinition(item) => Some(item),
             _ => None,
         }
     }
@@ -3319,159 +2870,20 @@ impl AnyGraphqlDefinition {
             _ => None,
         }
     }
-    pub fn as_graphql_union_type_definition(&self) -> Option<&GraphqlUnionTypeDefinition> {
+    pub fn as_graphql_schema_extension(&self) -> Option<&GraphqlSchemaExtension> {
         match &self {
-            AnyGraphqlDefinition::GraphqlUnionTypeDefinition(item) => Some(item),
+            AnyGraphqlDefinition::GraphqlSchemaExtension(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_selection_set(&self) -> Option<&GraphqlSelectionSet> {
+        match &self {
+            AnyGraphqlDefinition::GraphqlSelectionSet(item) => Some(item),
             _ => None,
         }
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub enum AnyGraphqlEnumTypeExtension {
-    GraphqlBogusExtension(GraphqlBogusExtension),
-    GraphqlEnumTypeExtension(GraphqlEnumTypeExtension),
-    GraphqlEnumTypeExtensionWithValues(GraphqlEnumTypeExtensionWithValues),
-}
-impl AnyGraphqlEnumTypeExtension {
-    pub fn as_graphql_bogus_extension(&self) -> Option<&GraphqlBogusExtension> {
-        match &self {
-            AnyGraphqlEnumTypeExtension::GraphqlBogusExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_enum_type_extension(&self) -> Option<&GraphqlEnumTypeExtension> {
-        match &self {
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_enum_type_extension_with_values(
-        &self,
-    ) -> Option<&GraphqlEnumTypeExtensionWithValues> {
-        match &self {
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtensionWithValues(item) => Some(item),
-            _ => None,
-        }
-    }
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub enum AnyGraphqlInputObjectTypeExtension {
-    GraphqlBogusExtension(GraphqlBogusExtension),
-    GraphqlInputObjectTypeExtension(GraphqlInputObjectTypeExtension),
-    GraphqlInputObjectTypeExtensionWithFields(GraphqlInputObjectTypeExtensionWithFields),
-}
-impl AnyGraphqlInputObjectTypeExtension {
-    pub fn as_graphql_bogus_extension(&self) -> Option<&GraphqlBogusExtension> {
-        match &self {
-            AnyGraphqlInputObjectTypeExtension::GraphqlBogusExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_input_object_type_extension(
-        &self,
-    ) -> Option<&GraphqlInputObjectTypeExtension> {
-        match &self {
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_input_object_type_extension_with_fields(
-        &self,
-    ) -> Option<&GraphqlInputObjectTypeExtensionWithFields> {
-        match &self {
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtensionWithFields(item) => {
-                Some(item)
-            }
-            _ => None,
-        }
-    }
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub enum AnyGraphqlInterfaceTypeExtension {
-    GraphqlBogusExtension(GraphqlBogusExtension),
-    GraphqlInterfaceTypeExtension(GraphqlInterfaceTypeExtension),
-    GraphqlInterfaceTypeExtensionWithDirectives(GraphqlInterfaceTypeExtensionWithDirectives),
-    GraphqlInterfaceTypeExtensionWithFields(GraphqlInterfaceTypeExtensionWithFields),
-}
-impl AnyGraphqlInterfaceTypeExtension {
-    pub fn as_graphql_bogus_extension(&self) -> Option<&GraphqlBogusExtension> {
-        match &self {
-            AnyGraphqlInterfaceTypeExtension::GraphqlBogusExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_interface_type_extension(&self) -> Option<&GraphqlInterfaceTypeExtension> {
-        match &self {
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_interface_type_extension_with_directives(
-        &self,
-    ) -> Option<&GraphqlInterfaceTypeExtensionWithDirectives> {
-        match &self {
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithDirectives(item) => {
-                Some(item)
-            }
-            _ => None,
-        }
-    }
-    pub fn as_graphql_interface_type_extension_with_fields(
-        &self,
-    ) -> Option<&GraphqlInterfaceTypeExtensionWithFields> {
-        match &self {
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithFields(item) => {
-                Some(item)
-            }
-            _ => None,
-        }
-    }
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub enum AnyGraphqlObjectTypeExtension {
-    GraphqlBogusExtension(GraphqlBogusExtension),
-    GraphqlObjectTypeExtension(GraphqlObjectTypeExtension),
-    GraphqlObjectTypeExtensionWithDirectives(GraphqlObjectTypeExtensionWithDirectives),
-    GraphqlObjectTypeExtensionWithFields(GraphqlObjectTypeExtensionWithFields),
-}
-impl AnyGraphqlObjectTypeExtension {
-    pub fn as_graphql_bogus_extension(&self) -> Option<&GraphqlBogusExtension> {
-        match &self {
-            AnyGraphqlObjectTypeExtension::GraphqlBogusExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_object_type_extension(&self) -> Option<&GraphqlObjectTypeExtension> {
-        match &self {
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_object_type_extension_with_directives(
-        &self,
-    ) -> Option<&GraphqlObjectTypeExtensionWithDirectives> {
-        match &self {
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithDirectives(item) => {
-                Some(item)
-            }
-            _ => None,
-        }
-    }
-    pub fn as_graphql_object_type_extension_with_fields(
-        &self,
-    ) -> Option<&GraphqlObjectTypeExtensionWithFields> {
-        match &self {
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithFields(item) => Some(item),
-            _ => None,
-        }
-    }
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyGraphqlOperationDefinition {
     GraphqlOperationDefinition(GraphqlOperationDefinition),
     GraphqlSelectionSet(GraphqlSelectionSet),
@@ -3490,11 +2902,10 @@ impl AnyGraphqlOperationDefinition {
         }
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyGraphqlPrimitiveType {
     GraphqlListType(GraphqlListType),
-    GraphqlNamedType(GraphqlNamedType),
+    GraphqlNameReference(GraphqlNameReference),
 }
 impl AnyGraphqlPrimitiveType {
     pub fn as_graphql_list_type(&self) -> Option<&GraphqlListType> {
@@ -3503,46 +2914,14 @@ impl AnyGraphqlPrimitiveType {
             _ => None,
         }
     }
-    pub fn as_graphql_named_type(&self) -> Option<&GraphqlNamedType> {
+    pub fn as_graphql_name_reference(&self) -> Option<&GraphqlNameReference> {
         match &self {
-            AnyGraphqlPrimitiveType::GraphqlNamedType(item) => Some(item),
+            AnyGraphqlPrimitiveType::GraphqlNameReference(item) => Some(item),
             _ => None,
         }
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub enum AnyGraphqlSchemaExtension {
-    GraphqlBogusExtension(GraphqlBogusExtension),
-    GraphqlSchemaExtension(GraphqlSchemaExtension),
-    GraphqlSchemaExtensionWithRootOperationType(GraphqlSchemaExtensionWithRootOperationType),
-}
-impl AnyGraphqlSchemaExtension {
-    pub fn as_graphql_bogus_extension(&self) -> Option<&GraphqlBogusExtension> {
-        match &self {
-            AnyGraphqlSchemaExtension::GraphqlBogusExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_schema_extension(&self) -> Option<&GraphqlSchemaExtension> {
-        match &self {
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_schema_extension_with_root_operation_type(
-        &self,
-    ) -> Option<&GraphqlSchemaExtensionWithRootOperationType> {
-        match &self {
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtensionWithRootOperationType(item) => {
-                Some(item)
-            }
-            _ => None,
-        }
-    }
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyGraphqlSelection {
     GraphqlBogusSelection(GraphqlBogusSelection),
     GraphqlField(GraphqlField),
@@ -3575,8 +2954,7 @@ impl AnyGraphqlSelection {
         }
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyGraphqlType {
     AnyGraphqlPrimitiveType(AnyGraphqlPrimitiveType),
     GraphqlBogusType(GraphqlBogusType),
@@ -3602,37 +2980,105 @@ impl AnyGraphqlType {
         }
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub enum AnyGraphqlUnionTypeExtension {
-    GraphqlBogusExtension(GraphqlBogusExtension),
-    GraphqlUnionTypeExtension(GraphqlUnionTypeExtension),
-    GraphqlUnionTypeExtensionWithMembers(GraphqlUnionTypeExtensionWithMembers),
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum AnyGraphqlTypeDefinition {
+    GraphqlEnumTypeDefinition(GraphqlEnumTypeDefinition),
+    GraphqlInputObjectTypeDefinition(GraphqlInputObjectTypeDefinition),
+    GraphqlInterfaceTypeDefinition(GraphqlInterfaceTypeDefinition),
+    GraphqlObjectTypeDefinition(GraphqlObjectTypeDefinition),
+    GraphqlScalarTypeDefinition(GraphqlScalarTypeDefinition),
+    GraphqlUnionTypeDefinition(GraphqlUnionTypeDefinition),
 }
-impl AnyGraphqlUnionTypeExtension {
-    pub fn as_graphql_bogus_extension(&self) -> Option<&GraphqlBogusExtension> {
+impl AnyGraphqlTypeDefinition {
+    pub fn as_graphql_enum_type_definition(&self) -> Option<&GraphqlEnumTypeDefinition> {
         match &self {
-            AnyGraphqlUnionTypeExtension::GraphqlBogusExtension(item) => Some(item),
+            AnyGraphqlTypeDefinition::GraphqlEnumTypeDefinition(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_input_object_type_definition(
+        &self,
+    ) -> Option<&GraphqlInputObjectTypeDefinition> {
+        match &self {
+            AnyGraphqlTypeDefinition::GraphqlInputObjectTypeDefinition(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_interface_type_definition(&self) -> Option<&GraphqlInterfaceTypeDefinition> {
+        match &self {
+            AnyGraphqlTypeDefinition::GraphqlInterfaceTypeDefinition(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_object_type_definition(&self) -> Option<&GraphqlObjectTypeDefinition> {
+        match &self {
+            AnyGraphqlTypeDefinition::GraphqlObjectTypeDefinition(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_scalar_type_definition(&self) -> Option<&GraphqlScalarTypeDefinition> {
+        match &self {
+            AnyGraphqlTypeDefinition::GraphqlScalarTypeDefinition(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_union_type_definition(&self) -> Option<&GraphqlUnionTypeDefinition> {
+        match &self {
+            AnyGraphqlTypeDefinition::GraphqlUnionTypeDefinition(item) => Some(item),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum AnyGraphqlTypeExtension {
+    GraphqlEnumTypeExtension(GraphqlEnumTypeExtension),
+    GraphqlInputObjectTypeExtension(GraphqlInputObjectTypeExtension),
+    GraphqlInterfaceTypeExtension(GraphqlInterfaceTypeExtension),
+    GraphqlObjectTypeExtension(GraphqlObjectTypeExtension),
+    GraphqlScalarTypeExtension(GraphqlScalarTypeExtension),
+    GraphqlUnionTypeExtension(GraphqlUnionTypeExtension),
+}
+impl AnyGraphqlTypeExtension {
+    pub fn as_graphql_enum_type_extension(&self) -> Option<&GraphqlEnumTypeExtension> {
+        match &self {
+            AnyGraphqlTypeExtension::GraphqlEnumTypeExtension(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_input_object_type_extension(
+        &self,
+    ) -> Option<&GraphqlInputObjectTypeExtension> {
+        match &self {
+            AnyGraphqlTypeExtension::GraphqlInputObjectTypeExtension(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_interface_type_extension(&self) -> Option<&GraphqlInterfaceTypeExtension> {
+        match &self {
+            AnyGraphqlTypeExtension::GraphqlInterfaceTypeExtension(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_object_type_extension(&self) -> Option<&GraphqlObjectTypeExtension> {
+        match &self {
+            AnyGraphqlTypeExtension::GraphqlObjectTypeExtension(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_graphql_scalar_type_extension(&self) -> Option<&GraphqlScalarTypeExtension> {
+        match &self {
+            AnyGraphqlTypeExtension::GraphqlScalarTypeExtension(item) => Some(item),
             _ => None,
         }
     }
     pub fn as_graphql_union_type_extension(&self) -> Option<&GraphqlUnionTypeExtension> {
         match &self {
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtension(item) => Some(item),
-            _ => None,
-        }
-    }
-    pub fn as_graphql_union_type_extension_with_members(
-        &self,
-    ) -> Option<&GraphqlUnionTypeExtensionWithMembers> {
-        match &self {
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtensionWithMembers(item) => Some(item),
+            AnyGraphqlTypeExtension::GraphqlUnionTypeExtension(item) => Some(item),
             _ => None,
         }
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyGraphqlValue {
     GraphqlBogusValue(GraphqlBogusValue),
     GraphqlBooleanValue(GraphqlBooleanValue),
@@ -3643,7 +3089,7 @@ pub enum AnyGraphqlValue {
     GraphqlNullValue(GraphqlNullValue),
     GraphqlObjectValue(GraphqlObjectValue),
     GraphqlStringValue(GraphqlStringValue),
-    GraphqlVariable(GraphqlVariable),
+    GraphqlVariableReference(GraphqlVariableReference),
 }
 impl AnyGraphqlValue {
     pub fn as_graphql_bogus_value(&self) -> Option<&GraphqlBogusValue> {
@@ -3700,9 +3146,9 @@ impl AnyGraphqlValue {
             _ => None,
         }
     }
-    pub fn as_graphql_variable(&self) -> Option<&GraphqlVariable> {
+    pub fn as_graphql_variable_reference(&self) -> Option<&GraphqlVariableReference> {
         match &self {
-            AnyGraphqlValue::GraphqlVariable(item) => Some(item),
+            AnyGraphqlValue::GraphqlVariableReference(item) => Some(item),
             _ => None,
         }
     }
@@ -3730,13 +3176,22 @@ impl AstNode for GraphqlAlias {
 }
 impl std::fmt::Debug for GraphqlAlias {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlAlias")
-            .field("value", &support::DebugSyntaxResult(self.value()))
-            .field(
-                "colon_token",
-                &support::DebugSyntaxResult(self.colon_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlAlias")
+                .field("value", &support::DebugSyntaxResult(self.value()))
+                .field(
+                    "colon_token",
+                    &support::DebugSyntaxResult(self.colon_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlAlias").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlAlias> for SyntaxNode {
@@ -3772,14 +3227,23 @@ impl AstNode for GraphqlArgument {
 }
 impl std::fmt::Debug for GraphqlArgument {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlArgument")
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "colon_token",
-                &support::DebugSyntaxResult(self.colon_token()),
-            )
-            .field("value", &support::DebugSyntaxResult(self.value()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlArgument")
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "colon_token",
+                    &support::DebugSyntaxResult(self.colon_token()),
+                )
+                .field("value", &support::DebugSyntaxResult(self.value()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlArgument").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlArgument> for SyntaxNode {
@@ -3815,17 +3279,26 @@ impl AstNode for GraphqlArguments {
 }
 impl std::fmt::Debug for GraphqlArguments {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlArguments")
-            .field(
-                "l_paren_token",
-                &support::DebugSyntaxResult(self.l_paren_token()),
-            )
-            .field("arguments", &self.arguments())
-            .field(
-                "r_paren_token",
-                &support::DebugSyntaxResult(self.r_paren_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlArguments")
+                .field(
+                    "l_paren_token",
+                    &support::DebugSyntaxResult(self.l_paren_token()),
+                )
+                .field("arguments", &self.arguments())
+                .field(
+                    "r_paren_token",
+                    &support::DebugSyntaxResult(self.r_paren_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlArguments").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlArguments> for SyntaxNode {
@@ -3861,17 +3334,26 @@ impl AstNode for GraphqlArgumentsDefinition {
 }
 impl std::fmt::Debug for GraphqlArgumentsDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlArgumentsDefinition")
-            .field(
-                "l_paren_token",
-                &support::DebugSyntaxResult(self.l_paren_token()),
-            )
-            .field("arguments", &self.arguments())
-            .field(
-                "r_paren_token",
-                &support::DebugSyntaxResult(self.r_paren_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlArgumentsDefinition")
+                .field(
+                    "l_paren_token",
+                    &support::DebugSyntaxResult(self.l_paren_token()),
+                )
+                .field("arguments", &self.arguments())
+                .field(
+                    "r_paren_token",
+                    &support::DebugSyntaxResult(self.r_paren_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlArgumentsDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlArgumentsDefinition> for SyntaxNode {
@@ -3907,12 +3389,21 @@ impl AstNode for GraphqlBooleanValue {
 }
 impl std::fmt::Debug for GraphqlBooleanValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlBooleanValue")
-            .field(
-                "value_token",
-                &support::DebugSyntaxResult(self.value_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlBooleanValue")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlBooleanValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlBooleanValue> for SyntaxNode {
@@ -3948,10 +3439,19 @@ impl AstNode for GraphqlDefaultValue {
 }
 impl std::fmt::Debug for GraphqlDefaultValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlDefaultValue")
-            .field("eq_token", &support::DebugSyntaxResult(self.eq_token()))
-            .field("value", &support::DebugSyntaxResult(self.value()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlDefaultValue")
+                .field("eq_token", &support::DebugSyntaxResult(self.eq_token()))
+                .field("value", &support::DebugSyntaxResult(self.value()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlDefaultValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlDefaultValue> for SyntaxNode {
@@ -3987,12 +3487,21 @@ impl AstNode for GraphqlDescription {
 }
 impl std::fmt::Debug for GraphqlDescription {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlDescription")
-            .field(
-                "graphql_string_value",
-                &support::DebugSyntaxResult(self.graphql_string_value()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlDescription")
+                .field(
+                    "graphql_string_value",
+                    &support::DebugSyntaxResult(self.graphql_string_value()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlDescription").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlDescription> for SyntaxNode {
@@ -4028,14 +3537,23 @@ impl AstNode for GraphqlDirective {
 }
 impl std::fmt::Debug for GraphqlDirective {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlDirective")
-            .field("at_token", &support::DebugSyntaxResult(self.at_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "arguments",
-                &support::DebugOptionalElement(self.arguments()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlDirective")
+                .field("at_token", &support::DebugSyntaxResult(self.at_token()))
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "arguments",
+                    &support::DebugOptionalElement(self.arguments()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlDirective").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlDirective> for SyntaxNode {
@@ -4071,32 +3589,41 @@ impl AstNode for GraphqlDirectiveDefinition {
 }
 impl std::fmt::Debug for GraphqlDirectiveDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlDirectiveDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field(
-                "directive_token",
-                &support::DebugSyntaxResult(self.directive_token()),
-            )
-            .field("at_token", &support::DebugSyntaxResult(self.at_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "arguments",
-                &support::DebugOptionalElement(self.arguments()),
-            )
-            .field(
-                "repeatable_token",
-                &support::DebugOptionalElement(self.repeatable_token()),
-            )
-            .field("on_token", &support::DebugSyntaxResult(self.on_token()))
-            .field(
-                "bitwise_or_token",
-                &support::DebugOptionalElement(self.bitwise_or_token()),
-            )
-            .field("locations", &self.locations())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlDirectiveDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field(
+                    "directive_token",
+                    &support::DebugSyntaxResult(self.directive_token()),
+                )
+                .field("at_token", &support::DebugSyntaxResult(self.at_token()))
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "arguments",
+                    &support::DebugOptionalElement(self.arguments()),
+                )
+                .field(
+                    "repeatable_token",
+                    &support::DebugOptionalElement(self.repeatable_token()),
+                )
+                .field("on_token", &support::DebugSyntaxResult(self.on_token()))
+                .field(
+                    "bitwise_or_token",
+                    &support::DebugOptionalElement(self.bitwise_or_token()),
+                )
+                .field("locations", &self.locations())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlDirectiveDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlDirectiveDefinition> for SyntaxNode {
@@ -4132,12 +3659,21 @@ impl AstNode for GraphqlDirectiveLocation {
 }
 impl std::fmt::Debug for GraphqlDirectiveLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlDirectiveLocation")
-            .field(
-                "value_token",
-                &support::DebugSyntaxResult(self.value_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlDirectiveLocation")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlDirectiveLocation").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlDirectiveLocation> for SyntaxNode {
@@ -4173,19 +3709,28 @@ impl AstNode for GraphqlEnumTypeDefinition {
 }
 impl std::fmt::Debug for GraphqlEnumTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlEnumTypeDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field("enum_token", &support::DebugSyntaxResult(self.enum_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .field(
-                "enum_values",
-                &support::DebugOptionalElement(self.enum_values()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlEnumTypeDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field("enum_token", &support::DebugSyntaxResult(self.enum_token()))
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .field(
+                    "enum_values",
+                    &support::DebugOptionalElement(self.enum_values()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlEnumTypeDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlEnumTypeDefinition> for SyntaxNode {
@@ -4221,15 +3766,28 @@ impl AstNode for GraphqlEnumTypeExtension {
 }
 impl std::fmt::Debug for GraphqlEnumTypeExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlEnumTypeExtension")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field("enum_token", &support::DebugSyntaxResult(self.enum_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlEnumTypeExtension")
+                .field(
+                    "extend_token",
+                    &support::DebugSyntaxResult(self.extend_token()),
+                )
+                .field("enum_token", &support::DebugSyntaxResult(self.enum_token()))
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .field(
+                    "enum_values",
+                    &support::DebugOptionalElement(self.enum_values()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlEnumTypeExtension").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlEnumTypeExtension> for SyntaxNode {
@@ -4239,55 +3797,6 @@ impl From<GraphqlEnumTypeExtension> for SyntaxNode {
 }
 impl From<GraphqlEnumTypeExtension> for SyntaxElement {
     fn from(n: GraphqlEnumTypeExtension) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for GraphqlEnumTypeExtensionWithValues {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = SyntaxKindSet::from_raw(RawSyntaxKind(
-        GRAPHQL_ENUM_TYPE_EXTENSION_WITH_VALUES as u16,
-    ));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_ENUM_TYPE_EXTENSION_WITH_VALUES
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlEnumTypeExtensionWithValues {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlEnumTypeExtensionWithValues")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field("enum_token", &support::DebugSyntaxResult(self.enum_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .field(
-                "enum_values",
-                &support::DebugSyntaxResult(self.enum_values()),
-            )
-            .finish()
-    }
-}
-impl From<GraphqlEnumTypeExtensionWithValues> for SyntaxNode {
-    fn from(n: GraphqlEnumTypeExtensionWithValues) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlEnumTypeExtensionWithValues> for SyntaxElement {
-    fn from(n: GraphqlEnumTypeExtensionWithValues) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -4314,12 +3823,18 @@ impl AstNode for GraphqlEnumValue {
 }
 impl std::fmt::Debug for GraphqlEnumValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlEnumValue")
-            .field(
-                "graphql_name",
-                &support::DebugSyntaxResult(self.graphql_name()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlEnumValue")
+                .field("value", &support::DebugSyntaxResult(self.value()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlEnumValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlEnumValue> for SyntaxNode {
@@ -4355,14 +3870,23 @@ impl AstNode for GraphqlEnumValueDefinition {
 }
 impl std::fmt::Debug for GraphqlEnumValueDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlEnumValueDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field("value", &support::DebugSyntaxResult(self.value()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlEnumValueDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field("value", &support::DebugSyntaxResult(self.value()))
+                .field("directives", &self.directives())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlEnumValueDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlEnumValueDefinition> for SyntaxNode {
@@ -4398,17 +3922,26 @@ impl AstNode for GraphqlEnumValuesDefinition {
 }
 impl std::fmt::Debug for GraphqlEnumValuesDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlEnumValuesDefinition")
-            .field(
-                "l_curly_token",
-                &support::DebugSyntaxResult(self.l_curly_token()),
-            )
-            .field("values", &self.values())
-            .field(
-                "r_curly_token",
-                &support::DebugSyntaxResult(self.r_curly_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlEnumValuesDefinition")
+                .field(
+                    "l_curly_token",
+                    &support::DebugSyntaxResult(self.l_curly_token()),
+                )
+                .field("values", &self.values())
+                .field(
+                    "r_curly_token",
+                    &support::DebugSyntaxResult(self.r_curly_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlEnumValuesDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlEnumValuesDefinition> for SyntaxNode {
@@ -4444,19 +3977,28 @@ impl AstNode for GraphqlField {
 }
 impl std::fmt::Debug for GraphqlField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlField")
-            .field("alias", &support::DebugOptionalElement(self.alias()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "arguments",
-                &support::DebugOptionalElement(self.arguments()),
-            )
-            .field("directives", &self.directives())
-            .field(
-                "selection_set",
-                &support::DebugOptionalElement(self.selection_set()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlField")
+                .field("alias", &support::DebugOptionalElement(self.alias()))
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "arguments",
+                    &support::DebugOptionalElement(self.arguments()),
+                )
+                .field("directives", &self.directives())
+                .field(
+                    "selection_set",
+                    &support::DebugOptionalElement(self.selection_set()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlField").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlField> for SyntaxNode {
@@ -4492,23 +4034,32 @@ impl AstNode for GraphqlFieldDefinition {
 }
 impl std::fmt::Debug for GraphqlFieldDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlFieldDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "arguments",
-                &support::DebugOptionalElement(self.arguments()),
-            )
-            .field(
-                "colon_token",
-                &support::DebugSyntaxResult(self.colon_token()),
-            )
-            .field("ty", &support::DebugSyntaxResult(self.ty()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlFieldDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "arguments",
+                    &support::DebugOptionalElement(self.arguments()),
+                )
+                .field(
+                    "colon_token",
+                    &support::DebugSyntaxResult(self.colon_token()),
+                )
+                .field("ty", &support::DebugSyntaxResult(self.ty()))
+                .field("directives", &self.directives())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlFieldDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlFieldDefinition> for SyntaxNode {
@@ -4544,17 +4095,26 @@ impl AstNode for GraphqlFieldsDefinition {
 }
 impl std::fmt::Debug for GraphqlFieldsDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlFieldsDefinition")
-            .field(
-                "l_curly_token",
-                &support::DebugSyntaxResult(self.l_curly_token()),
-            )
-            .field("fields", &self.fields())
-            .field(
-                "r_curly_token",
-                &support::DebugSyntaxResult(self.r_curly_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlFieldsDefinition")
+                .field(
+                    "l_curly_token",
+                    &support::DebugSyntaxResult(self.l_curly_token()),
+                )
+                .field("fields", &self.fields())
+                .field(
+                    "r_curly_token",
+                    &support::DebugSyntaxResult(self.r_curly_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlFieldsDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlFieldsDefinition> for SyntaxNode {
@@ -4590,12 +4150,21 @@ impl AstNode for GraphqlFloatValue {
 }
 impl std::fmt::Debug for GraphqlFloatValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlFloatValue")
-            .field(
-                "graphql_float_literal_token",
-                &support::DebugSyntaxResult(self.graphql_float_literal_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlFloatValue")
+                .field(
+                    "graphql_float_literal_token",
+                    &support::DebugSyntaxResult(self.graphql_float_literal_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlFloatValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlFloatValue> for SyntaxNode {
@@ -4631,22 +4200,31 @@ impl AstNode for GraphqlFragmentDefinition {
 }
 impl std::fmt::Debug for GraphqlFragmentDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlFragmentDefinition")
-            .field(
-                "fragment_token",
-                &support::DebugSyntaxResult(self.fragment_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "type_condition",
-                &support::DebugSyntaxResult(self.type_condition()),
-            )
-            .field("directives", &self.directives())
-            .field(
-                "selection_set",
-                &support::DebugSyntaxResult(self.selection_set()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlFragmentDefinition")
+                .field(
+                    "fragment_token",
+                    &support::DebugSyntaxResult(self.fragment_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "type_condition",
+                    &support::DebugSyntaxResult(self.type_condition()),
+                )
+                .field("directives", &self.directives())
+                .field(
+                    "selection_set",
+                    &support::DebugSyntaxResult(self.selection_set()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlFragmentDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlFragmentDefinition> for SyntaxNode {
@@ -4682,14 +4260,23 @@ impl AstNode for GraphqlFragmentSpread {
 }
 impl std::fmt::Debug for GraphqlFragmentSpread {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlFragmentSpread")
-            .field(
-                "dotdotdot_token",
-                &support::DebugSyntaxResult(self.dotdotdot_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlFragmentSpread")
+                .field(
+                    "dotdotdot_token",
+                    &support::DebugSyntaxResult(self.dotdotdot_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlFragmentSpread").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlFragmentSpread> for SyntaxNode {
@@ -4725,17 +4312,26 @@ impl AstNode for GraphqlImplementsInterfaces {
 }
 impl std::fmt::Debug for GraphqlImplementsInterfaces {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlImplementsInterfaces")
-            .field(
-                "implements_token",
-                &support::DebugSyntaxResult(self.implements_token()),
-            )
-            .field(
-                "amp_token",
-                &support::DebugOptionalElement(self.amp_token()),
-            )
-            .field("interfaces", &self.interfaces())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlImplementsInterfaces")
+                .field(
+                    "implements_token",
+                    &support::DebugSyntaxResult(self.implements_token()),
+                )
+                .field(
+                    "amp_token",
+                    &support::DebugOptionalElement(self.amp_token()),
+                )
+                .field("interfaces", &self.interfaces())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlImplementsInterfaces").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlImplementsInterfaces> for SyntaxNode {
@@ -4771,21 +4367,30 @@ impl AstNode for GraphqlInlineFragment {
 }
 impl std::fmt::Debug for GraphqlInlineFragment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInlineFragment")
-            .field(
-                "dotdotdot_token",
-                &support::DebugSyntaxResult(self.dotdotdot_token()),
-            )
-            .field(
-                "type_condition",
-                &support::DebugOptionalElement(self.type_condition()),
-            )
-            .field("directives", &self.directives())
-            .field(
-                "selection_set",
-                &support::DebugSyntaxResult(self.selection_set()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlInlineFragment")
+                .field(
+                    "dotdotdot_token",
+                    &support::DebugSyntaxResult(self.dotdotdot_token()),
+                )
+                .field(
+                    "type_condition",
+                    &support::DebugOptionalElement(self.type_condition()),
+                )
+                .field("directives", &self.directives())
+                .field(
+                    "selection_set",
+                    &support::DebugSyntaxResult(self.selection_set()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlInlineFragment").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlInlineFragment> for SyntaxNode {
@@ -4821,17 +4426,26 @@ impl AstNode for GraphqlInputFieldsDefinition {
 }
 impl std::fmt::Debug for GraphqlInputFieldsDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInputFieldsDefinition")
-            .field(
-                "l_curly_token",
-                &support::DebugSyntaxResult(self.l_curly_token()),
-            )
-            .field("fields", &self.fields())
-            .field(
-                "r_curly_token",
-                &support::DebugSyntaxResult(self.r_curly_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlInputFieldsDefinition")
+                .field(
+                    "l_curly_token",
+                    &support::DebugSyntaxResult(self.l_curly_token()),
+                )
+                .field("fields", &self.fields())
+                .field(
+                    "r_curly_token",
+                    &support::DebugSyntaxResult(self.r_curly_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlInputFieldsDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlInputFieldsDefinition> for SyntaxNode {
@@ -4867,22 +4481,31 @@ impl AstNode for GraphqlInputObjectTypeDefinition {
 }
 impl std::fmt::Debug for GraphqlInputObjectTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInputObjectTypeDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field(
-                "input_token",
-                &support::DebugSyntaxResult(self.input_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .field(
-                "input_fields",
-                &support::DebugOptionalElement(self.input_fields()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlInputObjectTypeDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field(
+                    "input_token",
+                    &support::DebugSyntaxResult(self.input_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .field(
+                    "input_fields",
+                    &support::DebugOptionalElement(self.input_fields()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlInputObjectTypeDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlInputObjectTypeDefinition> for SyntaxNode {
@@ -4918,18 +4541,31 @@ impl AstNode for GraphqlInputObjectTypeExtension {
 }
 impl std::fmt::Debug for GraphqlInputObjectTypeExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInputObjectTypeExtension")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "input_token",
-                &support::DebugSyntaxResult(self.input_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlInputObjectTypeExtension")
+                .field(
+                    "extend_token",
+                    &support::DebugSyntaxResult(self.extend_token()),
+                )
+                .field(
+                    "input_token",
+                    &support::DebugSyntaxResult(self.input_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .field(
+                    "input_fields",
+                    &support::DebugOptionalElement(self.input_fields()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlInputObjectTypeExtension").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlInputObjectTypeExtension> for SyntaxNode {
@@ -4939,58 +4575,6 @@ impl From<GraphqlInputObjectTypeExtension> for SyntaxNode {
 }
 impl From<GraphqlInputObjectTypeExtension> for SyntaxElement {
     fn from(n: GraphqlInputObjectTypeExtension) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for GraphqlInputObjectTypeExtensionWithFields {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = SyntaxKindSet::from_raw(RawSyntaxKind(
-        GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION_WITH_FIELDS as u16,
-    ));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION_WITH_FIELDS
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlInputObjectTypeExtensionWithFields {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInputObjectTypeExtensionWithFields")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "input_token",
-                &support::DebugSyntaxResult(self.input_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .field(
-                "input_fields",
-                &support::DebugSyntaxResult(self.input_fields()),
-            )
-            .finish()
-    }
-}
-impl From<GraphqlInputObjectTypeExtensionWithFields> for SyntaxNode {
-    fn from(n: GraphqlInputObjectTypeExtensionWithFields) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlInputObjectTypeExtensionWithFields> for SyntaxElement {
-    fn from(n: GraphqlInputObjectTypeExtensionWithFields) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -5017,20 +4601,29 @@ impl AstNode for GraphqlInputValueDefinition {
 }
 impl std::fmt::Debug for GraphqlInputValueDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInputValueDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "colon_token",
-                &support::DebugSyntaxResult(self.colon_token()),
-            )
-            .field("ty", &support::DebugSyntaxResult(self.ty()))
-            .field("default", &support::DebugOptionalElement(self.default()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlInputValueDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "colon_token",
+                    &support::DebugSyntaxResult(self.colon_token()),
+                )
+                .field("ty", &support::DebugSyntaxResult(self.ty()))
+                .field("default", &support::DebugOptionalElement(self.default()))
+                .field("directives", &self.directives())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlInputValueDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlInputValueDefinition> for SyntaxNode {
@@ -5066,12 +4659,21 @@ impl AstNode for GraphqlIntValue {
 }
 impl std::fmt::Debug for GraphqlIntValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlIntValue")
-            .field(
-                "graphql_int_literal_token",
-                &support::DebugSyntaxResult(self.graphql_int_literal_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlIntValue")
+                .field(
+                    "graphql_int_literal_token",
+                    &support::DebugSyntaxResult(self.graphql_int_literal_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlIntValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlIntValue> for SyntaxNode {
@@ -5107,23 +4709,32 @@ impl AstNode for GraphqlInterfaceTypeDefinition {
 }
 impl std::fmt::Debug for GraphqlInterfaceTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInterfaceTypeDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field(
-                "interface_token",
-                &support::DebugSyntaxResult(self.interface_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "implements",
-                &support::DebugOptionalElement(self.implements()),
-            )
-            .field("directives", &self.directives())
-            .field("fields", &support::DebugOptionalElement(self.fields()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlInterfaceTypeDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field(
+                    "interface_token",
+                    &support::DebugSyntaxResult(self.interface_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "implements",
+                    &support::DebugOptionalElement(self.implements()),
+                )
+                .field("directives", &self.directives())
+                .field("fields", &support::DebugOptionalElement(self.fields()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlInterfaceTypeDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlInterfaceTypeDefinition> for SyntaxNode {
@@ -5159,18 +4770,32 @@ impl AstNode for GraphqlInterfaceTypeExtension {
 }
 impl std::fmt::Debug for GraphqlInterfaceTypeExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInterfaceTypeExtension")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "interface_token",
-                &support::DebugSyntaxResult(self.interface_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("implements", &support::DebugSyntaxResult(self.implements()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlInterfaceTypeExtension")
+                .field(
+                    "extend_token",
+                    &support::DebugSyntaxResult(self.extend_token()),
+                )
+                .field(
+                    "interface_token",
+                    &support::DebugSyntaxResult(self.interface_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "implements",
+                    &support::DebugOptionalElement(self.implements()),
+                )
+                .field("directives", &self.directives())
+                .field("fields", &support::DebugOptionalElement(self.fields()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlInterfaceTypeExtension").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlInterfaceTypeExtension> for SyntaxNode {
@@ -5180,111 +4805,6 @@ impl From<GraphqlInterfaceTypeExtension> for SyntaxNode {
 }
 impl From<GraphqlInterfaceTypeExtension> for SyntaxElement {
     fn from(n: GraphqlInterfaceTypeExtension) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for GraphqlInterfaceTypeExtensionWithDirectives {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = SyntaxKindSet::from_raw(RawSyntaxKind(
-        GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_DIRECTIVES as u16,
-    ));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_DIRECTIVES
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlInterfaceTypeExtensionWithDirectives {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInterfaceTypeExtensionWithDirectives")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "interface_token",
-                &support::DebugSyntaxResult(self.interface_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "implements",
-                &support::DebugOptionalElement(self.implements()),
-            )
-            .field("directives", &self.directives())
-            .finish()
-    }
-}
-impl From<GraphqlInterfaceTypeExtensionWithDirectives> for SyntaxNode {
-    fn from(n: GraphqlInterfaceTypeExtensionWithDirectives) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlInterfaceTypeExtensionWithDirectives> for SyntaxElement {
-    fn from(n: GraphqlInterfaceTypeExtensionWithDirectives) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for GraphqlInterfaceTypeExtensionWithFields {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = SyntaxKindSet::from_raw(RawSyntaxKind(
-        GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_FIELDS as u16,
-    ));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_FIELDS
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlInterfaceTypeExtensionWithFields {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlInterfaceTypeExtensionWithFields")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "interface_token",
-                &support::DebugSyntaxResult(self.interface_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "implements",
-                &support::DebugOptionalElement(self.implements()),
-            )
-            .field("directives", &self.directives())
-            .field("fields", &support::DebugSyntaxResult(self.fields()))
-            .finish()
-    }
-}
-impl From<GraphqlInterfaceTypeExtensionWithFields> for SyntaxNode {
-    fn from(n: GraphqlInterfaceTypeExtensionWithFields) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlInterfaceTypeExtensionWithFields> for SyntaxElement {
-    fn from(n: GraphqlInterfaceTypeExtensionWithFields) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -5311,17 +4831,26 @@ impl AstNode for GraphqlListType {
 }
 impl std::fmt::Debug for GraphqlListType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlListType")
-            .field(
-                "l_brack_token",
-                &support::DebugSyntaxResult(self.l_brack_token()),
-            )
-            .field("element", &support::DebugSyntaxResult(self.element()))
-            .field(
-                "r_brack_token",
-                &support::DebugSyntaxResult(self.r_brack_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlListType")
+                .field(
+                    "l_brack_token",
+                    &support::DebugSyntaxResult(self.l_brack_token()),
+                )
+                .field("element", &support::DebugSyntaxResult(self.element()))
+                .field(
+                    "r_brack_token",
+                    &support::DebugSyntaxResult(self.r_brack_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlListType").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlListType> for SyntaxNode {
@@ -5357,17 +4886,26 @@ impl AstNode for GraphqlListValue {
 }
 impl std::fmt::Debug for GraphqlListValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlListValue")
-            .field(
-                "l_brack_token",
-                &support::DebugSyntaxResult(self.l_brack_token()),
-            )
-            .field("elements", &self.elements())
-            .field(
-                "r_brack_token",
-                &support::DebugSyntaxResult(self.r_brack_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlListValue")
+                .field(
+                    "l_brack_token",
+                    &support::DebugSyntaxResult(self.l_brack_token()),
+                )
+                .field("elements", &self.elements())
+                .field(
+                    "r_brack_token",
+                    &support::DebugSyntaxResult(self.r_brack_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlListValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlListValue> for SyntaxNode {
@@ -5380,12 +4918,12 @@ impl From<GraphqlListValue> for SyntaxElement {
         n.syntax.into()
     }
 }
-impl AstNode for GraphqlName {
+impl AstNode for GraphqlLiteralName {
     type Language = Language;
     const KIND_SET: SyntaxKindSet<Language> =
-        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_NAME as u16));
+        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_LITERAL_NAME as u16));
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_NAME
+        kind == GRAPHQL_LITERAL_NAME
     }
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         if Self::can_cast(syntax.kind()) {
@@ -5401,32 +4939,41 @@ impl AstNode for GraphqlName {
         self.syntax
     }
 }
-impl std::fmt::Debug for GraphqlName {
+impl std::fmt::Debug for GraphqlLiteralName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlName")
-            .field(
-                "value_token",
-                &support::DebugSyntaxResult(self.value_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlLiteralName")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlLiteralName").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
-impl From<GraphqlName> for SyntaxNode {
-    fn from(n: GraphqlName) -> SyntaxNode {
+impl From<GraphqlLiteralName> for SyntaxNode {
+    fn from(n: GraphqlLiteralName) -> SyntaxNode {
         n.syntax
     }
 }
-impl From<GraphqlName> for SyntaxElement {
-    fn from(n: GraphqlName) -> SyntaxElement {
+impl From<GraphqlLiteralName> for SyntaxElement {
+    fn from(n: GraphqlLiteralName) -> SyntaxElement {
         n.syntax.into()
     }
 }
-impl AstNode for GraphqlNamedType {
+impl AstNode for GraphqlNameBinding {
     type Language = Language;
     const KIND_SET: SyntaxKindSet<Language> =
-        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_NAMED_TYPE as u16));
+        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_NAME_BINDING as u16));
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_NAMED_TYPE
+        kind == GRAPHQL_NAME_BINDING
     }
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         if Self::can_cast(syntax.kind()) {
@@ -5442,20 +4989,82 @@ impl AstNode for GraphqlNamedType {
         self.syntax
     }
 }
-impl std::fmt::Debug for GraphqlNamedType {
+impl std::fmt::Debug for GraphqlNameBinding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlNamedType")
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlNameBinding")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlNameBinding").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
-impl From<GraphqlNamedType> for SyntaxNode {
-    fn from(n: GraphqlNamedType) -> SyntaxNode {
+impl From<GraphqlNameBinding> for SyntaxNode {
+    fn from(n: GraphqlNameBinding) -> SyntaxNode {
         n.syntax
     }
 }
-impl From<GraphqlNamedType> for SyntaxElement {
-    fn from(n: GraphqlNamedType) -> SyntaxElement {
+impl From<GraphqlNameBinding> for SyntaxElement {
+    fn from(n: GraphqlNameBinding) -> SyntaxElement {
+        n.syntax.into()
+    }
+}
+impl AstNode for GraphqlNameReference {
+    type Language = Language;
+    const KIND_SET: SyntaxKindSet<Language> =
+        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_NAME_REFERENCE as u16));
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == GRAPHQL_NAME_REFERENCE
+    }
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+    fn into_syntax(self) -> SyntaxNode {
+        self.syntax
+    }
+}
+impl std::fmt::Debug for GraphqlNameReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlNameReference")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlNameReference").finish()
+        };
+        DEPTH.set(current_depth);
+        result
+    }
+}
+impl From<GraphqlNameReference> for SyntaxNode {
+    fn from(n: GraphqlNameReference) -> SyntaxNode {
+        n.syntax
+    }
+}
+impl From<GraphqlNameReference> for SyntaxElement {
+    fn from(n: GraphqlNameReference) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -5482,10 +5091,19 @@ impl AstNode for GraphqlNonNullType {
 }
 impl std::fmt::Debug for GraphqlNonNullType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlNonNullType")
-            .field("base", &support::DebugSyntaxResult(self.base()))
-            .field("excl_token", &support::DebugSyntaxResult(self.excl_token()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlNonNullType")
+                .field("base", &support::DebugSyntaxResult(self.base()))
+                .field("excl_token", &support::DebugSyntaxResult(self.excl_token()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlNonNullType").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlNonNullType> for SyntaxNode {
@@ -5521,9 +5139,18 @@ impl AstNode for GraphqlNullValue {
 }
 impl std::fmt::Debug for GraphqlNullValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlNullValue")
-            .field("null_token", &support::DebugSyntaxResult(self.null_token()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlNullValue")
+                .field("null_token", &support::DebugSyntaxResult(self.null_token()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlNullValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlNullValue> for SyntaxNode {
@@ -5559,14 +5186,23 @@ impl AstNode for GraphqlObjectField {
 }
 impl std::fmt::Debug for GraphqlObjectField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlObjectField")
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "colon_token",
-                &support::DebugSyntaxResult(self.colon_token()),
-            )
-            .field("value", &support::DebugSyntaxResult(self.value()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlObjectField")
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "colon_token",
+                    &support::DebugSyntaxResult(self.colon_token()),
+                )
+                .field("value", &support::DebugSyntaxResult(self.value()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlObjectField").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlObjectField> for SyntaxNode {
@@ -5602,20 +5238,29 @@ impl AstNode for GraphqlObjectTypeDefinition {
 }
 impl std::fmt::Debug for GraphqlObjectTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlObjectTypeDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field("type_token", &support::DebugSyntaxResult(self.type_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "implements",
-                &support::DebugOptionalElement(self.implements()),
-            )
-            .field("directives", &self.directives())
-            .field("fields", &support::DebugOptionalElement(self.fields()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlObjectTypeDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field("type_token", &support::DebugSyntaxResult(self.type_token()))
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "implements",
+                    &support::DebugOptionalElement(self.implements()),
+                )
+                .field("directives", &self.directives())
+                .field("fields", &support::DebugOptionalElement(self.fields()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlObjectTypeDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlObjectTypeDefinition> for SyntaxNode {
@@ -5651,15 +5296,29 @@ impl AstNode for GraphqlObjectTypeExtension {
 }
 impl std::fmt::Debug for GraphqlObjectTypeExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlObjectTypeExtension")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field("type_token", &support::DebugSyntaxResult(self.type_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("implements", &support::DebugSyntaxResult(self.implements()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlObjectTypeExtension")
+                .field(
+                    "extend_token",
+                    &support::DebugSyntaxResult(self.extend_token()),
+                )
+                .field("type_token", &support::DebugSyntaxResult(self.type_token()))
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field(
+                    "implements",
+                    &support::DebugOptionalElement(self.implements()),
+                )
+                .field("directives", &self.directives())
+                .field("fields", &support::DebugOptionalElement(self.fields()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlObjectTypeExtension").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlObjectTypeExtension> for SyntaxNode {
@@ -5669,105 +5328,6 @@ impl From<GraphqlObjectTypeExtension> for SyntaxNode {
 }
 impl From<GraphqlObjectTypeExtension> for SyntaxElement {
     fn from(n: GraphqlObjectTypeExtension) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for GraphqlObjectTypeExtensionWithDirectives {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = SyntaxKindSet::from_raw(RawSyntaxKind(
-        GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_DIRECTIVES as u16,
-    ));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_DIRECTIVES
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlObjectTypeExtensionWithDirectives {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlObjectTypeExtensionWithDirectives")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field("type_token", &support::DebugSyntaxResult(self.type_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "implements",
-                &support::DebugOptionalElement(self.implements()),
-            )
-            .field("directives", &self.directives())
-            .finish()
-    }
-}
-impl From<GraphqlObjectTypeExtensionWithDirectives> for SyntaxNode {
-    fn from(n: GraphqlObjectTypeExtensionWithDirectives) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlObjectTypeExtensionWithDirectives> for SyntaxElement {
-    fn from(n: GraphqlObjectTypeExtensionWithDirectives) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for GraphqlObjectTypeExtensionWithFields {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = SyntaxKindSet::from_raw(RawSyntaxKind(
-        GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_FIELDS as u16,
-    ));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_FIELDS
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlObjectTypeExtensionWithFields {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlObjectTypeExtensionWithFields")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field("type_token", &support::DebugSyntaxResult(self.type_token()))
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field(
-                "implements",
-                &support::DebugOptionalElement(self.implements()),
-            )
-            .field("directives", &self.directives())
-            .field("fields", &support::DebugSyntaxResult(self.fields()))
-            .finish()
-    }
-}
-impl From<GraphqlObjectTypeExtensionWithFields> for SyntaxNode {
-    fn from(n: GraphqlObjectTypeExtensionWithFields) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlObjectTypeExtensionWithFields> for SyntaxElement {
-    fn from(n: GraphqlObjectTypeExtensionWithFields) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -5794,17 +5354,26 @@ impl AstNode for GraphqlObjectValue {
 }
 impl std::fmt::Debug for GraphqlObjectValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlObjectValue")
-            .field(
-                "l_curly_token",
-                &support::DebugSyntaxResult(self.l_curly_token()),
-            )
-            .field("members", &self.members())
-            .field(
-                "r_curly_token",
-                &support::DebugSyntaxResult(self.r_curly_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlObjectValue")
+                .field(
+                    "l_curly_token",
+                    &support::DebugSyntaxResult(self.l_curly_token()),
+                )
+                .field("members", &self.members())
+                .field(
+                    "r_curly_token",
+                    &support::DebugSyntaxResult(self.r_curly_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlObjectValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlObjectValue> for SyntaxNode {
@@ -5840,19 +5409,28 @@ impl AstNode for GraphqlOperationDefinition {
 }
 impl std::fmt::Debug for GraphqlOperationDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlOperationDefinition")
-            .field("ty", &support::DebugSyntaxResult(self.ty()))
-            .field("name", &support::DebugOptionalElement(self.name()))
-            .field(
-                "variables",
-                &support::DebugOptionalElement(self.variables()),
-            )
-            .field("directives", &self.directives())
-            .field(
-                "selection_set",
-                &support::DebugSyntaxResult(self.selection_set()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlOperationDefinition")
+                .field("ty", &support::DebugSyntaxResult(self.ty()))
+                .field("name", &support::DebugOptionalElement(self.name()))
+                .field(
+                    "variables",
+                    &support::DebugOptionalElement(self.variables()),
+                )
+                .field("directives", &self.directives())
+                .field(
+                    "selection_set",
+                    &support::DebugSyntaxResult(self.selection_set()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlOperationDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlOperationDefinition> for SyntaxNode {
@@ -5888,12 +5466,21 @@ impl AstNode for GraphqlOperationType {
 }
 impl std::fmt::Debug for GraphqlOperationType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlOperationType")
-            .field(
-                "value_token",
-                &support::DebugSyntaxResult(self.value_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlOperationType")
+                .field(
+                    "value_token",
+                    &support::DebugSyntaxResult(self.value_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlOperationType").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlOperationType> for SyntaxNode {
@@ -5929,14 +5516,23 @@ impl AstNode for GraphqlRoot {
 }
 impl std::fmt::Debug for GraphqlRoot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlRoot")
-            .field(
-                "bom_token",
-                &support::DebugOptionalElement(self.bom_token()),
-            )
-            .field("definitions", &self.definitions())
-            .field("eof_token", &support::DebugSyntaxResult(self.eof_token()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlRoot")
+                .field(
+                    "bom_token",
+                    &support::DebugOptionalElement(self.bom_token()),
+                )
+                .field("definitions", &self.definitions())
+                .field("eof_token", &support::DebugSyntaxResult(self.eof_token()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlRoot").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlRoot> for SyntaxNode {
@@ -5972,17 +5568,27 @@ impl AstNode for GraphqlRootOperationTypeDefinition {
 }
 impl std::fmt::Debug for GraphqlRootOperationTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlRootOperationTypeDefinition")
-            .field(
-                "operation_type",
-                &support::DebugSyntaxResult(self.operation_type()),
-            )
-            .field(
-                "colon_token",
-                &support::DebugSyntaxResult(self.colon_token()),
-            )
-            .field("named_type", &support::DebugSyntaxResult(self.named_type()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlRootOperationTypeDefinition")
+                .field(
+                    "operation_type",
+                    &support::DebugSyntaxResult(self.operation_type()),
+                )
+                .field(
+                    "colon_token",
+                    &support::DebugSyntaxResult(self.colon_token()),
+                )
+                .field("named_type", &support::DebugSyntaxResult(self.named_type()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlRootOperationTypeDefinition")
+                .finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlRootOperationTypeDefinition> for SyntaxNode {
@@ -5992,6 +5598,61 @@ impl From<GraphqlRootOperationTypeDefinition> for SyntaxNode {
 }
 impl From<GraphqlRootOperationTypeDefinition> for SyntaxElement {
     fn from(n: GraphqlRootOperationTypeDefinition) -> SyntaxElement {
+        n.syntax.into()
+    }
+}
+impl AstNode for GraphqlRootOperationTypes {
+    type Language = Language;
+    const KIND_SET: SyntaxKindSet<Language> =
+        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_ROOT_OPERATION_TYPES as u16));
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == GRAPHQL_ROOT_OPERATION_TYPES
+    }
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+    fn into_syntax(self) -> SyntaxNode {
+        self.syntax
+    }
+}
+impl std::fmt::Debug for GraphqlRootOperationTypes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlRootOperationTypes")
+                .field(
+                    "l_curly_token",
+                    &support::DebugSyntaxResult(self.l_curly_token()),
+                )
+                .field("root_operation_type", &self.root_operation_type())
+                .field(
+                    "r_curly_token",
+                    &support::DebugSyntaxResult(self.r_curly_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlRootOperationTypes").finish()
+        };
+        DEPTH.set(current_depth);
+        result
+    }
+}
+impl From<GraphqlRootOperationTypes> for SyntaxNode {
+    fn from(n: GraphqlRootOperationTypes) -> SyntaxNode {
+        n.syntax
+    }
+}
+impl From<GraphqlRootOperationTypes> for SyntaxElement {
+    fn from(n: GraphqlRootOperationTypes) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -6018,18 +5679,27 @@ impl AstNode for GraphqlScalarTypeDefinition {
 }
 impl std::fmt::Debug for GraphqlScalarTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlScalarTypeDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field(
-                "scalar_token",
-                &support::DebugSyntaxResult(self.scalar_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlScalarTypeDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field(
+                    "scalar_token",
+                    &support::DebugSyntaxResult(self.scalar_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlScalarTypeDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlScalarTypeDefinition> for SyntaxNode {
@@ -6065,18 +5735,27 @@ impl AstNode for GraphqlScalarTypeExtension {
 }
 impl std::fmt::Debug for GraphqlScalarTypeExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlScalarTypeExtension")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "scalar_token",
-                &support::DebugSyntaxResult(self.scalar_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlScalarTypeExtension")
+                .field(
+                    "extend_token",
+                    &support::DebugSyntaxResult(self.extend_token()),
+                )
+                .field(
+                    "scalar_token",
+                    &support::DebugSyntaxResult(self.scalar_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlScalarTypeExtension").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlScalarTypeExtension> for SyntaxNode {
@@ -6112,26 +5791,30 @@ impl AstNode for GraphqlSchemaDefinition {
 }
 impl std::fmt::Debug for GraphqlSchemaDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlSchemaDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field(
-                "schema_token",
-                &support::DebugSyntaxResult(self.schema_token()),
-            )
-            .field("directives", &self.directives())
-            .field(
-                "l_curly_token",
-                &support::DebugSyntaxResult(self.l_curly_token()),
-            )
-            .field("root_operation_type", &self.root_operation_type())
-            .field(
-                "r_curly_token",
-                &support::DebugSyntaxResult(self.r_curly_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlSchemaDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field(
+                    "schema_token",
+                    &support::DebugSyntaxResult(self.schema_token()),
+                )
+                .field("directives", &self.directives())
+                .field(
+                    "root_operation_types",
+                    &support::DebugSyntaxResult(self.root_operation_types()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlSchemaDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlSchemaDefinition> for SyntaxNode {
@@ -6167,17 +5850,30 @@ impl AstNode for GraphqlSchemaExtension {
 }
 impl std::fmt::Debug for GraphqlSchemaExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlSchemaExtension")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "schema_token",
-                &support::DebugSyntaxResult(self.schema_token()),
-            )
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlSchemaExtension")
+                .field(
+                    "extend_token",
+                    &support::DebugSyntaxResult(self.extend_token()),
+                )
+                .field(
+                    "schema_token",
+                    &support::DebugSyntaxResult(self.schema_token()),
+                )
+                .field("directives", &self.directives())
+                .field(
+                    "root_operation_types",
+                    &support::DebugOptionalElement(self.root_operation_types()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlSchemaExtension").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlSchemaExtension> for SyntaxNode {
@@ -6187,62 +5883,6 @@ impl From<GraphqlSchemaExtension> for SyntaxNode {
 }
 impl From<GraphqlSchemaExtension> for SyntaxElement {
     fn from(n: GraphqlSchemaExtension) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for GraphqlSchemaExtensionWithRootOperationType {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = SyntaxKindSet::from_raw(RawSyntaxKind(
-        GRAPHQL_SCHEMA_EXTENSION_WITH_ROOT_OPERATION_TYPE as u16,
-    ));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_SCHEMA_EXTENSION_WITH_ROOT_OPERATION_TYPE
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlSchemaExtensionWithRootOperationType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlSchemaExtensionWithRootOperationType")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "schema_token",
-                &support::DebugSyntaxResult(self.schema_token()),
-            )
-            .field("directives", &self.directives())
-            .field(
-                "l_curly_token",
-                &support::DebugSyntaxResult(self.l_curly_token()),
-            )
-            .field("root_operation_type", &self.root_operation_type())
-            .field(
-                "r_curly_token",
-                &support::DebugSyntaxResult(self.r_curly_token()),
-            )
-            .finish()
-    }
-}
-impl From<GraphqlSchemaExtensionWithRootOperationType> for SyntaxNode {
-    fn from(n: GraphqlSchemaExtensionWithRootOperationType) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlSchemaExtensionWithRootOperationType> for SyntaxElement {
-    fn from(n: GraphqlSchemaExtensionWithRootOperationType) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -6269,17 +5909,26 @@ impl AstNode for GraphqlSelectionSet {
 }
 impl std::fmt::Debug for GraphqlSelectionSet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlSelectionSet")
-            .field(
-                "l_curly_token",
-                &support::DebugSyntaxResult(self.l_curly_token()),
-            )
-            .field("selections", &self.selections())
-            .field(
-                "r_curly_token",
-                &support::DebugSyntaxResult(self.r_curly_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlSelectionSet")
+                .field(
+                    "l_curly_token",
+                    &support::DebugSyntaxResult(self.l_curly_token()),
+                )
+                .field("selections", &self.selections())
+                .field(
+                    "r_curly_token",
+                    &support::DebugSyntaxResult(self.r_curly_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlSelectionSet").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlSelectionSet> for SyntaxNode {
@@ -6315,12 +5964,21 @@ impl AstNode for GraphqlStringValue {
 }
 impl std::fmt::Debug for GraphqlStringValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlStringValue")
-            .field(
-                "graphql_string_literal_token",
-                &support::DebugSyntaxResult(self.graphql_string_literal_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlStringValue")
+                .field(
+                    "graphql_string_literal_token",
+                    &support::DebugSyntaxResult(self.graphql_string_literal_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlStringValue").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlStringValue> for SyntaxNode {
@@ -6356,10 +6014,19 @@ impl AstNode for GraphqlTypeCondition {
 }
 impl std::fmt::Debug for GraphqlTypeCondition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlTypeCondition")
-            .field("on_token", &support::DebugSyntaxResult(self.on_token()))
-            .field("ty", &support::DebugSyntaxResult(self.ty()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlTypeCondition")
+                .field("on_token", &support::DebugSyntaxResult(self.on_token()))
+                .field("ty", &support::DebugSyntaxResult(self.ty()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlTypeCondition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlTypeCondition> for SyntaxNode {
@@ -6395,14 +6062,23 @@ impl AstNode for GraphqlUnionMemberTypes {
 }
 impl std::fmt::Debug for GraphqlUnionMemberTypes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlUnionMemberTypes")
-            .field("eq_token", &support::DebugSyntaxResult(self.eq_token()))
-            .field(
-                "bitwise_or_token",
-                &support::DebugOptionalElement(self.bitwise_or_token()),
-            )
-            .field("members", &self.members())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlUnionMemberTypes")
+                .field("eq_token", &support::DebugSyntaxResult(self.eq_token()))
+                .field(
+                    "bitwise_or_token",
+                    &support::DebugOptionalElement(self.bitwise_or_token()),
+                )
+                .field("members", &self.members())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlUnionMemberTypes").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlUnionMemberTypes> for SyntaxNode {
@@ -6438,22 +6114,31 @@ impl AstNode for GraphqlUnionTypeDefinition {
 }
 impl std::fmt::Debug for GraphqlUnionTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlUnionTypeDefinition")
-            .field(
-                "description",
-                &support::DebugOptionalElement(self.description()),
-            )
-            .field(
-                "union_token",
-                &support::DebugSyntaxResult(self.union_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .field(
-                "union_members",
-                &support::DebugOptionalElement(self.union_members()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlUnionTypeDefinition")
+                .field(
+                    "description",
+                    &support::DebugOptionalElement(self.description()),
+                )
+                .field(
+                    "union_token",
+                    &support::DebugSyntaxResult(self.union_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .field(
+                    "union_members",
+                    &support::DebugOptionalElement(self.union_members()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlUnionTypeDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlUnionTypeDefinition> for SyntaxNode {
@@ -6489,18 +6174,31 @@ impl AstNode for GraphqlUnionTypeExtension {
 }
 impl std::fmt::Debug for GraphqlUnionTypeExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlUnionTypeExtension")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "union_token",
-                &support::DebugSyntaxResult(self.union_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlUnionTypeExtension")
+                .field(
+                    "extend_token",
+                    &support::DebugSyntaxResult(self.extend_token()),
+                )
+                .field(
+                    "union_token",
+                    &support::DebugSyntaxResult(self.union_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .field("directives", &self.directives())
+                .field(
+                    "union_members",
+                    &support::DebugOptionalElement(self.union_members()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlUnionTypeExtension").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlUnionTypeExtension> for SyntaxNode {
@@ -6513,64 +6211,12 @@ impl From<GraphqlUnionTypeExtension> for SyntaxElement {
         n.syntax.into()
     }
 }
-impl AstNode for GraphqlUnionTypeExtensionWithMembers {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = SyntaxKindSet::from_raw(RawSyntaxKind(
-        GRAPHQL_UNION_TYPE_EXTENSION_WITH_MEMBERS as u16,
-    ));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_UNION_TYPE_EXTENSION_WITH_MEMBERS
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlUnionTypeExtensionWithMembers {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlUnionTypeExtensionWithMembers")
-            .field(
-                "extend_token",
-                &support::DebugSyntaxResult(self.extend_token()),
-            )
-            .field(
-                "union_token",
-                &support::DebugSyntaxResult(self.union_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .field("directives", &self.directives())
-            .field(
-                "union_members",
-                &support::DebugSyntaxResult(self.union_members()),
-            )
-            .finish()
-    }
-}
-impl From<GraphqlUnionTypeExtensionWithMembers> for SyntaxNode {
-    fn from(n: GraphqlUnionTypeExtensionWithMembers) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlUnionTypeExtensionWithMembers> for SyntaxElement {
-    fn from(n: GraphqlUnionTypeExtensionWithMembers) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-impl AstNode for GraphqlVariable {
+impl AstNode for GraphqlVariableBinding {
     type Language = Language;
     const KIND_SET: SyntaxKindSet<Language> =
-        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_VARIABLE as u16));
+        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_VARIABLE_BINDING as u16));
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_VARIABLE
+        kind == GRAPHQL_VARIABLE_BINDING
     }
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         if Self::can_cast(syntax.kind()) {
@@ -6586,24 +6232,33 @@ impl AstNode for GraphqlVariable {
         self.syntax
     }
 }
-impl std::fmt::Debug for GraphqlVariable {
+impl std::fmt::Debug for GraphqlVariableBinding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlVariable")
-            .field(
-                "dollar_token",
-                &support::DebugSyntaxResult(self.dollar_token()),
-            )
-            .field("name", &support::DebugSyntaxResult(self.name()))
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlVariableBinding")
+                .field(
+                    "dollar_token",
+                    &support::DebugSyntaxResult(self.dollar_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlVariableBinding").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
-impl From<GraphqlVariable> for SyntaxNode {
-    fn from(n: GraphqlVariable) -> SyntaxNode {
+impl From<GraphqlVariableBinding> for SyntaxNode {
+    fn from(n: GraphqlVariableBinding) -> SyntaxNode {
         n.syntax
     }
 }
-impl From<GraphqlVariable> for SyntaxElement {
-    fn from(n: GraphqlVariable) -> SyntaxElement {
+impl From<GraphqlVariableBinding> for SyntaxElement {
+    fn from(n: GraphqlVariableBinding) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -6630,16 +6285,25 @@ impl AstNode for GraphqlVariableDefinition {
 }
 impl std::fmt::Debug for GraphqlVariableDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlVariableDefinition")
-            .field("variable", &support::DebugSyntaxResult(self.variable()))
-            .field(
-                "colon_token",
-                &support::DebugSyntaxResult(self.colon_token()),
-            )
-            .field("ty", &support::DebugSyntaxResult(self.ty()))
-            .field("default", &support::DebugOptionalElement(self.default()))
-            .field("directives", &self.directives())
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlVariableDefinition")
+                .field("variable", &support::DebugSyntaxResult(self.variable()))
+                .field(
+                    "colon_token",
+                    &support::DebugSyntaxResult(self.colon_token()),
+                )
+                .field("ty", &support::DebugSyntaxResult(self.ty()))
+                .field("default", &support::DebugOptionalElement(self.default()))
+                .field("directives", &self.directives())
+                .finish()
+        } else {
+            f.debug_struct("GraphqlVariableDefinition").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlVariableDefinition> for SyntaxNode {
@@ -6675,17 +6339,26 @@ impl AstNode for GraphqlVariableDefinitions {
 }
 impl std::fmt::Debug for GraphqlVariableDefinitions {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlVariableDefinitions")
-            .field(
-                "l_paren_token",
-                &support::DebugSyntaxResult(self.l_paren_token()),
-            )
-            .field("elements", &self.elements())
-            .field(
-                "r_paren_token",
-                &support::DebugSyntaxResult(self.r_paren_token()),
-            )
-            .finish()
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlVariableDefinitions")
+                .field(
+                    "l_paren_token",
+                    &support::DebugSyntaxResult(self.l_paren_token()),
+                )
+                .field("elements", &self.elements())
+                .field(
+                    "r_paren_token",
+                    &support::DebugSyntaxResult(self.r_paren_token()),
+                )
+                .finish()
+        } else {
+            f.debug_struct("GraphqlVariableDefinitions").finish()
+        };
+        DEPTH.set(current_depth);
+        result
     }
 }
 impl From<GraphqlVariableDefinitions> for SyntaxNode {
@@ -6695,6 +6368,57 @@ impl From<GraphqlVariableDefinitions> for SyntaxNode {
 }
 impl From<GraphqlVariableDefinitions> for SyntaxElement {
     fn from(n: GraphqlVariableDefinitions) -> SyntaxElement {
+        n.syntax.into()
+    }
+}
+impl AstNode for GraphqlVariableReference {
+    type Language = Language;
+    const KIND_SET: SyntaxKindSet<Language> =
+        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_VARIABLE_REFERENCE as u16));
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == GRAPHQL_VARIABLE_REFERENCE
+    }
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+    fn into_syntax(self) -> SyntaxNode {
+        self.syntax
+    }
+}
+impl std::fmt::Debug for GraphqlVariableReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        thread_local! { static DEPTH : std :: cell :: Cell < u8 > = const { std :: cell :: Cell :: new (0) } };
+        let current_depth = DEPTH.get();
+        let result = if current_depth < 16 {
+            DEPTH.set(current_depth + 1);
+            f.debug_struct("GraphqlVariableReference")
+                .field(
+                    "dollar_token",
+                    &support::DebugSyntaxResult(self.dollar_token()),
+                )
+                .field("name", &support::DebugSyntaxResult(self.name()))
+                .finish()
+        } else {
+            f.debug_struct("GraphqlVariableReference").finish()
+        };
+        DEPTH.set(current_depth);
+        result
+    }
+}
+impl From<GraphqlVariableReference> for SyntaxNode {
+    fn from(n: GraphqlVariableReference) -> SyntaxNode {
+        n.syntax
+    }
+}
+impl From<GraphqlVariableReference> for SyntaxElement {
+    fn from(n: GraphqlVariableReference) -> SyntaxElement {
         n.syntax.into()
     }
 }
@@ -6708,39 +6432,14 @@ impl From<GraphqlDirectiveDefinition> for AnyGraphqlDefinition {
         AnyGraphqlDefinition::GraphqlDirectiveDefinition(node)
     }
 }
-impl From<GraphqlEnumTypeDefinition> for AnyGraphqlDefinition {
-    fn from(node: GraphqlEnumTypeDefinition) -> AnyGraphqlDefinition {
-        AnyGraphqlDefinition::GraphqlEnumTypeDefinition(node)
-    }
-}
 impl From<GraphqlFragmentDefinition> for AnyGraphqlDefinition {
     fn from(node: GraphqlFragmentDefinition) -> AnyGraphqlDefinition {
         AnyGraphqlDefinition::GraphqlFragmentDefinition(node)
     }
 }
-impl From<GraphqlInputObjectTypeDefinition> for AnyGraphqlDefinition {
-    fn from(node: GraphqlInputObjectTypeDefinition) -> AnyGraphqlDefinition {
-        AnyGraphqlDefinition::GraphqlInputObjectTypeDefinition(node)
-    }
-}
-impl From<GraphqlInterfaceTypeDefinition> for AnyGraphqlDefinition {
-    fn from(node: GraphqlInterfaceTypeDefinition) -> AnyGraphqlDefinition {
-        AnyGraphqlDefinition::GraphqlInterfaceTypeDefinition(node)
-    }
-}
-impl From<GraphqlObjectTypeDefinition> for AnyGraphqlDefinition {
-    fn from(node: GraphqlObjectTypeDefinition) -> AnyGraphqlDefinition {
-        AnyGraphqlDefinition::GraphqlObjectTypeDefinition(node)
-    }
-}
-impl From<GraphqlScalarTypeDefinition> for AnyGraphqlDefinition {
-    fn from(node: GraphqlScalarTypeDefinition) -> AnyGraphqlDefinition {
-        AnyGraphqlDefinition::GraphqlScalarTypeDefinition(node)
-    }
-}
-impl From<GraphqlScalarTypeExtension> for AnyGraphqlDefinition {
-    fn from(node: GraphqlScalarTypeExtension) -> AnyGraphqlDefinition {
-        AnyGraphqlDefinition::GraphqlScalarTypeExtension(node)
+impl From<GraphqlOperationDefinition> for AnyGraphqlDefinition {
+    fn from(node: GraphqlOperationDefinition) -> AnyGraphqlDefinition {
+        AnyGraphqlDefinition::GraphqlOperationDefinition(node)
     }
 }
 impl From<GraphqlSchemaDefinition> for AnyGraphqlDefinition {
@@ -6748,51 +6447,38 @@ impl From<GraphqlSchemaDefinition> for AnyGraphqlDefinition {
         AnyGraphqlDefinition::GraphqlSchemaDefinition(node)
     }
 }
-impl From<GraphqlUnionTypeDefinition> for AnyGraphqlDefinition {
-    fn from(node: GraphqlUnionTypeDefinition) -> AnyGraphqlDefinition {
-        AnyGraphqlDefinition::GraphqlUnionTypeDefinition(node)
+impl From<GraphqlSchemaExtension> for AnyGraphqlDefinition {
+    fn from(node: GraphqlSchemaExtension) -> AnyGraphqlDefinition {
+        AnyGraphqlDefinition::GraphqlSchemaExtension(node)
+    }
+}
+impl From<GraphqlSelectionSet> for AnyGraphqlDefinition {
+    fn from(node: GraphqlSelectionSet) -> AnyGraphqlDefinition {
+        AnyGraphqlDefinition::GraphqlSelectionSet(node)
     }
 }
 impl AstNode for AnyGraphqlDefinition {
     type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = AnyGraphqlEnumTypeExtension::KIND_SET
-        .union(AnyGraphqlInputObjectTypeExtension::KIND_SET)
-        .union(AnyGraphqlInterfaceTypeExtension::KIND_SET)
-        .union(AnyGraphqlObjectTypeExtension::KIND_SET)
-        .union(AnyGraphqlOperationDefinition::KIND_SET)
-        .union(AnyGraphqlSchemaExtension::KIND_SET)
-        .union(AnyGraphqlUnionTypeExtension::KIND_SET)
+    const KIND_SET: SyntaxKindSet<Language> = AnyGraphqlTypeDefinition::KIND_SET
+        .union(AnyGraphqlTypeExtension::KIND_SET)
         .union(GraphqlBogusDefinition::KIND_SET)
         .union(GraphqlDirectiveDefinition::KIND_SET)
-        .union(GraphqlEnumTypeDefinition::KIND_SET)
         .union(GraphqlFragmentDefinition::KIND_SET)
-        .union(GraphqlInputObjectTypeDefinition::KIND_SET)
-        .union(GraphqlInterfaceTypeDefinition::KIND_SET)
-        .union(GraphqlObjectTypeDefinition::KIND_SET)
-        .union(GraphqlScalarTypeDefinition::KIND_SET)
-        .union(GraphqlScalarTypeExtension::KIND_SET)
+        .union(GraphqlOperationDefinition::KIND_SET)
         .union(GraphqlSchemaDefinition::KIND_SET)
-        .union(GraphqlUnionTypeDefinition::KIND_SET);
+        .union(GraphqlSchemaExtension::KIND_SET)
+        .union(GraphqlSelectionSet::KIND_SET);
     fn can_cast(kind: SyntaxKind) -> bool {
         match kind {
             GRAPHQL_BOGUS_DEFINITION
             | GRAPHQL_DIRECTIVE_DEFINITION
-            | GRAPHQL_ENUM_TYPE_DEFINITION
             | GRAPHQL_FRAGMENT_DEFINITION
-            | GRAPHQL_INPUT_OBJECT_TYPE_DEFINITION
-            | GRAPHQL_INTERFACE_TYPE_DEFINITION
-            | GRAPHQL_OBJECT_TYPE_DEFINITION
-            | GRAPHQL_SCALAR_TYPE_DEFINITION
-            | GRAPHQL_SCALAR_TYPE_EXTENSION
+            | GRAPHQL_OPERATION_DEFINITION
             | GRAPHQL_SCHEMA_DEFINITION
-            | GRAPHQL_UNION_TYPE_DEFINITION => true,
-            k if AnyGraphqlEnumTypeExtension::can_cast(k) => true,
-            k if AnyGraphqlInputObjectTypeExtension::can_cast(k) => true,
-            k if AnyGraphqlInterfaceTypeExtension::can_cast(k) => true,
-            k if AnyGraphqlObjectTypeExtension::can_cast(k) => true,
-            k if AnyGraphqlOperationDefinition::can_cast(k) => true,
-            k if AnyGraphqlSchemaExtension::can_cast(k) => true,
-            k if AnyGraphqlUnionTypeExtension::can_cast(k) => true,
+            | GRAPHQL_SCHEMA_EXTENSION
+            | GRAPHQL_SELECTION_SET => true,
+            k if AnyGraphqlTypeDefinition::can_cast(k) => true,
+            k if AnyGraphqlTypeExtension::can_cast(k) => true,
             _ => false,
         }
     }
@@ -6806,97 +6492,37 @@ impl AstNode for AnyGraphqlDefinition {
                     syntax,
                 })
             }
-            GRAPHQL_ENUM_TYPE_DEFINITION => {
-                AnyGraphqlDefinition::GraphqlEnumTypeDefinition(GraphqlEnumTypeDefinition {
-                    syntax,
-                })
-            }
             GRAPHQL_FRAGMENT_DEFINITION => {
                 AnyGraphqlDefinition::GraphqlFragmentDefinition(GraphqlFragmentDefinition {
                     syntax,
                 })
             }
-            GRAPHQL_INPUT_OBJECT_TYPE_DEFINITION => {
-                AnyGraphqlDefinition::GraphqlInputObjectTypeDefinition(
-                    GraphqlInputObjectTypeDefinition { syntax },
-                )
-            }
-            GRAPHQL_INTERFACE_TYPE_DEFINITION => {
-                AnyGraphqlDefinition::GraphqlInterfaceTypeDefinition(
-                    GraphqlInterfaceTypeDefinition { syntax },
-                )
-            }
-            GRAPHQL_OBJECT_TYPE_DEFINITION => {
-                AnyGraphqlDefinition::GraphqlObjectTypeDefinition(GraphqlObjectTypeDefinition {
-                    syntax,
-                })
-            }
-            GRAPHQL_SCALAR_TYPE_DEFINITION => {
-                AnyGraphqlDefinition::GraphqlScalarTypeDefinition(GraphqlScalarTypeDefinition {
-                    syntax,
-                })
-            }
-            GRAPHQL_SCALAR_TYPE_EXTENSION => {
-                AnyGraphqlDefinition::GraphqlScalarTypeExtension(GraphqlScalarTypeExtension {
+            GRAPHQL_OPERATION_DEFINITION => {
+                AnyGraphqlDefinition::GraphqlOperationDefinition(GraphqlOperationDefinition {
                     syntax,
                 })
             }
             GRAPHQL_SCHEMA_DEFINITION => {
                 AnyGraphqlDefinition::GraphqlSchemaDefinition(GraphqlSchemaDefinition { syntax })
             }
-            GRAPHQL_UNION_TYPE_DEFINITION => {
-                AnyGraphqlDefinition::GraphqlUnionTypeDefinition(GraphqlUnionTypeDefinition {
-                    syntax,
-                })
+            GRAPHQL_SCHEMA_EXTENSION => {
+                AnyGraphqlDefinition::GraphqlSchemaExtension(GraphqlSchemaExtension { syntax })
+            }
+            GRAPHQL_SELECTION_SET => {
+                AnyGraphqlDefinition::GraphqlSelectionSet(GraphqlSelectionSet { syntax })
             }
             _ => {
-                if let Some(any_graphql_enum_type_extension) =
-                    AnyGraphqlEnumTypeExtension::cast(syntax.clone())
-                {
-                    return Some(AnyGraphqlDefinition::AnyGraphqlEnumTypeExtension(
-                        any_graphql_enum_type_extension,
-                    ));
-                }
-                if let Some(any_graphql_input_object_type_extension) =
-                    AnyGraphqlInputObjectTypeExtension::cast(syntax.clone())
-                {
-                    return Some(AnyGraphqlDefinition::AnyGraphqlInputObjectTypeExtension(
-                        any_graphql_input_object_type_extension,
-                    ));
-                }
-                if let Some(any_graphql_interface_type_extension) =
-                    AnyGraphqlInterfaceTypeExtension::cast(syntax.clone())
-                {
-                    return Some(AnyGraphqlDefinition::AnyGraphqlInterfaceTypeExtension(
-                        any_graphql_interface_type_extension,
-                    ));
-                }
-                if let Some(any_graphql_object_type_extension) =
-                    AnyGraphqlObjectTypeExtension::cast(syntax.clone())
-                {
-                    return Some(AnyGraphqlDefinition::AnyGraphqlObjectTypeExtension(
-                        any_graphql_object_type_extension,
-                    ));
-                }
-                if let Some(any_graphql_operation_definition) =
-                    AnyGraphqlOperationDefinition::cast(syntax.clone())
-                {
-                    return Some(AnyGraphqlDefinition::AnyGraphqlOperationDefinition(
-                        any_graphql_operation_definition,
-                    ));
-                }
-                if let Some(any_graphql_schema_extension) =
-                    AnyGraphqlSchemaExtension::cast(syntax.clone())
-                {
-                    return Some(AnyGraphqlDefinition::AnyGraphqlSchemaExtension(
-                        any_graphql_schema_extension,
-                    ));
-                }
-                if let Some(any_graphql_union_type_extension) =
-                    AnyGraphqlUnionTypeExtension::cast(syntax)
-                {
-                    return Some(AnyGraphqlDefinition::AnyGraphqlUnionTypeExtension(
-                        any_graphql_union_type_extension,
+                let syntax = match AnyGraphqlTypeDefinition::try_cast(syntax) {
+                    Ok(any_graphql_type_definition) => {
+                        return Some(AnyGraphqlDefinition::AnyGraphqlTypeDefinition(
+                            any_graphql_type_definition,
+                        ));
+                    }
+                    Err(syntax) => syntax,
+                };
+                if let Some(any_graphql_type_extension) = AnyGraphqlTypeExtension::cast(syntax) {
+                    return Some(AnyGraphqlDefinition::AnyGraphqlTypeExtension(
+                        any_graphql_type_extension,
                     ));
                 }
                 return None;
@@ -6908,533 +6534,61 @@ impl AstNode for AnyGraphqlDefinition {
         match self {
             AnyGraphqlDefinition::GraphqlBogusDefinition(it) => &it.syntax,
             AnyGraphqlDefinition::GraphqlDirectiveDefinition(it) => &it.syntax,
-            AnyGraphqlDefinition::GraphqlEnumTypeDefinition(it) => &it.syntax,
             AnyGraphqlDefinition::GraphqlFragmentDefinition(it) => &it.syntax,
-            AnyGraphqlDefinition::GraphqlInputObjectTypeDefinition(it) => &it.syntax,
-            AnyGraphqlDefinition::GraphqlInterfaceTypeDefinition(it) => &it.syntax,
-            AnyGraphqlDefinition::GraphqlObjectTypeDefinition(it) => &it.syntax,
-            AnyGraphqlDefinition::GraphqlScalarTypeDefinition(it) => &it.syntax,
-            AnyGraphqlDefinition::GraphqlScalarTypeExtension(it) => &it.syntax,
+            AnyGraphqlDefinition::GraphqlOperationDefinition(it) => &it.syntax,
             AnyGraphqlDefinition::GraphqlSchemaDefinition(it) => &it.syntax,
-            AnyGraphqlDefinition::GraphqlUnionTypeDefinition(it) => &it.syntax,
-            AnyGraphqlDefinition::AnyGraphqlEnumTypeExtension(it) => it.syntax(),
-            AnyGraphqlDefinition::AnyGraphqlInputObjectTypeExtension(it) => it.syntax(),
-            AnyGraphqlDefinition::AnyGraphqlInterfaceTypeExtension(it) => it.syntax(),
-            AnyGraphqlDefinition::AnyGraphqlObjectTypeExtension(it) => it.syntax(),
-            AnyGraphqlDefinition::AnyGraphqlOperationDefinition(it) => it.syntax(),
-            AnyGraphqlDefinition::AnyGraphqlSchemaExtension(it) => it.syntax(),
-            AnyGraphqlDefinition::AnyGraphqlUnionTypeExtension(it) => it.syntax(),
+            AnyGraphqlDefinition::GraphqlSchemaExtension(it) => &it.syntax,
+            AnyGraphqlDefinition::GraphqlSelectionSet(it) => &it.syntax,
+            AnyGraphqlDefinition::AnyGraphqlTypeDefinition(it) => it.syntax(),
+            AnyGraphqlDefinition::AnyGraphqlTypeExtension(it) => it.syntax(),
         }
     }
     fn into_syntax(self) -> SyntaxNode {
         match self {
             AnyGraphqlDefinition::GraphqlBogusDefinition(it) => it.syntax,
             AnyGraphqlDefinition::GraphqlDirectiveDefinition(it) => it.syntax,
-            AnyGraphqlDefinition::GraphqlEnumTypeDefinition(it) => it.syntax,
             AnyGraphqlDefinition::GraphqlFragmentDefinition(it) => it.syntax,
-            AnyGraphqlDefinition::GraphqlInputObjectTypeDefinition(it) => it.syntax,
-            AnyGraphqlDefinition::GraphqlInterfaceTypeDefinition(it) => it.syntax,
-            AnyGraphqlDefinition::GraphqlObjectTypeDefinition(it) => it.syntax,
-            AnyGraphqlDefinition::GraphqlScalarTypeDefinition(it) => it.syntax,
-            AnyGraphqlDefinition::GraphqlScalarTypeExtension(it) => it.syntax,
+            AnyGraphqlDefinition::GraphqlOperationDefinition(it) => it.syntax,
             AnyGraphqlDefinition::GraphqlSchemaDefinition(it) => it.syntax,
-            AnyGraphqlDefinition::GraphqlUnionTypeDefinition(it) => it.syntax,
-            AnyGraphqlDefinition::AnyGraphqlEnumTypeExtension(it) => it.into_syntax(),
-            AnyGraphqlDefinition::AnyGraphqlInputObjectTypeExtension(it) => it.into_syntax(),
-            AnyGraphqlDefinition::AnyGraphqlInterfaceTypeExtension(it) => it.into_syntax(),
-            AnyGraphqlDefinition::AnyGraphqlObjectTypeExtension(it) => it.into_syntax(),
-            AnyGraphqlDefinition::AnyGraphqlOperationDefinition(it) => it.into_syntax(),
-            AnyGraphqlDefinition::AnyGraphqlSchemaExtension(it) => it.into_syntax(),
-            AnyGraphqlDefinition::AnyGraphqlUnionTypeExtension(it) => it.into_syntax(),
+            AnyGraphqlDefinition::GraphqlSchemaExtension(it) => it.syntax,
+            AnyGraphqlDefinition::GraphqlSelectionSet(it) => it.syntax,
+            AnyGraphqlDefinition::AnyGraphqlTypeDefinition(it) => it.into_syntax(),
+            AnyGraphqlDefinition::AnyGraphqlTypeExtension(it) => it.into_syntax(),
         }
     }
 }
 impl std::fmt::Debug for AnyGraphqlDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AnyGraphqlDefinition::AnyGraphqlEnumTypeExtension(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::AnyGraphqlInputObjectTypeExtension(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlDefinition::AnyGraphqlInterfaceTypeExtension(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlDefinition::AnyGraphqlObjectTypeExtension(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::AnyGraphqlOperationDefinition(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::AnyGraphqlSchemaExtension(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::AnyGraphqlUnionTypeExtension(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlDefinition::AnyGraphqlTypeDefinition(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlDefinition::AnyGraphqlTypeExtension(it) => std::fmt::Debug::fmt(it, f),
             AnyGraphqlDefinition::GraphqlBogusDefinition(it) => std::fmt::Debug::fmt(it, f),
             AnyGraphqlDefinition::GraphqlDirectiveDefinition(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::GraphqlEnumTypeDefinition(it) => std::fmt::Debug::fmt(it, f),
             AnyGraphqlDefinition::GraphqlFragmentDefinition(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::GraphqlInputObjectTypeDefinition(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlDefinition::GraphqlInterfaceTypeDefinition(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::GraphqlObjectTypeDefinition(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::GraphqlScalarTypeDefinition(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::GraphqlScalarTypeExtension(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlDefinition::GraphqlOperationDefinition(it) => std::fmt::Debug::fmt(it, f),
             AnyGraphqlDefinition::GraphqlSchemaDefinition(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlDefinition::GraphqlUnionTypeDefinition(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlDefinition::GraphqlSchemaExtension(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlDefinition::GraphqlSelectionSet(it) => std::fmt::Debug::fmt(it, f),
         }
     }
 }
 impl From<AnyGraphqlDefinition> for SyntaxNode {
     fn from(n: AnyGraphqlDefinition) -> SyntaxNode {
         match n {
-            AnyGraphqlDefinition::AnyGraphqlEnumTypeExtension(it) => it.into(),
-            AnyGraphqlDefinition::AnyGraphqlInputObjectTypeExtension(it) => it.into(),
-            AnyGraphqlDefinition::AnyGraphqlInterfaceTypeExtension(it) => it.into(),
-            AnyGraphqlDefinition::AnyGraphqlObjectTypeExtension(it) => it.into(),
-            AnyGraphqlDefinition::AnyGraphqlOperationDefinition(it) => it.into(),
-            AnyGraphqlDefinition::AnyGraphqlSchemaExtension(it) => it.into(),
-            AnyGraphqlDefinition::AnyGraphqlUnionTypeExtension(it) => it.into(),
+            AnyGraphqlDefinition::AnyGraphqlTypeDefinition(it) => it.into(),
+            AnyGraphqlDefinition::AnyGraphqlTypeExtension(it) => it.into(),
             AnyGraphqlDefinition::GraphqlBogusDefinition(it) => it.into(),
             AnyGraphqlDefinition::GraphqlDirectiveDefinition(it) => it.into(),
-            AnyGraphqlDefinition::GraphqlEnumTypeDefinition(it) => it.into(),
             AnyGraphqlDefinition::GraphqlFragmentDefinition(it) => it.into(),
-            AnyGraphqlDefinition::GraphqlInputObjectTypeDefinition(it) => it.into(),
-            AnyGraphqlDefinition::GraphqlInterfaceTypeDefinition(it) => it.into(),
-            AnyGraphqlDefinition::GraphqlObjectTypeDefinition(it) => it.into(),
-            AnyGraphqlDefinition::GraphqlScalarTypeDefinition(it) => it.into(),
-            AnyGraphqlDefinition::GraphqlScalarTypeExtension(it) => it.into(),
+            AnyGraphqlDefinition::GraphqlOperationDefinition(it) => it.into(),
             AnyGraphqlDefinition::GraphqlSchemaDefinition(it) => it.into(),
-            AnyGraphqlDefinition::GraphqlUnionTypeDefinition(it) => it.into(),
+            AnyGraphqlDefinition::GraphqlSchemaExtension(it) => it.into(),
+            AnyGraphqlDefinition::GraphqlSelectionSet(it) => it.into(),
         }
     }
 }
 impl From<AnyGraphqlDefinition> for SyntaxElement {
     fn from(n: AnyGraphqlDefinition) -> SyntaxElement {
-        let node: SyntaxNode = n.into();
-        node.into()
-    }
-}
-impl From<GraphqlBogusExtension> for AnyGraphqlEnumTypeExtension {
-    fn from(node: GraphqlBogusExtension) -> AnyGraphqlEnumTypeExtension {
-        AnyGraphqlEnumTypeExtension::GraphqlBogusExtension(node)
-    }
-}
-impl From<GraphqlEnumTypeExtension> for AnyGraphqlEnumTypeExtension {
-    fn from(node: GraphqlEnumTypeExtension) -> AnyGraphqlEnumTypeExtension {
-        AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtension(node)
-    }
-}
-impl From<GraphqlEnumTypeExtensionWithValues> for AnyGraphqlEnumTypeExtension {
-    fn from(node: GraphqlEnumTypeExtensionWithValues) -> AnyGraphqlEnumTypeExtension {
-        AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtensionWithValues(node)
-    }
-}
-impl AstNode for AnyGraphqlEnumTypeExtension {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = GraphqlBogusExtension::KIND_SET
-        .union(GraphqlEnumTypeExtension::KIND_SET)
-        .union(GraphqlEnumTypeExtensionWithValues::KIND_SET);
-    fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(
-            kind,
-            GRAPHQL_BOGUS_EXTENSION
-                | GRAPHQL_ENUM_TYPE_EXTENSION
-                | GRAPHQL_ENUM_TYPE_EXTENSION_WITH_VALUES
-        )
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        let res = match syntax.kind() {
-            GRAPHQL_BOGUS_EXTENSION => {
-                AnyGraphqlEnumTypeExtension::GraphqlBogusExtension(GraphqlBogusExtension { syntax })
-            }
-            GRAPHQL_ENUM_TYPE_EXTENSION => {
-                AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtension(GraphqlEnumTypeExtension {
-                    syntax,
-                })
-            }
-            GRAPHQL_ENUM_TYPE_EXTENSION_WITH_VALUES => {
-                AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtensionWithValues(
-                    GraphqlEnumTypeExtensionWithValues { syntax },
-                )
-            }
-            _ => return None,
-        };
-        Some(res)
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            AnyGraphqlEnumTypeExtension::GraphqlBogusExtension(it) => &it.syntax,
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtension(it) => &it.syntax,
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtensionWithValues(it) => &it.syntax,
-        }
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        match self {
-            AnyGraphqlEnumTypeExtension::GraphqlBogusExtension(it) => it.syntax,
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtension(it) => it.syntax,
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtensionWithValues(it) => it.syntax,
-        }
-    }
-}
-impl std::fmt::Debug for AnyGraphqlEnumTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AnyGraphqlEnumTypeExtension::GraphqlBogusExtension(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtension(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtensionWithValues(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-        }
-    }
-}
-impl From<AnyGraphqlEnumTypeExtension> for SyntaxNode {
-    fn from(n: AnyGraphqlEnumTypeExtension) -> SyntaxNode {
-        match n {
-            AnyGraphqlEnumTypeExtension::GraphqlBogusExtension(it) => it.into(),
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtension(it) => it.into(),
-            AnyGraphqlEnumTypeExtension::GraphqlEnumTypeExtensionWithValues(it) => it.into(),
-        }
-    }
-}
-impl From<AnyGraphqlEnumTypeExtension> for SyntaxElement {
-    fn from(n: AnyGraphqlEnumTypeExtension) -> SyntaxElement {
-        let node: SyntaxNode = n.into();
-        node.into()
-    }
-}
-impl From<GraphqlBogusExtension> for AnyGraphqlInputObjectTypeExtension {
-    fn from(node: GraphqlBogusExtension) -> AnyGraphqlInputObjectTypeExtension {
-        AnyGraphqlInputObjectTypeExtension::GraphqlBogusExtension(node)
-    }
-}
-impl From<GraphqlInputObjectTypeExtension> for AnyGraphqlInputObjectTypeExtension {
-    fn from(node: GraphqlInputObjectTypeExtension) -> AnyGraphqlInputObjectTypeExtension {
-        AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtension(node)
-    }
-}
-impl From<GraphqlInputObjectTypeExtensionWithFields> for AnyGraphqlInputObjectTypeExtension {
-    fn from(node: GraphqlInputObjectTypeExtensionWithFields) -> AnyGraphqlInputObjectTypeExtension {
-        AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtensionWithFields(node)
-    }
-}
-impl AstNode for AnyGraphqlInputObjectTypeExtension {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = GraphqlBogusExtension::KIND_SET
-        .union(GraphqlInputObjectTypeExtension::KIND_SET)
-        .union(GraphqlInputObjectTypeExtensionWithFields::KIND_SET);
-    fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(
-            kind,
-            GRAPHQL_BOGUS_EXTENSION
-                | GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION
-                | GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION_WITH_FIELDS
-        )
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        let res = match syntax.kind() {
-            GRAPHQL_BOGUS_EXTENSION => {
-                AnyGraphqlInputObjectTypeExtension::GraphqlBogusExtension(GraphqlBogusExtension {
-                    syntax,
-                })
-            }
-            GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION => {
-                AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtension(
-                    GraphqlInputObjectTypeExtension { syntax },
-                )
-            }
-            GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION_WITH_FIELDS => {
-                AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtensionWithFields(
-                    GraphqlInputObjectTypeExtensionWithFields { syntax },
-                )
-            }
-            _ => return None,
-        };
-        Some(res)
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            AnyGraphqlInputObjectTypeExtension::GraphqlBogusExtension(it) => &it.syntax,
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtension(it) => &it.syntax,
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtensionWithFields(it) => {
-                &it.syntax
-            }
-        }
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        match self {
-            AnyGraphqlInputObjectTypeExtension::GraphqlBogusExtension(it) => it.syntax,
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtension(it) => it.syntax,
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtensionWithFields(it) => {
-                it.syntax
-            }
-        }
-    }
-}
-impl std::fmt::Debug for AnyGraphqlInputObjectTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AnyGraphqlInputObjectTypeExtension::GraphqlBogusExtension(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtension(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtensionWithFields(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-        }
-    }
-}
-impl From<AnyGraphqlInputObjectTypeExtension> for SyntaxNode {
-    fn from(n: AnyGraphqlInputObjectTypeExtension) -> SyntaxNode {
-        match n {
-            AnyGraphqlInputObjectTypeExtension::GraphqlBogusExtension(it) => it.into(),
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtension(it) => it.into(),
-            AnyGraphqlInputObjectTypeExtension::GraphqlInputObjectTypeExtensionWithFields(it) => {
-                it.into()
-            }
-        }
-    }
-}
-impl From<AnyGraphqlInputObjectTypeExtension> for SyntaxElement {
-    fn from(n: AnyGraphqlInputObjectTypeExtension) -> SyntaxElement {
-        let node: SyntaxNode = n.into();
-        node.into()
-    }
-}
-impl From<GraphqlBogusExtension> for AnyGraphqlInterfaceTypeExtension {
-    fn from(node: GraphqlBogusExtension) -> AnyGraphqlInterfaceTypeExtension {
-        AnyGraphqlInterfaceTypeExtension::GraphqlBogusExtension(node)
-    }
-}
-impl From<GraphqlInterfaceTypeExtension> for AnyGraphqlInterfaceTypeExtension {
-    fn from(node: GraphqlInterfaceTypeExtension) -> AnyGraphqlInterfaceTypeExtension {
-        AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtension(node)
-    }
-}
-impl From<GraphqlInterfaceTypeExtensionWithDirectives> for AnyGraphqlInterfaceTypeExtension {
-    fn from(node: GraphqlInterfaceTypeExtensionWithDirectives) -> AnyGraphqlInterfaceTypeExtension {
-        AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithDirectives(node)
-    }
-}
-impl From<GraphqlInterfaceTypeExtensionWithFields> for AnyGraphqlInterfaceTypeExtension {
-    fn from(node: GraphqlInterfaceTypeExtensionWithFields) -> AnyGraphqlInterfaceTypeExtension {
-        AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithFields(node)
-    }
-}
-impl AstNode for AnyGraphqlInterfaceTypeExtension {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = GraphqlBogusExtension::KIND_SET
-        .union(GraphqlInterfaceTypeExtension::KIND_SET)
-        .union(GraphqlInterfaceTypeExtensionWithDirectives::KIND_SET)
-        .union(GraphqlInterfaceTypeExtensionWithFields::KIND_SET);
-    fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(
-            kind,
-            GRAPHQL_BOGUS_EXTENSION
-                | GRAPHQL_INTERFACE_TYPE_EXTENSION
-                | GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_DIRECTIVES
-                | GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_FIELDS
-        )
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        let res = match syntax.kind() {
-            GRAPHQL_BOGUS_EXTENSION => {
-                AnyGraphqlInterfaceTypeExtension::GraphqlBogusExtension(GraphqlBogusExtension {
-                    syntax,
-                })
-            }
-            GRAPHQL_INTERFACE_TYPE_EXTENSION => {
-                AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtension(
-                    GraphqlInterfaceTypeExtension { syntax },
-                )
-            }
-            GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_DIRECTIVES => {
-                AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithDirectives(
-                    GraphqlInterfaceTypeExtensionWithDirectives { syntax },
-                )
-            }
-            GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_FIELDS => {
-                AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithFields(
-                    GraphqlInterfaceTypeExtensionWithFields { syntax },
-                )
-            }
-            _ => return None,
-        };
-        Some(res)
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            AnyGraphqlInterfaceTypeExtension::GraphqlBogusExtension(it) => &it.syntax,
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtension(it) => &it.syntax,
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithDirectives(it) => {
-                &it.syntax
-            }
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithFields(it) => {
-                &it.syntax
-            }
-        }
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        match self {
-            AnyGraphqlInterfaceTypeExtension::GraphqlBogusExtension(it) => it.syntax,
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtension(it) => it.syntax,
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithDirectives(it) => {
-                it.syntax
-            }
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithFields(it) => {
-                it.syntax
-            }
-        }
-    }
-}
-impl std::fmt::Debug for AnyGraphqlInterfaceTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AnyGraphqlInterfaceTypeExtension::GraphqlBogusExtension(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtension(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithDirectives(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithFields(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-        }
-    }
-}
-impl From<AnyGraphqlInterfaceTypeExtension> for SyntaxNode {
-    fn from(n: AnyGraphqlInterfaceTypeExtension) -> SyntaxNode {
-        match n {
-            AnyGraphqlInterfaceTypeExtension::GraphqlBogusExtension(it) => it.into(),
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtension(it) => it.into(),
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithDirectives(it) => {
-                it.into()
-            }
-            AnyGraphqlInterfaceTypeExtension::GraphqlInterfaceTypeExtensionWithFields(it) => {
-                it.into()
-            }
-        }
-    }
-}
-impl From<AnyGraphqlInterfaceTypeExtension> for SyntaxElement {
-    fn from(n: AnyGraphqlInterfaceTypeExtension) -> SyntaxElement {
-        let node: SyntaxNode = n.into();
-        node.into()
-    }
-}
-impl From<GraphqlBogusExtension> for AnyGraphqlObjectTypeExtension {
-    fn from(node: GraphqlBogusExtension) -> AnyGraphqlObjectTypeExtension {
-        AnyGraphqlObjectTypeExtension::GraphqlBogusExtension(node)
-    }
-}
-impl From<GraphqlObjectTypeExtension> for AnyGraphqlObjectTypeExtension {
-    fn from(node: GraphqlObjectTypeExtension) -> AnyGraphqlObjectTypeExtension {
-        AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtension(node)
-    }
-}
-impl From<GraphqlObjectTypeExtensionWithDirectives> for AnyGraphqlObjectTypeExtension {
-    fn from(node: GraphqlObjectTypeExtensionWithDirectives) -> AnyGraphqlObjectTypeExtension {
-        AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithDirectives(node)
-    }
-}
-impl From<GraphqlObjectTypeExtensionWithFields> for AnyGraphqlObjectTypeExtension {
-    fn from(node: GraphqlObjectTypeExtensionWithFields) -> AnyGraphqlObjectTypeExtension {
-        AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithFields(node)
-    }
-}
-impl AstNode for AnyGraphqlObjectTypeExtension {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = GraphqlBogusExtension::KIND_SET
-        .union(GraphqlObjectTypeExtension::KIND_SET)
-        .union(GraphqlObjectTypeExtensionWithDirectives::KIND_SET)
-        .union(GraphqlObjectTypeExtensionWithFields::KIND_SET);
-    fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(
-            kind,
-            GRAPHQL_BOGUS_EXTENSION
-                | GRAPHQL_OBJECT_TYPE_EXTENSION
-                | GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_DIRECTIVES
-                | GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_FIELDS
-        )
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        let res = match syntax.kind() {
-            GRAPHQL_BOGUS_EXTENSION => {
-                AnyGraphqlObjectTypeExtension::GraphqlBogusExtension(GraphqlBogusExtension {
-                    syntax,
-                })
-            }
-            GRAPHQL_OBJECT_TYPE_EXTENSION => {
-                AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtension(
-                    GraphqlObjectTypeExtension { syntax },
-                )
-            }
-            GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_DIRECTIVES => {
-                AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithDirectives(
-                    GraphqlObjectTypeExtensionWithDirectives { syntax },
-                )
-            }
-            GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_FIELDS => {
-                AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithFields(
-                    GraphqlObjectTypeExtensionWithFields { syntax },
-                )
-            }
-            _ => return None,
-        };
-        Some(res)
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            AnyGraphqlObjectTypeExtension::GraphqlBogusExtension(it) => &it.syntax,
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtension(it) => &it.syntax,
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithDirectives(it) => {
-                &it.syntax
-            }
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithFields(it) => &it.syntax,
-        }
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        match self {
-            AnyGraphqlObjectTypeExtension::GraphqlBogusExtension(it) => it.syntax,
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtension(it) => it.syntax,
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithDirectives(it) => {
-                it.syntax
-            }
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithFields(it) => it.syntax,
-        }
-    }
-}
-impl std::fmt::Debug for AnyGraphqlObjectTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AnyGraphqlObjectTypeExtension::GraphqlBogusExtension(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtension(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithDirectives(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithFields(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-        }
-    }
-}
-impl From<AnyGraphqlObjectTypeExtension> for SyntaxNode {
-    fn from(n: AnyGraphqlObjectTypeExtension) -> SyntaxNode {
-        match n {
-            AnyGraphqlObjectTypeExtension::GraphqlBogusExtension(it) => it.into(),
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtension(it) => it.into(),
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithDirectives(it) => {
-                it.into()
-            }
-            AnyGraphqlObjectTypeExtension::GraphqlObjectTypeExtensionWithFields(it) => it.into(),
-        }
-    }
-}
-impl From<AnyGraphqlObjectTypeExtension> for SyntaxElement {
-    fn from(n: AnyGraphqlObjectTypeExtension) -> SyntaxElement {
         let node: SyntaxNode = n.into();
         node.into()
     }
@@ -7512,25 +6666,25 @@ impl From<GraphqlListType> for AnyGraphqlPrimitiveType {
         AnyGraphqlPrimitiveType::GraphqlListType(node)
     }
 }
-impl From<GraphqlNamedType> for AnyGraphqlPrimitiveType {
-    fn from(node: GraphqlNamedType) -> AnyGraphqlPrimitiveType {
-        AnyGraphqlPrimitiveType::GraphqlNamedType(node)
+impl From<GraphqlNameReference> for AnyGraphqlPrimitiveType {
+    fn from(node: GraphqlNameReference) -> AnyGraphqlPrimitiveType {
+        AnyGraphqlPrimitiveType::GraphqlNameReference(node)
     }
 }
 impl AstNode for AnyGraphqlPrimitiveType {
     type Language = Language;
     const KIND_SET: SyntaxKindSet<Language> =
-        GraphqlListType::KIND_SET.union(GraphqlNamedType::KIND_SET);
+        GraphqlListType::KIND_SET.union(GraphqlNameReference::KIND_SET);
     fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(kind, GRAPHQL_LIST_TYPE | GRAPHQL_NAMED_TYPE)
+        matches!(kind, GRAPHQL_LIST_TYPE | GRAPHQL_NAME_REFERENCE)
     }
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let res = match syntax.kind() {
             GRAPHQL_LIST_TYPE => {
                 AnyGraphqlPrimitiveType::GraphqlListType(GraphqlListType { syntax })
             }
-            GRAPHQL_NAMED_TYPE => {
-                AnyGraphqlPrimitiveType::GraphqlNamedType(GraphqlNamedType { syntax })
+            GRAPHQL_NAME_REFERENCE => {
+                AnyGraphqlPrimitiveType::GraphqlNameReference(GraphqlNameReference { syntax })
             }
             _ => return None,
         };
@@ -7539,13 +6693,13 @@ impl AstNode for AnyGraphqlPrimitiveType {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             AnyGraphqlPrimitiveType::GraphqlListType(it) => &it.syntax,
-            AnyGraphqlPrimitiveType::GraphqlNamedType(it) => &it.syntax,
+            AnyGraphqlPrimitiveType::GraphqlNameReference(it) => &it.syntax,
         }
     }
     fn into_syntax(self) -> SyntaxNode {
         match self {
             AnyGraphqlPrimitiveType::GraphqlListType(it) => it.syntax,
-            AnyGraphqlPrimitiveType::GraphqlNamedType(it) => it.syntax,
+            AnyGraphqlPrimitiveType::GraphqlNameReference(it) => it.syntax,
         }
     }
 }
@@ -7553,7 +6707,7 @@ impl std::fmt::Debug for AnyGraphqlPrimitiveType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AnyGraphqlPrimitiveType::GraphqlListType(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlPrimitiveType::GraphqlNamedType(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlPrimitiveType::GraphqlNameReference(it) => std::fmt::Debug::fmt(it, f),
         }
     }
 }
@@ -7561,100 +6715,12 @@ impl From<AnyGraphqlPrimitiveType> for SyntaxNode {
     fn from(n: AnyGraphqlPrimitiveType) -> SyntaxNode {
         match n {
             AnyGraphqlPrimitiveType::GraphqlListType(it) => it.into(),
-            AnyGraphqlPrimitiveType::GraphqlNamedType(it) => it.into(),
+            AnyGraphqlPrimitiveType::GraphqlNameReference(it) => it.into(),
         }
     }
 }
 impl From<AnyGraphqlPrimitiveType> for SyntaxElement {
     fn from(n: AnyGraphqlPrimitiveType) -> SyntaxElement {
-        let node: SyntaxNode = n.into();
-        node.into()
-    }
-}
-impl From<GraphqlBogusExtension> for AnyGraphqlSchemaExtension {
-    fn from(node: GraphqlBogusExtension) -> AnyGraphqlSchemaExtension {
-        AnyGraphqlSchemaExtension::GraphqlBogusExtension(node)
-    }
-}
-impl From<GraphqlSchemaExtension> for AnyGraphqlSchemaExtension {
-    fn from(node: GraphqlSchemaExtension) -> AnyGraphqlSchemaExtension {
-        AnyGraphqlSchemaExtension::GraphqlSchemaExtension(node)
-    }
-}
-impl From<GraphqlSchemaExtensionWithRootOperationType> for AnyGraphqlSchemaExtension {
-    fn from(node: GraphqlSchemaExtensionWithRootOperationType) -> AnyGraphqlSchemaExtension {
-        AnyGraphqlSchemaExtension::GraphqlSchemaExtensionWithRootOperationType(node)
-    }
-}
-impl AstNode for AnyGraphqlSchemaExtension {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = GraphqlBogusExtension::KIND_SET
-        .union(GraphqlSchemaExtension::KIND_SET)
-        .union(GraphqlSchemaExtensionWithRootOperationType::KIND_SET);
-    fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(
-            kind,
-            GRAPHQL_BOGUS_EXTENSION
-                | GRAPHQL_SCHEMA_EXTENSION
-                | GRAPHQL_SCHEMA_EXTENSION_WITH_ROOT_OPERATION_TYPE
-        )
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        let res = match syntax.kind() {
-            GRAPHQL_BOGUS_EXTENSION => {
-                AnyGraphqlSchemaExtension::GraphqlBogusExtension(GraphqlBogusExtension { syntax })
-            }
-            GRAPHQL_SCHEMA_EXTENSION => {
-                AnyGraphqlSchemaExtension::GraphqlSchemaExtension(GraphqlSchemaExtension { syntax })
-            }
-            GRAPHQL_SCHEMA_EXTENSION_WITH_ROOT_OPERATION_TYPE => {
-                AnyGraphqlSchemaExtension::GraphqlSchemaExtensionWithRootOperationType(
-                    GraphqlSchemaExtensionWithRootOperationType { syntax },
-                )
-            }
-            _ => return None,
-        };
-        Some(res)
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            AnyGraphqlSchemaExtension::GraphqlBogusExtension(it) => &it.syntax,
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtension(it) => &it.syntax,
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtensionWithRootOperationType(it) => {
-                &it.syntax
-            }
-        }
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        match self {
-            AnyGraphqlSchemaExtension::GraphqlBogusExtension(it) => it.syntax,
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtension(it) => it.syntax,
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtensionWithRootOperationType(it) => it.syntax,
-        }
-    }
-}
-impl std::fmt::Debug for AnyGraphqlSchemaExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AnyGraphqlSchemaExtension::GraphqlBogusExtension(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtension(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtensionWithRootOperationType(it) => {
-                std::fmt::Debug::fmt(it, f)
-            }
-        }
-    }
-}
-impl From<AnyGraphqlSchemaExtension> for SyntaxNode {
-    fn from(n: AnyGraphqlSchemaExtension) -> SyntaxNode {
-        match n {
-            AnyGraphqlSchemaExtension::GraphqlBogusExtension(it) => it.into(),
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtension(it) => it.into(),
-            AnyGraphqlSchemaExtension::GraphqlSchemaExtensionWithRootOperationType(it) => it.into(),
-        }
-    }
-}
-impl From<AnyGraphqlSchemaExtension> for SyntaxElement {
-    fn from(n: AnyGraphqlSchemaExtension) -> SyntaxElement {
         let node: SyntaxNode = n.into();
         node.into()
     }
@@ -7831,50 +6897,86 @@ impl From<AnyGraphqlType> for SyntaxElement {
         node.into()
     }
 }
-impl From<GraphqlBogusExtension> for AnyGraphqlUnionTypeExtension {
-    fn from(node: GraphqlBogusExtension) -> AnyGraphqlUnionTypeExtension {
-        AnyGraphqlUnionTypeExtension::GraphqlBogusExtension(node)
+impl From<GraphqlEnumTypeDefinition> for AnyGraphqlTypeDefinition {
+    fn from(node: GraphqlEnumTypeDefinition) -> AnyGraphqlTypeDefinition {
+        AnyGraphqlTypeDefinition::GraphqlEnumTypeDefinition(node)
     }
 }
-impl From<GraphqlUnionTypeExtension> for AnyGraphqlUnionTypeExtension {
-    fn from(node: GraphqlUnionTypeExtension) -> AnyGraphqlUnionTypeExtension {
-        AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtension(node)
+impl From<GraphqlInputObjectTypeDefinition> for AnyGraphqlTypeDefinition {
+    fn from(node: GraphqlInputObjectTypeDefinition) -> AnyGraphqlTypeDefinition {
+        AnyGraphqlTypeDefinition::GraphqlInputObjectTypeDefinition(node)
     }
 }
-impl From<GraphqlUnionTypeExtensionWithMembers> for AnyGraphqlUnionTypeExtension {
-    fn from(node: GraphqlUnionTypeExtensionWithMembers) -> AnyGraphqlUnionTypeExtension {
-        AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtensionWithMembers(node)
+impl From<GraphqlInterfaceTypeDefinition> for AnyGraphqlTypeDefinition {
+    fn from(node: GraphqlInterfaceTypeDefinition) -> AnyGraphqlTypeDefinition {
+        AnyGraphqlTypeDefinition::GraphqlInterfaceTypeDefinition(node)
     }
 }
-impl AstNode for AnyGraphqlUnionTypeExtension {
+impl From<GraphqlObjectTypeDefinition> for AnyGraphqlTypeDefinition {
+    fn from(node: GraphqlObjectTypeDefinition) -> AnyGraphqlTypeDefinition {
+        AnyGraphqlTypeDefinition::GraphqlObjectTypeDefinition(node)
+    }
+}
+impl From<GraphqlScalarTypeDefinition> for AnyGraphqlTypeDefinition {
+    fn from(node: GraphqlScalarTypeDefinition) -> AnyGraphqlTypeDefinition {
+        AnyGraphqlTypeDefinition::GraphqlScalarTypeDefinition(node)
+    }
+}
+impl From<GraphqlUnionTypeDefinition> for AnyGraphqlTypeDefinition {
+    fn from(node: GraphqlUnionTypeDefinition) -> AnyGraphqlTypeDefinition {
+        AnyGraphqlTypeDefinition::GraphqlUnionTypeDefinition(node)
+    }
+}
+impl AstNode for AnyGraphqlTypeDefinition {
     type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> = GraphqlBogusExtension::KIND_SET
-        .union(GraphqlUnionTypeExtension::KIND_SET)
-        .union(GraphqlUnionTypeExtensionWithMembers::KIND_SET);
+    const KIND_SET: SyntaxKindSet<Language> = GraphqlEnumTypeDefinition::KIND_SET
+        .union(GraphqlInputObjectTypeDefinition::KIND_SET)
+        .union(GraphqlInterfaceTypeDefinition::KIND_SET)
+        .union(GraphqlObjectTypeDefinition::KIND_SET)
+        .union(GraphqlScalarTypeDefinition::KIND_SET)
+        .union(GraphqlUnionTypeDefinition::KIND_SET);
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(
             kind,
-            GRAPHQL_BOGUS_EXTENSION
-                | GRAPHQL_UNION_TYPE_EXTENSION
-                | GRAPHQL_UNION_TYPE_EXTENSION_WITH_MEMBERS
+            GRAPHQL_ENUM_TYPE_DEFINITION
+                | GRAPHQL_INPUT_OBJECT_TYPE_DEFINITION
+                | GRAPHQL_INTERFACE_TYPE_DEFINITION
+                | GRAPHQL_OBJECT_TYPE_DEFINITION
+                | GRAPHQL_SCALAR_TYPE_DEFINITION
+                | GRAPHQL_UNION_TYPE_DEFINITION
         )
     }
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let res = match syntax.kind() {
-            GRAPHQL_BOGUS_EXTENSION => {
-                AnyGraphqlUnionTypeExtension::GraphqlBogusExtension(GraphqlBogusExtension {
+            GRAPHQL_ENUM_TYPE_DEFINITION => {
+                AnyGraphqlTypeDefinition::GraphqlEnumTypeDefinition(GraphqlEnumTypeDefinition {
                     syntax,
                 })
             }
-            GRAPHQL_UNION_TYPE_EXTENSION => {
-                AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtension(GraphqlUnionTypeExtension {
-                    syntax,
-                })
-            }
-            GRAPHQL_UNION_TYPE_EXTENSION_WITH_MEMBERS => {
-                AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtensionWithMembers(
-                    GraphqlUnionTypeExtensionWithMembers { syntax },
+            GRAPHQL_INPUT_OBJECT_TYPE_DEFINITION => {
+                AnyGraphqlTypeDefinition::GraphqlInputObjectTypeDefinition(
+                    GraphqlInputObjectTypeDefinition { syntax },
                 )
+            }
+            GRAPHQL_INTERFACE_TYPE_DEFINITION => {
+                AnyGraphqlTypeDefinition::GraphqlInterfaceTypeDefinition(
+                    GraphqlInterfaceTypeDefinition { syntax },
+                )
+            }
+            GRAPHQL_OBJECT_TYPE_DEFINITION => {
+                AnyGraphqlTypeDefinition::GraphqlObjectTypeDefinition(GraphqlObjectTypeDefinition {
+                    syntax,
+                })
+            }
+            GRAPHQL_SCALAR_TYPE_DEFINITION => {
+                AnyGraphqlTypeDefinition::GraphqlScalarTypeDefinition(GraphqlScalarTypeDefinition {
+                    syntax,
+                })
+            }
+            GRAPHQL_UNION_TYPE_DEFINITION => {
+                AnyGraphqlTypeDefinition::GraphqlUnionTypeDefinition(GraphqlUnionTypeDefinition {
+                    syntax,
+                })
             }
             _ => return None,
         };
@@ -7882,43 +6984,199 @@ impl AstNode for AnyGraphqlUnionTypeExtension {
     }
     fn syntax(&self) -> &SyntaxNode {
         match self {
-            AnyGraphqlUnionTypeExtension::GraphqlBogusExtension(it) => &it.syntax,
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtension(it) => &it.syntax,
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtensionWithMembers(it) => &it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlEnumTypeDefinition(it) => &it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlInputObjectTypeDefinition(it) => &it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlInterfaceTypeDefinition(it) => &it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlObjectTypeDefinition(it) => &it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlScalarTypeDefinition(it) => &it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlUnionTypeDefinition(it) => &it.syntax,
         }
     }
     fn into_syntax(self) -> SyntaxNode {
         match self {
-            AnyGraphqlUnionTypeExtension::GraphqlBogusExtension(it) => it.syntax,
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtension(it) => it.syntax,
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtensionWithMembers(it) => it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlEnumTypeDefinition(it) => it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlInputObjectTypeDefinition(it) => it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlInterfaceTypeDefinition(it) => it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlObjectTypeDefinition(it) => it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlScalarTypeDefinition(it) => it.syntax,
+            AnyGraphqlTypeDefinition::GraphqlUnionTypeDefinition(it) => it.syntax,
         }
     }
 }
-impl std::fmt::Debug for AnyGraphqlUnionTypeExtension {
+impl std::fmt::Debug for AnyGraphqlTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AnyGraphqlUnionTypeExtension::GraphqlBogusExtension(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtension(it) => {
+            AnyGraphqlTypeDefinition::GraphqlEnumTypeDefinition(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlTypeDefinition::GraphqlInputObjectTypeDefinition(it) => {
                 std::fmt::Debug::fmt(it, f)
             }
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtensionWithMembers(it) => {
+            AnyGraphqlTypeDefinition::GraphqlInterfaceTypeDefinition(it) => {
                 std::fmt::Debug::fmt(it, f)
             }
+            AnyGraphqlTypeDefinition::GraphqlObjectTypeDefinition(it) => {
+                std::fmt::Debug::fmt(it, f)
+            }
+            AnyGraphqlTypeDefinition::GraphqlScalarTypeDefinition(it) => {
+                std::fmt::Debug::fmt(it, f)
+            }
+            AnyGraphqlTypeDefinition::GraphqlUnionTypeDefinition(it) => std::fmt::Debug::fmt(it, f),
         }
     }
 }
-impl From<AnyGraphqlUnionTypeExtension> for SyntaxNode {
-    fn from(n: AnyGraphqlUnionTypeExtension) -> SyntaxNode {
+impl From<AnyGraphqlTypeDefinition> for SyntaxNode {
+    fn from(n: AnyGraphqlTypeDefinition) -> SyntaxNode {
         match n {
-            AnyGraphqlUnionTypeExtension::GraphqlBogusExtension(it) => it.into(),
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtension(it) => it.into(),
-            AnyGraphqlUnionTypeExtension::GraphqlUnionTypeExtensionWithMembers(it) => it.into(),
+            AnyGraphqlTypeDefinition::GraphqlEnumTypeDefinition(it) => it.into(),
+            AnyGraphqlTypeDefinition::GraphqlInputObjectTypeDefinition(it) => it.into(),
+            AnyGraphqlTypeDefinition::GraphqlInterfaceTypeDefinition(it) => it.into(),
+            AnyGraphqlTypeDefinition::GraphqlObjectTypeDefinition(it) => it.into(),
+            AnyGraphqlTypeDefinition::GraphqlScalarTypeDefinition(it) => it.into(),
+            AnyGraphqlTypeDefinition::GraphqlUnionTypeDefinition(it) => it.into(),
         }
     }
 }
-impl From<AnyGraphqlUnionTypeExtension> for SyntaxElement {
-    fn from(n: AnyGraphqlUnionTypeExtension) -> SyntaxElement {
+impl From<AnyGraphqlTypeDefinition> for SyntaxElement {
+    fn from(n: AnyGraphqlTypeDefinition) -> SyntaxElement {
+        let node: SyntaxNode = n.into();
+        node.into()
+    }
+}
+impl From<GraphqlEnumTypeExtension> for AnyGraphqlTypeExtension {
+    fn from(node: GraphqlEnumTypeExtension) -> AnyGraphqlTypeExtension {
+        AnyGraphqlTypeExtension::GraphqlEnumTypeExtension(node)
+    }
+}
+impl From<GraphqlInputObjectTypeExtension> for AnyGraphqlTypeExtension {
+    fn from(node: GraphqlInputObjectTypeExtension) -> AnyGraphqlTypeExtension {
+        AnyGraphqlTypeExtension::GraphqlInputObjectTypeExtension(node)
+    }
+}
+impl From<GraphqlInterfaceTypeExtension> for AnyGraphqlTypeExtension {
+    fn from(node: GraphqlInterfaceTypeExtension) -> AnyGraphqlTypeExtension {
+        AnyGraphqlTypeExtension::GraphqlInterfaceTypeExtension(node)
+    }
+}
+impl From<GraphqlObjectTypeExtension> for AnyGraphqlTypeExtension {
+    fn from(node: GraphqlObjectTypeExtension) -> AnyGraphqlTypeExtension {
+        AnyGraphqlTypeExtension::GraphqlObjectTypeExtension(node)
+    }
+}
+impl From<GraphqlScalarTypeExtension> for AnyGraphqlTypeExtension {
+    fn from(node: GraphqlScalarTypeExtension) -> AnyGraphqlTypeExtension {
+        AnyGraphqlTypeExtension::GraphqlScalarTypeExtension(node)
+    }
+}
+impl From<GraphqlUnionTypeExtension> for AnyGraphqlTypeExtension {
+    fn from(node: GraphqlUnionTypeExtension) -> AnyGraphqlTypeExtension {
+        AnyGraphqlTypeExtension::GraphqlUnionTypeExtension(node)
+    }
+}
+impl AstNode for AnyGraphqlTypeExtension {
+    type Language = Language;
+    const KIND_SET: SyntaxKindSet<Language> = GraphqlEnumTypeExtension::KIND_SET
+        .union(GraphqlInputObjectTypeExtension::KIND_SET)
+        .union(GraphqlInterfaceTypeExtension::KIND_SET)
+        .union(GraphqlObjectTypeExtension::KIND_SET)
+        .union(GraphqlScalarTypeExtension::KIND_SET)
+        .union(GraphqlUnionTypeExtension::KIND_SET);
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            GRAPHQL_ENUM_TYPE_EXTENSION
+                | GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION
+                | GRAPHQL_INTERFACE_TYPE_EXTENSION
+                | GRAPHQL_OBJECT_TYPE_EXTENSION
+                | GRAPHQL_SCALAR_TYPE_EXTENSION
+                | GRAPHQL_UNION_TYPE_EXTENSION
+        )
+    }
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            GRAPHQL_ENUM_TYPE_EXTENSION => {
+                AnyGraphqlTypeExtension::GraphqlEnumTypeExtension(GraphqlEnumTypeExtension {
+                    syntax,
+                })
+            }
+            GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION => {
+                AnyGraphqlTypeExtension::GraphqlInputObjectTypeExtension(
+                    GraphqlInputObjectTypeExtension { syntax },
+                )
+            }
+            GRAPHQL_INTERFACE_TYPE_EXTENSION => {
+                AnyGraphqlTypeExtension::GraphqlInterfaceTypeExtension(
+                    GraphqlInterfaceTypeExtension { syntax },
+                )
+            }
+            GRAPHQL_OBJECT_TYPE_EXTENSION => {
+                AnyGraphqlTypeExtension::GraphqlObjectTypeExtension(GraphqlObjectTypeExtension {
+                    syntax,
+                })
+            }
+            GRAPHQL_SCALAR_TYPE_EXTENSION => {
+                AnyGraphqlTypeExtension::GraphqlScalarTypeExtension(GraphqlScalarTypeExtension {
+                    syntax,
+                })
+            }
+            GRAPHQL_UNION_TYPE_EXTENSION => {
+                AnyGraphqlTypeExtension::GraphqlUnionTypeExtension(GraphqlUnionTypeExtension {
+                    syntax,
+                })
+            }
+            _ => return None,
+        };
+        Some(res)
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            AnyGraphqlTypeExtension::GraphqlEnumTypeExtension(it) => &it.syntax,
+            AnyGraphqlTypeExtension::GraphqlInputObjectTypeExtension(it) => &it.syntax,
+            AnyGraphqlTypeExtension::GraphqlInterfaceTypeExtension(it) => &it.syntax,
+            AnyGraphqlTypeExtension::GraphqlObjectTypeExtension(it) => &it.syntax,
+            AnyGraphqlTypeExtension::GraphqlScalarTypeExtension(it) => &it.syntax,
+            AnyGraphqlTypeExtension::GraphqlUnionTypeExtension(it) => &it.syntax,
+        }
+    }
+    fn into_syntax(self) -> SyntaxNode {
+        match self {
+            AnyGraphqlTypeExtension::GraphqlEnumTypeExtension(it) => it.syntax,
+            AnyGraphqlTypeExtension::GraphqlInputObjectTypeExtension(it) => it.syntax,
+            AnyGraphqlTypeExtension::GraphqlInterfaceTypeExtension(it) => it.syntax,
+            AnyGraphqlTypeExtension::GraphqlObjectTypeExtension(it) => it.syntax,
+            AnyGraphqlTypeExtension::GraphqlScalarTypeExtension(it) => it.syntax,
+            AnyGraphqlTypeExtension::GraphqlUnionTypeExtension(it) => it.syntax,
+        }
+    }
+}
+impl std::fmt::Debug for AnyGraphqlTypeExtension {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AnyGraphqlTypeExtension::GraphqlEnumTypeExtension(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlTypeExtension::GraphqlInputObjectTypeExtension(it) => {
+                std::fmt::Debug::fmt(it, f)
+            }
+            AnyGraphqlTypeExtension::GraphqlInterfaceTypeExtension(it) => {
+                std::fmt::Debug::fmt(it, f)
+            }
+            AnyGraphqlTypeExtension::GraphqlObjectTypeExtension(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlTypeExtension::GraphqlScalarTypeExtension(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlTypeExtension::GraphqlUnionTypeExtension(it) => std::fmt::Debug::fmt(it, f),
+        }
+    }
+}
+impl From<AnyGraphqlTypeExtension> for SyntaxNode {
+    fn from(n: AnyGraphqlTypeExtension) -> SyntaxNode {
+        match n {
+            AnyGraphqlTypeExtension::GraphqlEnumTypeExtension(it) => it.into(),
+            AnyGraphqlTypeExtension::GraphqlInputObjectTypeExtension(it) => it.into(),
+            AnyGraphqlTypeExtension::GraphqlInterfaceTypeExtension(it) => it.into(),
+            AnyGraphqlTypeExtension::GraphqlObjectTypeExtension(it) => it.into(),
+            AnyGraphqlTypeExtension::GraphqlScalarTypeExtension(it) => it.into(),
+            AnyGraphqlTypeExtension::GraphqlUnionTypeExtension(it) => it.into(),
+        }
+    }
+}
+impl From<AnyGraphqlTypeExtension> for SyntaxElement {
+    fn from(n: AnyGraphqlTypeExtension) -> SyntaxElement {
         let node: SyntaxNode = n.into();
         node.into()
     }
@@ -7968,9 +7226,9 @@ impl From<GraphqlStringValue> for AnyGraphqlValue {
         AnyGraphqlValue::GraphqlStringValue(node)
     }
 }
-impl From<GraphqlVariable> for AnyGraphqlValue {
-    fn from(node: GraphqlVariable) -> AnyGraphqlValue {
-        AnyGraphqlValue::GraphqlVariable(node)
+impl From<GraphqlVariableReference> for AnyGraphqlValue {
+    fn from(node: GraphqlVariableReference) -> AnyGraphqlValue {
+        AnyGraphqlValue::GraphqlVariableReference(node)
     }
 }
 impl AstNode for AnyGraphqlValue {
@@ -7984,7 +7242,7 @@ impl AstNode for AnyGraphqlValue {
         .union(GraphqlNullValue::KIND_SET)
         .union(GraphqlObjectValue::KIND_SET)
         .union(GraphqlStringValue::KIND_SET)
-        .union(GraphqlVariable::KIND_SET);
+        .union(GraphqlVariableReference::KIND_SET);
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(
             kind,
@@ -7997,7 +7255,7 @@ impl AstNode for AnyGraphqlValue {
                 | GRAPHQL_NULL_VALUE
                 | GRAPHQL_OBJECT_VALUE
                 | GRAPHQL_STRING_VALUE
-                | GRAPHQL_VARIABLE
+                | GRAPHQL_VARIABLE_REFERENCE
         )
     }
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -8017,7 +7275,9 @@ impl AstNode for AnyGraphqlValue {
             GRAPHQL_STRING_VALUE => {
                 AnyGraphqlValue::GraphqlStringValue(GraphqlStringValue { syntax })
             }
-            GRAPHQL_VARIABLE => AnyGraphqlValue::GraphqlVariable(GraphqlVariable { syntax }),
+            GRAPHQL_VARIABLE_REFERENCE => {
+                AnyGraphqlValue::GraphqlVariableReference(GraphqlVariableReference { syntax })
+            }
             _ => return None,
         };
         Some(res)
@@ -8033,7 +7293,7 @@ impl AstNode for AnyGraphqlValue {
             AnyGraphqlValue::GraphqlNullValue(it) => &it.syntax,
             AnyGraphqlValue::GraphqlObjectValue(it) => &it.syntax,
             AnyGraphqlValue::GraphqlStringValue(it) => &it.syntax,
-            AnyGraphqlValue::GraphqlVariable(it) => &it.syntax,
+            AnyGraphqlValue::GraphqlVariableReference(it) => &it.syntax,
         }
     }
     fn into_syntax(self) -> SyntaxNode {
@@ -8047,7 +7307,7 @@ impl AstNode for AnyGraphqlValue {
             AnyGraphqlValue::GraphqlNullValue(it) => it.syntax,
             AnyGraphqlValue::GraphqlObjectValue(it) => it.syntax,
             AnyGraphqlValue::GraphqlStringValue(it) => it.syntax,
-            AnyGraphqlValue::GraphqlVariable(it) => it.syntax,
+            AnyGraphqlValue::GraphqlVariableReference(it) => it.syntax,
         }
     }
 }
@@ -8063,7 +7323,7 @@ impl std::fmt::Debug for AnyGraphqlValue {
             AnyGraphqlValue::GraphqlNullValue(it) => std::fmt::Debug::fmt(it, f),
             AnyGraphqlValue::GraphqlObjectValue(it) => std::fmt::Debug::fmt(it, f),
             AnyGraphqlValue::GraphqlStringValue(it) => std::fmt::Debug::fmt(it, f),
-            AnyGraphqlValue::GraphqlVariable(it) => std::fmt::Debug::fmt(it, f),
+            AnyGraphqlValue::GraphqlVariableReference(it) => std::fmt::Debug::fmt(it, f),
         }
     }
 }
@@ -8079,7 +7339,7 @@ impl From<AnyGraphqlValue> for SyntaxNode {
             AnyGraphqlValue::GraphqlNullValue(it) => it.into(),
             AnyGraphqlValue::GraphqlObjectValue(it) => it.into(),
             AnyGraphqlValue::GraphqlStringValue(it) => it.into(),
-            AnyGraphqlValue::GraphqlVariable(it) => it.into(),
+            AnyGraphqlValue::GraphqlVariableReference(it) => it.into(),
         }
     }
 }
@@ -8094,37 +7354,12 @@ impl std::fmt::Display for AnyGraphqlDefinition {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-impl std::fmt::Display for AnyGraphqlEnumTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for AnyGraphqlInputObjectTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for AnyGraphqlInterfaceTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for AnyGraphqlObjectTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
 impl std::fmt::Display for AnyGraphqlOperationDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
 impl std::fmt::Display for AnyGraphqlPrimitiveType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for AnyGraphqlSchemaExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
@@ -8139,7 +7374,12 @@ impl std::fmt::Display for AnyGraphqlType {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-impl std::fmt::Display for AnyGraphqlUnionTypeExtension {
+impl std::fmt::Display for AnyGraphqlTypeDefinition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.syntax(), f)
+    }
+}
+impl std::fmt::Display for AnyGraphqlTypeExtension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
@@ -8205,11 +7445,6 @@ impl std::fmt::Display for GraphqlEnumTypeDefinition {
     }
 }
 impl std::fmt::Display for GraphqlEnumTypeExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for GraphqlEnumTypeExtensionWithValues {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
@@ -8284,11 +7519,6 @@ impl std::fmt::Display for GraphqlInputObjectTypeExtension {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-impl std::fmt::Display for GraphqlInputObjectTypeExtensionWithFields {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
 impl std::fmt::Display for GraphqlInputValueDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
@@ -8309,16 +7539,6 @@ impl std::fmt::Display for GraphqlInterfaceTypeExtension {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-impl std::fmt::Display for GraphqlInterfaceTypeExtensionWithDirectives {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for GraphqlInterfaceTypeExtensionWithFields {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
 impl std::fmt::Display for GraphqlListType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
@@ -8329,12 +7549,17 @@ impl std::fmt::Display for GraphqlListValue {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-impl std::fmt::Display for GraphqlName {
+impl std::fmt::Display for GraphqlLiteralName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-impl std::fmt::Display for GraphqlNamedType {
+impl std::fmt::Display for GraphqlNameBinding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.syntax(), f)
+    }
+}
+impl std::fmt::Display for GraphqlNameReference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
@@ -8364,16 +7589,6 @@ impl std::fmt::Display for GraphqlObjectTypeExtension {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-impl std::fmt::Display for GraphqlObjectTypeExtensionWithDirectives {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for GraphqlObjectTypeExtensionWithFields {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
 impl std::fmt::Display for GraphqlObjectValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
@@ -8399,6 +7614,11 @@ impl std::fmt::Display for GraphqlRootOperationTypeDefinition {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
+impl std::fmt::Display for GraphqlRootOperationTypes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.syntax(), f)
+    }
+}
 impl std::fmt::Display for GraphqlScalarTypeDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
@@ -8415,11 +7635,6 @@ impl std::fmt::Display for GraphqlSchemaDefinition {
     }
 }
 impl std::fmt::Display for GraphqlSchemaExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for GraphqlSchemaExtensionWithRootOperationType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
@@ -8454,12 +7669,7 @@ impl std::fmt::Display for GraphqlUnionTypeExtension {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-impl std::fmt::Display for GraphqlUnionTypeExtensionWithMembers {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self.syntax(), f)
-    }
-}
-impl std::fmt::Display for GraphqlVariable {
+impl std::fmt::Display for GraphqlVariableBinding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.syntax(), f)
     }
@@ -8474,8 +7684,12 @@ impl std::fmt::Display for GraphqlVariableDefinitions {
         std::fmt::Display::fmt(self.syntax(), f)
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+impl std::fmt::Display for GraphqlVariableReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.syntax(), f)
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct GraphqlBogus {
     syntax: SyntaxNode,
 }
@@ -8531,8 +7745,7 @@ impl From<GraphqlBogus> for SyntaxElement {
         n.syntax.into()
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct GraphqlBogusDefinition {
     syntax: SyntaxNode,
 }
@@ -8588,65 +7801,7 @@ impl From<GraphqlBogusDefinition> for SyntaxElement {
         n.syntax.into()
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
-pub struct GraphqlBogusExtension {
-    syntax: SyntaxNode,
-}
-impl GraphqlBogusExtension {
-    #[doc = r" Create an AstNode from a SyntaxNode without checking its kind"]
-    #[doc = r""]
-    #[doc = r" # Safety"]
-    #[doc = r" This function must be guarded with a call to [AstNode::can_cast]"]
-    #[doc = r" or a match on [SyntaxNode::kind]"]
-    #[inline]
-    pub const unsafe fn new_unchecked(syntax: SyntaxNode) -> Self {
-        Self { syntax }
-    }
-    pub fn items(&self) -> SyntaxElementChildren {
-        support::elements(&self.syntax)
-    }
-}
-impl AstNode for GraphqlBogusExtension {
-    type Language = Language;
-    const KIND_SET: SyntaxKindSet<Language> =
-        SyntaxKindSet::from_raw(RawSyntaxKind(GRAPHQL_BOGUS_EXTENSION as u16));
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == GRAPHQL_BOGUS_EXTENSION
-    }
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-    fn into_syntax(self) -> SyntaxNode {
-        self.syntax
-    }
-}
-impl std::fmt::Debug for GraphqlBogusExtension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GraphqlBogusExtension")
-            .field("items", &DebugSyntaxElementChildren(self.items()))
-            .finish()
-    }
-}
-impl From<GraphqlBogusExtension> for SyntaxNode {
-    fn from(n: GraphqlBogusExtension) -> SyntaxNode {
-        n.syntax
-    }
-}
-impl From<GraphqlBogusExtension> for SyntaxElement {
-    fn from(n: GraphqlBogusExtension) -> SyntaxElement {
-        n.syntax.into()
-    }
-}
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct GraphqlBogusSelection {
     syntax: SyntaxNode,
 }
@@ -8702,8 +7857,7 @@ impl From<GraphqlBogusSelection> for SyntaxElement {
         n.syntax.into()
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct GraphqlBogusType {
     syntax: SyntaxNode,
 }
@@ -8759,8 +7913,7 @@ impl From<GraphqlBogusType> for SyntaxElement {
         n.syntax.into()
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct GraphqlBogusValue {
     syntax: SyntaxNode,
 }
@@ -8816,6 +7969,7 @@ impl From<GraphqlBogusValue> for SyntaxElement {
         n.syntax.into()
     }
 }
+biome_rowan::declare_node_union! { pub AnyGraphqlBogusNode = GraphqlBogus | GraphqlBogusDefinition | GraphqlBogusSelection | GraphqlBogusType | GraphqlBogusValue }
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct GraphqlArgumentDefinitionList {
     syntax_list: SyntaxList,
@@ -8856,7 +8010,6 @@ impl AstNode for GraphqlArgumentDefinitionList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlArgumentDefinitionList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -8939,7 +8092,6 @@ impl AstNode for GraphqlArgumentList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlArgumentList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9022,7 +8174,6 @@ impl AstNode for GraphqlDefinitionList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlDefinitionList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9105,7 +8256,6 @@ impl AstNode for GraphqlDirectiveList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlDirectiveList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9188,7 +8338,6 @@ impl AstNode for GraphqlDirectiveLocationList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlDirectiveLocationList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9271,7 +8420,6 @@ impl AstNode for GraphqlEnumValueList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlEnumValueList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9354,7 +8502,6 @@ impl AstNode for GraphqlFieldDefinitionList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlFieldDefinitionList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9437,7 +8584,6 @@ impl AstNode for GraphqlImplementsInterfaceList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlImplementsInterfaceList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9452,7 +8598,7 @@ impl Serialize for GraphqlImplementsInterfaceList {
 }
 impl AstSeparatedList for GraphqlImplementsInterfaceList {
     type Language = Language;
-    type Node = GraphqlNamedType;
+    type Node = GraphqlNameReference;
     fn syntax_list(&self) -> &SyntaxList {
         &self.syntax_list
     }
@@ -9467,15 +8613,15 @@ impl Debug for GraphqlImplementsInterfaceList {
     }
 }
 impl IntoIterator for GraphqlImplementsInterfaceList {
-    type Item = SyntaxResult<GraphqlNamedType>;
-    type IntoIter = AstSeparatedListNodesIterator<Language, GraphqlNamedType>;
+    type Item = SyntaxResult<GraphqlNameReference>;
+    type IntoIter = AstSeparatedListNodesIterator<Language, GraphqlNameReference>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 impl IntoIterator for &GraphqlImplementsInterfaceList {
-    type Item = SyntaxResult<GraphqlNamedType>;
-    type IntoIter = AstSeparatedListNodesIterator<Language, GraphqlNamedType>;
+    type Item = SyntaxResult<GraphqlNameReference>;
+    type IntoIter = AstSeparatedListNodesIterator<Language, GraphqlNameReference>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -9520,7 +8666,6 @@ impl AstNode for GraphqlInputFieldList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlInputFieldList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9603,7 +8748,6 @@ impl AstNode for GraphqlListValueElementList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlListValueElementList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9686,7 +8830,6 @@ impl AstNode for GraphqlObjectValueMemberList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlObjectValueMemberList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9770,7 +8913,6 @@ impl AstNode for GraphqlRootOperationTypeDefinitionList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlRootOperationTypeDefinitionList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9853,7 +8995,6 @@ impl AstNode for GraphqlSelectionList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlSelectionList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9936,7 +9077,6 @@ impl AstNode for GraphqlUnionMemberTypeList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlUnionMemberTypeList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -9951,7 +9091,7 @@ impl Serialize for GraphqlUnionMemberTypeList {
 }
 impl AstSeparatedList for GraphqlUnionMemberTypeList {
     type Language = Language;
-    type Node = GraphqlNamedType;
+    type Node = GraphqlNameReference;
     fn syntax_list(&self) -> &SyntaxList {
         &self.syntax_list
     }
@@ -9966,15 +9106,15 @@ impl Debug for GraphqlUnionMemberTypeList {
     }
 }
 impl IntoIterator for GraphqlUnionMemberTypeList {
-    type Item = SyntaxResult<GraphqlNamedType>;
-    type IntoIter = AstSeparatedListNodesIterator<Language, GraphqlNamedType>;
+    type Item = SyntaxResult<GraphqlNameReference>;
+    type IntoIter = AstSeparatedListNodesIterator<Language, GraphqlNameReference>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 impl IntoIterator for &GraphqlUnionMemberTypeList {
-    type Item = SyntaxResult<GraphqlNamedType>;
-    type IntoIter = AstSeparatedListNodesIterator<Language, GraphqlNamedType>;
+    type Item = SyntaxResult<GraphqlNameReference>;
+    type IntoIter = AstSeparatedListNodesIterator<Language, GraphqlNameReference>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -10019,7 +9159,6 @@ impl AstNode for GraphqlVariableDefinitionList {
         self.syntax_list.into_node()
     }
 }
-#[cfg(feature = "serde")]
 impl Serialize for GraphqlVariableDefinitionList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

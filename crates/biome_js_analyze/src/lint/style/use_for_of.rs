@@ -1,4 +1,4 @@
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
 use biome_js_semantic::{ReferencesExtensions, SemanticModel};
 use biome_js_syntax::{
@@ -9,11 +9,11 @@ use biome_js_syntax::{
     JsShorthandPropertyObjectMember, JsSyntaxKind, JsSyntaxToken, JsUnaryOperator,
     JsVariableDeclarator,
 };
-use biome_rowan::{declare_node_union, AstNode, AstSeparatedList, TextRange};
+use biome_rowan::{AstNode, AstSeparatedList, TextRange, declare_node_union};
 
 use crate::{services::semantic::Semantic, utils::is_node_equal};
 
-declare_rule! {
+declare_lint_rule! {
     /// This rule recommends a `for-of` loop when in a `for` loop, the index used to extract an item from the iterated array.
     ///
     /// ## Examples
@@ -49,6 +49,7 @@ declare_rule! {
     pub UseForOf {
         version: "1.5.0",
         name: "useForOf",
+        language: "js",
         sources: &[
             RuleSource::EslintTypeScript("prefer-for-of"),
             RuleSource::EslintUnicorn("no-for-loop"),
@@ -151,7 +152,7 @@ fn list_initializer_references(
         .all_references(model)
         .filter_map(|reference| {
             // We only want references within this block / for body
-            if reference.range().start() < body_range.start() {
+            if reference.range_start() < body_range.start() {
                 return None;
             }
 
@@ -294,7 +295,7 @@ fn is_less_than_length_expression(binary_expression: &JsBinaryExpression) -> Opt
 
     Some(
         matches!(operator, JsBinaryOperator::LessThan)
-            && member.value_token().ok()?.text() == "length"
+            && member.value_token().ok()?.text_trimmed() == "length"
             && !matches!(object.syntax().kind(), JsSyntaxKind::JS_THIS_EXPRESSION),
     )
 }

@@ -1,41 +1,49 @@
-use crate::converters::{negotiated_encoding, PositionEncoding, WideEncoding};
+use crate::diagnostics::LspError;
 use crate::documents::Document;
-use crate::extension_settings::ExtensionSettings;
-use crate::extension_settings::CONFIGURATION_SECTION;
+use crate::extension_settings::{CONFIGURATION_SECTION, ExtensionSettings};
 use crate::utils;
 use anyhow::Result;
-use biome_analyze::RuleCategories;
+use biome_analyze::RuleCategoriesBuilder;
 use biome_configuration::ConfigurationPathHint;
 use biome_console::markup;
-use biome_diagnostics::PrintDescription;
-use biome_fs::{BiomePath, FileSystem};
-use biome_service::configuration::{
-    load_configuration, LoadedConfiguration, PartialConfigurationExt,
-};
+use biome_deserialize::Merge;
+use biome_diagnostics::{DiagnosticExt, Error, PrintDescription};
+use biome_fs::BiomePath;
+use biome_lsp_converters::{PositionEncoding, WideEncoding, negotiated_encoding};
+use biome_service::Workspace;
+use biome_service::WorkspaceError;
+use biome_service::configuration::{LoadedConfiguration, load_configuration, load_editorconfig};
 use biome_service::file_handlers::{AstroFileHandler, SvelteFileHandler, VueFileHandler};
+use biome_service::projects::ProjectKey;
+use biome_service::workspace::ScanProjectFolderParams;
+use biome_service::workspace::ServiceDataNotification;
 use biome_service::workspace::{
     FeaturesBuilder, GetFileContentParams, OpenProjectParams, PullDiagnosticsParams,
-    RegisterProjectFolderParams, SupportsFeatureParams, UpdateProjectParams,
+    SupportsFeatureParams,
 };
 use biome_service::workspace::{RageEntry, RageParams, RageResult, UpdateSettingsParams};
-use biome_service::Workspace;
-use biome_service::{DynRef, WorkspaceError};
-use futures::stream::futures_unordered::FuturesUnordered;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use futures::StreamExt;
+use futures::stream::futures_unordered::FuturesUnordered;
+use papaya::HashMap;
+use rustc_hash::FxBuildHasher;
 use rustc_hash::FxHashMap;
 use serde_json::Value;
-use std::path::PathBuf;
-use std::sync::atomic::AtomicU8;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, AtomicU8};
+use tokio::spawn;
 use tokio::sync::Notify;
 use tokio::sync::OnceCell;
+use tokio::sync::watch;
+use tokio::task::spawn_blocking;
 use tower_lsp::lsp_types;
-use tower_lsp::lsp_types::Url;
+use tower_lsp::lsp_types::{Diagnostic, Url};
 use tower_lsp::lsp_types::{MessageType, Registration};
 use tower_lsp::lsp_types::{Unregistration, WorkspaceFolder};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub(crate) struct ClientInformation {
     /// The name of the client
@@ -64,17 +72,27 @@ pub(crate) struct Session {
     pub(crate) extension_settings: RwLock<ExtensionSettings>,
 
     pub(crate) workspace: Arc<dyn Workspace>,
+
     configuration_status: AtomicU8,
 
-    /// File system to read files inside the workspace
-    pub(crate) fs: DynRef<'static, dyn FileSystem>,
+    /// A flag to notify a message to the user when the configuration is broken, and the LSP attempts
+    /// to update the diagnostics
+    notified_broken_configuration: AtomicBool,
 
-    documents: RwLock<FxHashMap<lsp_types::Url, Document>>,
+    /// Projects opened in this session, mapped from the project's root path to
+    /// the associated project key.
+    projects: HashMap<BiomePath, ProjectKey>,
+
+    /// Documents opened in this session.
+    documents: HashMap<lsp_types::Url, Document, FxBuildHasher>,
 
     pub(crate) cancellation: Arc<Notify>,
 
-    pub(crate) config_path: Option<PathBuf>,
-    pub(crate) manifest_path: Option<PathBuf>,
+    /// Receiver for service data notifications.
+    ///
+    /// If we receive a notification here, diagnostics for open documents are
+    /// all refreshed.
+    service_data_rx: watch::Receiver<ServiceDataNotification>,
 }
 
 /// The parameters provided by the client in the "initialize" request
@@ -83,20 +101,41 @@ struct InitializeParams {
     client_capabilities: lsp_types::ClientCapabilities,
     client_information: Option<ClientInformation>,
     root_uri: Option<Url>,
-    #[allow(unused)]
     workspace_folders: Option<Vec<WorkspaceFolder>>,
 }
 
 #[repr(u8)]
-enum ConfigurationStatus {
+pub(crate) enum ConfigurationStatus {
     /// The configuration file was properly loaded
     Loaded = 0,
     /// The configuration file does not exist
     Missing = 1,
     /// The configuration file exists but could not be loaded
     Error = 2,
+    /// The `.editorconfig` file has some errors that biome can't solve
+    EditorConfigError = 3,
     /// Currently loading the configuration
-    Loading = 3,
+    Loading = 4,
+    /// The configuration file is correct, but the plugins cannot be loaded
+    PluginError = 5,
+}
+
+impl ConfigurationStatus {
+    pub(crate) const fn is_error(&self) -> bool {
+        matches!(self, ConfigurationStatus::Error)
+    }
+
+    pub(crate) const fn is_editorconfig_error(&self) -> bool {
+        matches!(self, ConfigurationStatus::EditorConfigError)
+    }
+
+    pub(crate) const fn is_plugin_error(&self) -> bool {
+        matches!(self, ConfigurationStatus::PluginError)
+    }
+
+    pub(crate) const fn is_loaded(&self) -> bool {
+        matches!(self, ConfigurationStatus::Loaded)
+    }
 }
 
 impl TryFrom<u8> for ConfigurationStatus {
@@ -107,6 +146,9 @@ impl TryFrom<u8> for ConfigurationStatus {
             0 => Ok(Self::Loaded),
             1 => Ok(Self::Missing),
             2 => Ok(Self::Error),
+            3 => Ok(Self::EditorConfigError),
+            4 => Ok(Self::Loading),
+            5 => Ok(Self::PluginError),
             _ => Err(()),
         }
     }
@@ -146,9 +188,8 @@ impl Session {
         client: tower_lsp::Client,
         workspace: Arc<dyn Workspace>,
         cancellation: Arc<Notify>,
-        fs: DynRef<'static, dyn FileSystem>,
+        service_data_rx: watch::Receiver<ServiceDataNotification>,
     ) -> Self {
-        let documents = Default::default();
         let config = RwLock::new(ExtensionSettings::new());
         Self {
             key,
@@ -156,22 +197,18 @@ impl Session {
             initialize_params: OnceCell::default(),
             workspace,
             configuration_status: AtomicU8::new(ConfigurationStatus::Missing as u8),
-            documents,
+            projects: Default::default(),
+            documents: Default::default(),
             extension_settings: config,
-            fs,
             cancellation,
-            config_path: None,
-            manifest_path: None,
+            notified_broken_configuration: AtomicBool::new(false),
+            service_data_rx,
         }
-    }
-
-    pub(crate) fn set_config_path(&mut self, path: PathBuf) {
-        self.config_path = Some(path);
     }
 
     /// Initialize this session instance with the incoming initialization parameters from the client
     pub(crate) fn initialize(
-        &self,
+        self: &Arc<Self>,
         client_capabilities: lsp_types::ClientCapabilities,
         client_information: Option<ClientInformation>,
         root_uri: Option<Url>,
@@ -187,6 +224,24 @@ impl Session {
         if let Err(err) = result {
             error!("Failed to initialize session: {err}");
         }
+
+        let session = self.clone();
+        tokio::task::spawn(async move {
+            let mut service_data_rx = session.service_data_rx.clone();
+            while let Ok(()) = service_data_rx.changed().await {
+                match *session.service_data_rx.borrow() {
+                    ServiceDataNotification::Updated => {
+                        let session = session.clone();
+                        tokio::task::spawn(async move {
+                            session.update_all_diagnostics().await;
+                        });
+                    }
+                    ServiceDataNotification::Stop => {
+                        break;
+                    }
+                }
+            }
+        });
     }
 
     /// Register a set of capabilities with the client
@@ -240,28 +295,50 @@ impl Session {
         }
     }
 
+    /// Returns the key for the project that should be used for a given path.
+    pub(crate) fn project_for_path(&self, path: &Utf8Path) -> Option<ProjectKey> {
+        self.projects
+            .pin()
+            .iter()
+            .find(|(project_path, _project_key)| path.starts_with(project_path.as_path()))
+            .map(|(_project_path, project_key)| *project_key)
+    }
+
+    /// Registers an open project with its root path and scans the folder.
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub(crate) fn insert_and_scan_project(
+        self: &Arc<Self>,
+        project_key: ProjectKey,
+        path: BiomePath,
+    ) {
+        self.projects.pin().insert(path.clone(), project_key);
+
+        // Spawn the scan in the background, to avoid timing out the LSP request.
+        let session = self.clone();
+        tokio::spawn(async move { session.scan_project_folder(project_key, path).await });
+    }
+
     /// Get a [`Document`] matching the provided [`lsp_types::Url`]
     ///
     /// If document does not exist, result is [WorkspaceError::NotFound]
-    pub(crate) fn document(&self, url: &lsp_types::Url) -> Result<Document, WorkspaceError> {
+    pub(crate) fn document(&self, url: &lsp_types::Url) -> Result<Document, Error> {
         self.documents
-            .read()
-            .unwrap()
+            .pin()
             .get(url)
             .cloned()
-            .ok_or_else(WorkspaceError::not_found)
+            .ok_or_else(|| WorkspaceError::not_found().with_file_path(url.to_string()))
     }
 
     /// Set the [`Document`] for the provided [`lsp_types::Url`]
     ///
     /// Used by [`handlers::text_document] to synchronize documents with the client.
     pub(crate) fn insert_document(&self, url: lsp_types::Url, document: Document) {
-        self.documents.write().unwrap().insert(url, document);
+        self.documents.pin().insert(url, document);
     }
 
     /// Remove the [`Document`] matching the provided [`lsp_types::Url`]
-    pub(crate) fn remove_document(&self, url: &lsp_types::Url) {
-        self.documents.write().unwrap().remove(url);
+    pub(crate) fn remove_document(&self, url: &lsp_types::Url) -> Option<ProjectKey> {
+        self.documents.pin().remove(url).map(|doc| doc.project_key)
     }
 
     pub(crate) fn file_path(&self, url: &lsp_types::Url) -> Result<BiomePath> {
@@ -269,9 +346,9 @@ impl Session {
             Err(_) => {
                 // If we can't create a path, it's probably because the file doesn't exist.
                 // It can be a newly created file that it's not on disk
-                PathBuf::from(url.path())
+                Utf8PathBuf::from(url.path())
             }
-            Ok(path) => path,
+            Ok(path) => Utf8PathBuf::from_path_buf(path).expect("To to have a UTF-8 path"),
         };
 
         Ok(BiomePath::new(path_to_file))
@@ -280,44 +357,78 @@ impl Session {
     /// Computes diagnostics for the file matching the provided url and publishes
     /// them to the client. Called from [`handlers::text_document`] when a file's
     /// contents changes.
-    #[tracing::instrument(level = "trace", skip_all, fields(url = display(&url), diagnostic_count), err)]
-    pub(crate) async fn update_diagnostics(&self, url: lsp_types::Url) -> Result<()> {
-        let biome_path = self.file_path(&url)?;
+    #[tracing::instrument(level = "debug", skip_all, fields(url = display(&url), diagnostic_count), err)]
+    pub(crate) async fn update_diagnostics(&self, url: lsp_types::Url) -> Result<(), LspError> {
         let doc = self.document(&url)?;
+        self.update_diagnostics_for_document(url, doc).await
+    }
+
+    /// Computes diagnostics for the file matching the provided url and publishes
+    /// them to the client. Called from [`handlers::text_document`] when a file's
+    /// contents changes.
+    #[tracing::instrument(level = "debug", skip_all, fields(url = display(&url), diagnostic_count), err)]
+    async fn update_diagnostics_for_document(
+        &self,
+        url: lsp_types::Url,
+        doc: Document,
+    ) -> Result<(), LspError> {
+        let biome_path = self.file_path(&url)?;
+
+        if !self.notified_broken_configuration() {
+            if self.configuration_status().is_editorconfig_error() {
+                self.set_notified_broken_configuration();
+                self.client
+                    .show_message(MessageType::WARNING, "The .editorconfig file has errors. Biome will report only parsing errors until the file is fixed or its usage is disabled.")
+                    .await
+            } else if self.configuration_status().is_error() {
+                self.set_notified_broken_configuration();
+                self.client
+                    .show_message(MessageType::WARNING, "The configuration file has errors. Biome will report only parsing errors until the configuration is fixed.")
+                    .await;
+            } else if self.configuration_status().is_plugin_error() {
+                self.set_notified_broken_configuration();
+                self.client.show_message(MessageType::WARNING, "The plugin loading has failed. Biome will report only parsing errors until the file is fixed or its usage is disabled.").await
+            }
+        }
+
         let file_features = self.workspace.file_features(SupportsFeatureParams {
-            features: FeaturesBuilder::new()
-                .with_linter()
-                .with_organize_imports()
-                .build(),
+            project_key: doc.project_key,
+            features: FeaturesBuilder::new().with_linter().with_assist().build(),
             path: biome_path.clone(),
         })?;
 
-        let diagnostics = if self.is_linting_and_formatting_disabled() {
-            tracing::trace!("Linting disabled because Biome configuration is missing and `requireConfiguration` is true.");
-            vec![]
-        } else if !file_features.supports_lint() && !file_features.supports_organize_imports() {
-            tracing::trace!("linting and import sorting are not supported: {file_features:?}");
-            // Sending empty vector clears published diagnostics
-            vec![]
-        } else {
-            let mut categories = RuleCategories::SYNTAX;
-            if file_features.supports_lint() {
-                categories |= RuleCategories::LINT
-            }
-            if file_features.supports_organize_imports() {
-                categories |= RuleCategories::ACTION
+        if !file_features.supports_lint() && !file_features.supports_assist() {
+            self.client
+                .publish_diagnostics(url, vec![], Some(doc.version))
+                .await;
+            return Ok(());
+        }
+
+        let diagnostics: Vec<Diagnostic> = {
+            let mut categories = RuleCategoriesBuilder::default().with_syntax();
+            if self.configuration_status().is_loaded() {
+                if file_features.supports_lint() {
+                    categories = categories.with_lint();
+                }
+                if file_features.supports_assist() {
+                    categories = categories.with_assist();
+                }
             }
             let result = self.workspace.pull_diagnostics(PullDiagnosticsParams {
+                project_key: doc.project_key,
                 path: biome_path.clone(),
-                categories,
+                categories: categories.build(),
                 max_diagnostics: u64::MAX,
+                only: Vec::new(),
+                skip: Vec::new(),
+                enabled_rules: Vec::new(),
             })?;
 
-            tracing::trace!("biome diagnostics: {:#?}", result.diagnostics);
             let content = self.workspace.get_file_content(GetFileContentParams {
+                project_key: doc.project_key,
                 path: biome_path.clone(),
             })?;
-            let offset = match biome_path.extension().and_then(|s| s.to_str()) {
+            let offset = match biome_path.extension() {
                 Some("vue") => VueFileHandler::start(content.as_str()),
                 Some("astro") => AstroFileHandler::start(content.as_str()),
                 Some("svelte") => SvelteFileHandler::start(content.as_str()),
@@ -337,7 +448,7 @@ impl Session {
                     ) {
                         Ok(diag) => Some(diag),
                         Err(err) => {
-                            tracing::error!("failed to convert diagnostic to LSP: {err:?}");
+                            error!("failed to convert diagnostic to LSP: {err:?}");
                             None
                         }
                     }
@@ -355,13 +466,13 @@ impl Session {
     }
 
     /// Updates diagnostics for every [`Document`] in this [`Session`]
+    #[tracing::instrument(level = "debug", skip(self))]
     pub(crate) async fn update_all_diagnostics(&self) {
         let mut futures: FuturesUnordered<_> = self
             .documents
-            .read()
-            .unwrap()
-            .keys()
-            .map(|url| self.update_diagnostics(url.clone()))
+            .pin()
+            .iter()
+            .map(|(url, doc)| self.update_diagnostics_for_document(url.clone(), doc.clone()))
             .collect();
 
         while let Some(result) = futures.next().await {
@@ -389,12 +500,14 @@ impl Session {
     }
 
     /// Returns the base path of the workspace on the filesystem if it has one
-    pub(crate) fn base_path(&self) -> Option<PathBuf> {
+    pub(crate) fn base_path(&self) -> Option<Utf8PathBuf> {
         let initialize_params = self.initialize_params.get()?;
 
         let root_uri = initialize_params.root_uri.as_ref()?;
         match root_uri.to_file_path() {
-            Ok(base_path) => Some(base_path),
+            Ok(base_path) => {
+                Some(Utf8PathBuf::from_path_buf(base_path).expect("To have a UTF-8 path"))
+            }
             Err(()) => {
                 error!(
                     "The Workspace root URI {root_uri:?} could not be parsed as a filesystem path"
@@ -411,19 +524,31 @@ impl Session {
 
     /// This function attempts to read the `biome.json` configuration file from
     /// the root URI and update the workspace settings accordingly
-    #[tracing::instrument(level = "trace", skip(self))]
-    pub(crate) async fn load_workspace_settings(&self) {
-        // Providing a custom configuration path will not allow to support workspaces
-        if let Some(config_path) = &self.config_path {
-            let base_path = ConfigurationPathHint::FromUser(config_path.clone());
-            let status = self.load_biome_configuration_file(base_path).await;
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub(crate) async fn load_workspace_settings(self: &Arc<Self>) {
+        if let Some(config_path) = self
+            .extension_settings
+            .read()
+            .ok()
+            .and_then(|s| s.configuration_path())
+        {
+            info!("Detected configuration path in the workspace settings.");
+            self.set_configuration_status(ConfigurationStatus::Loading);
+
+            let status = self
+                .load_biome_configuration_file(ConfigurationPathHint::FromWorkspace(config_path))
+                .await;
+
             self.set_configuration_status(status);
         } else if let Some(folders) = self.get_workspace_folders() {
             info!("Detected workspace folder.");
             self.set_configuration_status(ConfigurationStatus::Loading);
             for folder in folders {
                 info!("Attempt to load the configuration file in {:?}", folder.uri);
-                let base_path = folder.uri.to_file_path();
+                let base_path = folder
+                    .uri
+                    .to_file_path()
+                    .map(|p| Utf8PathBuf::from_path_buf(p).expect("To have a valid UTF-8 path"));
                 match base_path {
                     Ok(base_path) => {
                         let status = self
@@ -451,119 +576,159 @@ impl Session {
         }
     }
 
-    async fn load_biome_configuration_file(
-        &self,
-        base_path: ConfigurationPathHint,
-    ) -> ConfigurationStatus {
-        match load_configuration(&self.fs, base_path.clone()) {
-            Ok(loaded_configuration) => {
-                if loaded_configuration.has_errors() {
-                    error!("Couldn't load the configuration file, reasons:");
-                    for diagnostic in loaded_configuration.as_diagnostics_iter() {
-                        let message = PrintDescription(diagnostic).to_string();
-                        self.client.log_message(MessageType::ERROR, message).await;
-                    }
-                    ConfigurationStatus::Error
-                } else {
-                    let LoadedConfiguration {
-                        configuration,
-                        directory_path: configuration_path,
-                        ..
-                    } = loaded_configuration;
-                    info!("Loaded workspace setting");
-                    let fs = &self.fs;
+    pub(crate) async fn scan_project_folder(
+        self: &Arc<Self>,
+        project_key: ProjectKey,
+        project_path: BiomePath,
+    ) {
+        let session = self.clone();
+        let scan_project = move || {
+            let result = session
+                .workspace
+                .scan_project_folder(ScanProjectFolderParams {
+                    project_key,
+                    path: Some(project_path),
+                    watch: true,
+                    force: false,
+                });
 
-                    let result =
-                        configuration.retrieve_gitignore_matches(fs, configuration_path.as_deref());
-
-                    match result {
-                        Ok((vcs_base_path, gitignore_matches)) => {
-                            if let ConfigurationPathHint::FromWorkspace(path) = &base_path {
-                                // We don't need the key
-                                let _ = self.workspace.register_project_folder(
-                                    RegisterProjectFolderParams {
-                                        path: Some(path.clone()),
-                                        // This is naive, but we don't know if the user has a file already open or not, so we register every project as the current one.
-                                        // The correct one is actually set when the LSP calls `textDocument/didOpen`
-                                        set_as_current_workspace: true,
-                                    },
-                                );
-                            } else {
-                                let _ = self.workspace.register_project_folder(
-                                    RegisterProjectFolderParams {
-                                        path: fs.working_directory(),
-                                        set_as_current_workspace: true,
-                                    },
-                                );
-                            }
-                            let result = self.workspace.update_settings(UpdateSettingsParams {
-                                workspace_directory: fs.working_directory(),
-                                configuration,
-                                vcs_base_path,
-                                gitignore_matches,
-                            });
-
-                            if let Err(error) = result {
-                                error!("Failed to set workspace settings: {}", error);
-                                ConfigurationStatus::Error
-                            } else {
-                                ConfigurationStatus::Loaded
-                            }
-                        }
-                        Err(err) => {
-                            error!("Couldn't load the configuration file, reason:\n {}", err);
-                            ConfigurationStatus::Error
-                        }
-                    }
-                }
-            }
-
-            Err(err) => {
-                error!("Couldn't load the configuration file, reason:\n {}", err);
-                self.client.log_message(MessageType::ERROR, &err).await;
-                ConfigurationStatus::Error
-            }
-        }
-    }
-
-    #[tracing::instrument(level = "trace", skip(self))]
-    pub(crate) async fn load_manifest(&self) {
-        let base_path = self
-            .manifest_path
-            .as_deref()
-            .map(PathBuf::from)
-            .or(self.base_path());
-        if let Some(base_path) = base_path {
-            let result = self.fs.auto_search(&base_path, &["package.json"], false);
             match result {
                 Ok(result) => {
-                    if let Some(result) = result {
-                        let biome_path = BiomePath::new(result.file_path);
-                        let result = self.workspace.open_project(OpenProjectParams {
-                            path: biome_path.clone(),
-                            content: result.content,
-                            version: 0,
-                        });
-                        if let Err(err) = result {
-                            error!("{}", err);
+                    spawn(async move {
+                        for diagnostic in result.diagnostics {
+                            let message = PrintDescription(&diagnostic).to_string();
+                            session
+                                .client
+                                .log_message(MessageType::ERROR, message)
+                                .await;
                         }
-                        let result = self
-                            .workspace
-                            .update_current_project(UpdateProjectParams { path: biome_path });
-                        if let Err(err) = result {
-                            error!("{}", err);
-                        }
-                    }
+                    });
                 }
                 Err(err) => {
-                    error!("Couldn't load the package.json file, reason:\n {}", err);
+                    let message = PrintDescription(&err).to_string();
+                    spawn(async move {
+                        session
+                            .client
+                            .log_message(MessageType::ERROR, message)
+                            .await;
+                    });
                 }
             }
+        };
+
+        let _ = spawn_blocking(scan_project).await;
+    }
+
+    #[tracing::instrument(level = "debug", skip(self))]
+    async fn load_biome_configuration_file(
+        self: &Arc<Self>,
+        base_path: ConfigurationPathHint,
+    ) -> ConfigurationStatus {
+        let loaded_configuration = match load_configuration(self.workspace.fs(), base_path.clone())
+        {
+            Ok(loaded_configuration) => loaded_configuration,
+            Err(err) => {
+                error!("Couldn't load the configuration file, reason:\n {err}");
+                self.client.log_message(MessageType::ERROR, &err).await;
+                return ConfigurationStatus::Error;
+            }
+        };
+
+        if loaded_configuration.has_errors() {
+            error!("Couldn't load the configuration file, reasons:");
+            for diagnostic in loaded_configuration.as_diagnostics_iter() {
+                let message = PrintDescription(diagnostic).to_string();
+                self.client.log_message(MessageType::ERROR, message).await;
+            }
+            return ConfigurationStatus::Error;
+        }
+
+        info!("Configuration loaded successfully from disk.");
+        info!("Update workspace settings.");
+
+        let LoadedConfiguration {
+            configuration: fs_configuration,
+            directory_path: configuration_path,
+            ..
+        } = loaded_configuration;
+
+        let fs = self.workspace.fs();
+        let should_use_editorconfig = fs_configuration.use_editorconfig();
+        let mut configuration = if should_use_editorconfig {
+            let (editorconfig, editorconfig_diagnostics) = {
+                let search_path = configuration_path
+                    .clone()
+                    .unwrap_or_else(|| fs.working_directory().unwrap_or_default());
+                match load_editorconfig(fs, search_path, None) {
+                    Ok(result) => result,
+                    Err(error) => {
+                        error!("Failed load the `.editorconfig` file. Reason: {error}");
+                        self.client.log_message(MessageType::ERROR, &error).await;
+                        return ConfigurationStatus::EditorConfigError;
+                    }
+                }
+            };
+            for diagnostic in editorconfig_diagnostics {
+                let message = PrintDescription(&diagnostic).to_string();
+                self.client.log_message(MessageType::ERROR, message).await;
+            }
+            editorconfig.unwrap_or_default()
+        } else {
+            Default::default()
+        };
+
+        configuration.merge_with(fs_configuration);
+
+        let path = match (&configuration_path, &base_path) {
+            (Some(configuration_path), _) => configuration_path.as_path(),
+            (
+                None,
+                ConfigurationPathHint::FromLsp(path) | ConfigurationPathHint::FromWorkspace(path),
+            ) => path,
+            (None, _) => &fs.working_directory().unwrap_or_default(),
+        };
+        let register_result = self.workspace.open_project(OpenProjectParams {
+            path: path.into(),
+            open_uninitialized: true,
+        });
+        let project_key = match register_result {
+            Ok(result) => result,
+            Err(error) => {
+                error!("Failed to register the project folder: {error}");
+                self.client.log_message(MessageType::ERROR, &error).await;
+                return ConfigurationStatus::Error;
+            }
+        };
+
+        let result = self.workspace.update_settings(UpdateSettingsParams {
+            project_key,
+            workspace_directory: configuration_path
+                .as_ref()
+                .map(Utf8PathBuf::as_path)
+                .map(BiomePath::from),
+            configuration,
+        });
+
+        self.insert_and_scan_project(project_key, path.into());
+
+        if let Err(WorkspaceError::PluginErrors(error)) = result {
+            error!("Failed to load plugins: {error:?}");
+            self.client
+                .log_message(MessageType::ERROR, format!("{error:?}"))
+                .await;
+            ConfigurationStatus::PluginError
+        } else if let Err(error) = result {
+            error!("Failed to set workspace settings: {error}");
+            self.client.log_message(MessageType::ERROR, &error).await;
+            ConfigurationStatus::Error
+        } else {
+            ConfigurationStatus::Loaded
         }
     }
 
-    /// Requests "workspace/configuration" from client and updates Session config
-    #[tracing::instrument(level = "trace", skip(self))]
+    /// Requests "workspace/configuration" from client and updates Session config.
+    /// It must be done before loading workspace settings in [`Self::load_workspace_settings`].
+    #[tracing::instrument(level = "debug", skip(self))]
     pub(crate) async fn load_extension_settings(&self) {
         let item = lsp_types::ConfigurationItem {
             scope_uri: None,
@@ -598,31 +763,40 @@ impl Session {
     }
 
     pub(crate) fn failsafe_rage(&self, params: RageParams) -> RageResult {
-        match self.workspace.rage(params) {
-            Ok(result) => result,
-            Err(err) => {
-                let entries = vec![
-                    RageEntry::section("Workspace"),
-                    RageEntry::markup(markup! {
-                        <Error>"\u{2716} Rage command failed:"</Error> {&format!("{err}")}
-                    }),
-                ];
+        self.workspace.rage(params).unwrap_or_else(|err| {
+            let entries = vec![
+                RageEntry::section("Workspace"),
+                RageEntry::markup(markup! {
+                    <Error>"\u{2716} Rage command failed:"</Error> {&format!("{err}")}
+                }),
+            ];
 
-                RageResult { entries }
-            }
-        }
+            RageResult { entries }
+        })
     }
 
-    fn configuration_status(&self) -> ConfigurationStatus {
+    /// Retrieves information regarding the configuration status
+    pub(crate) fn configuration_status(&self) -> ConfigurationStatus {
         self.configuration_status
             .load(Ordering::Relaxed)
             .try_into()
             .unwrap()
     }
 
+    /// Updates the status of the configuration
     fn set_configuration_status(&self, status: ConfigurationStatus) {
+        self.notified_broken_configuration
+            .store(false, Ordering::Relaxed);
         self.configuration_status
             .store(status as u8, Ordering::Relaxed);
+    }
+
+    fn notified_broken_configuration(&self) -> bool {
+        self.notified_broken_configuration.load(Ordering::Relaxed)
+    }
+    fn set_notified_broken_configuration(&self) {
+        self.notified_broken_configuration
+            .store(true, Ordering::Relaxed);
     }
 
     pub(crate) fn is_linting_and_formatting_disabled(&self) -> bool {
@@ -633,7 +807,9 @@ impl Session {
                 .read()
                 .unwrap()
                 .requires_configuration(),
-            ConfigurationStatus::Error => true,
+            ConfigurationStatus::Error
+            | ConfigurationStatus::EditorConfigError
+            | ConfigurationStatus::PluginError => false,
             ConfigurationStatus::Loading => true,
         }
     }

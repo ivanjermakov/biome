@@ -1,23 +1,23 @@
-use crate::{services::semantic::Semantic, JsRuleAction};
+use crate::{JsRuleAction, services::semantic::Semantic};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
-    global_identifier, static_value::StaticValue, AnyJsExpression, JsUnaryExpression,
-    JsUnaryOperator, T,
+    AnyJsExpression, JsUnaryExpression, JsUnaryOperator, T, global_identifier,
+    static_value::StaticValue,
 };
 use biome_rowan::{AstNode, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Use the `Number` properties instead of global ones.
     ///
     /// _ES2015_ moved some globals into the `Number` properties for consistency.
     ///
-    /// The rule doesn't report the globals `isFinite` and `isNan` because they have a slightly different behavior to their corresponding `Number`'s properties `Number.isFinite` and `Number.isNan`.
-    /// You can use the dedicated rules [noGlobalIsFinite](https://biomejs.dev/linter/rules/no-global-is-finite/) and  [noGlobalIsNan](https://biomejs.dev/linter/rules/no-global-is-nan/) to enforce the use of `Number.isFinite` and `Number.isNan`.
+    /// The rule doesn't report the globals `isFinite` and `isNaN` because they have a slightly different behavior to their corresponding `Number`'s properties `Number.isFinite` and `Number.isNaN`.
+    /// You can use the dedicated rules [noGlobalIsFinite](https://biomejs.dev/linter/rules/no-global-is-finite/) and  [noGlobalIsNan](https://biomejs.dev/linter/rules/no-global-is-nan/) to enforce the use of `Number.isFinite` and `Number.isNaN`.
     ///
     /// ## Examples
     ///
@@ -68,9 +68,11 @@ declare_rule! {
     pub UseNumberNamespace {
         version: "1.5.0",
         name: "useNumberNamespace",
+        language: "js",
         sources: &[RuleSource::EslintUnicorn("prefer-number-properties")],
-        recommended: true,
-        fix_kind: FixKind::Unsafe,
+        recommended: false,
+        severity: Severity::Warning,
+        fix_kind: FixKind::Safe,
     }
 }
 
@@ -96,12 +98,27 @@ impl Rule for UseNumberNamespace {
 
     fn diagnostic(ctx: &RuleContext<Self>, global_ident: &Self::State) -> Option<RuleDiagnostic> {
         let node = ctx.query();
+        let equivalent_property = match global_ident.text() {
+            "Infinity" => {
+                if let Some(parent) = node.parent::<JsUnaryExpression>() {
+                    match parent.operator().ok()? {
+                        JsUnaryOperator::Minus => "NEGATIVE_INFINITY",
+                        JsUnaryOperator::Plus => "POSITIVE_INFINITY",
+                        _ => return None,
+                    }
+                } else {
+                    "POSITIVE_INFINITY"
+                }
+            }
+            other => other,
+        };
+
         Some(
             RuleDiagnostic::new(
                 rule_category!(),
                 node.range(),
                 markup! {
-                    "Use "<Emphasis>"Number."{global_ident.text()}</Emphasis>" instead of the equivalent global."
+                    "Use "<Emphasis>"Number."{equivalent_property}</Emphasis>" instead of the equivalent global."
                 },
             )
             .note(markup! {
@@ -114,7 +131,7 @@ impl Rule for UseNumberNamespace {
         let node = ctx.query();
         let (old_node, new_node) = match node {
             AnyJsExpression::JsIdentifierExpression(expression) => {
-                let name = expression.name().ok()?.text();
+                let name = expression.name().ok()?.to_trimmed_string();
                 if !GLOBAL_NUMBER_PROPERTIES.contains(&name.as_str()) {
                     return None;
                 }
@@ -150,19 +167,46 @@ impl Rule for UseNumberNamespace {
                     ),
                 )
             }
-            AnyJsExpression::JsStaticMemberExpression(expression) => (
-                node.clone(),
-                make::js_static_member_expression(
+            AnyJsExpression::JsStaticMemberExpression(expression) => {
+                let name = expression.member().ok()?.to_trimmed_string();
+
+                if !GLOBAL_NUMBER_PROPERTIES.contains(&name.as_str()) {
+                    return None;
+                }
+                let (old_node, replacement) = match name.as_str() {
+                    "Infinity" => {
+                        if let Some(parent) = node.parent::<JsUnaryExpression>() {
+                            match parent.operator().ok()? {
+                                JsUnaryOperator::Minus => (
+                                    AnyJsExpression::JsUnaryExpression(parent),
+                                    "NEGATIVE_INFINITY",
+                                ),
+                                JsUnaryOperator::Plus => (
+                                    AnyJsExpression::JsUnaryExpression(parent),
+                                    "POSITIVE_INFINITY",
+                                ),
+                                _ => return None,
+                            }
+                        } else {
+                            (node.clone(), "POSITIVE_INFINITY")
+                        }
+                    }
+                    _ => (node.clone(), name.as_str()),
+                };
+                (
+                    old_node,
                     make::js_static_member_expression(
-                        expression.object().ok()?,
-                        make::token(T![.]),
-                        make::js_name(make::ident("Number")).into(),
-                    )
-                    .into(),
-                    expression.operator_token().ok()?,
-                    expression.member().ok()?,
-                ),
-            ),
+                        make::js_static_member_expression(
+                            expression.object().ok()?,
+                            make::token(T![.]),
+                            make::js_name(make::ident("Number")).into(),
+                        )
+                        .into(),
+                        expression.operator_token().ok()?,
+                        make::js_name(make::ident(replacement)).into(),
+                    ),
+                )
+            }
             AnyJsExpression::JsComputedMemberExpression(expression) => {
                 let object = expression.object().ok()?;
                 (
@@ -178,14 +222,29 @@ impl Rule for UseNumberNamespace {
         };
         let mut mutation = ctx.root().begin();
         mutation.replace_node(old_node, new_node.into());
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! {
-                "Use "<Emphasis>"Number."{global_ident.text()}</Emphasis>" instead."
+        let equivalent_property = match global_ident.text() {
+            "Infinity" => {
+                if let Some(parent) = node.parent::<JsUnaryExpression>() {
+                    match parent.operator().ok()? {
+                        JsUnaryOperator::Minus => "NEGATIVE_INFINITY",
+                        JsUnaryOperator::Plus => "POSITIVE_INFINITY",
+                        _ => return None,
+                    }
+                } else {
+                    "POSITIVE_INFINITY"
+                }
+            }
+            other => other,
+        };
+
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {
+                "Use "<Emphasis>"Number."{equivalent_property}</Emphasis>" instead."
             }
             .to_owned(),
             mutation,
-        })
+        ))
     }
 }

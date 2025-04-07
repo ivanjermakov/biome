@@ -5,6 +5,7 @@
 use super::binding::*;
 use super::class::is_at_ts_abstract_class_declaration;
 use super::expr::parse_expression;
+use super::metavariable::{is_at_metavariable, is_nth_at_metavariable, parse_metavariable};
 use super::module::parse_export;
 use super::typescript::*;
 use crate::parser::RecoveryResult;
@@ -16,24 +17,24 @@ use crate::state::{
 use crate::syntax::assignment::expression_to_assignment_pattern;
 use crate::syntax::class::{parse_class_declaration, parse_decorators, parse_initializer_clause};
 use crate::syntax::expr::{
-    is_at_expression, is_at_identifier, is_nth_at_identifier,
+    ExpressionContext, is_at_expression, is_at_identifier, is_nth_at_identifier,
     parse_assignment_expression_or_higher, parse_expression_or_recover_to_next_statement,
-    parse_identifier, ExpressionContext,
+    parse_identifier,
 };
-use crate::syntax::function::{is_at_async_function, parse_function_declaration, LineBreak};
+use crate::syntax::function::{LineBreak, is_at_async_function, parse_function_declaration};
 use crate::syntax::js_parse_error;
 use crate::syntax::js_parse_error::{decorators_not_allowed, expected_binding, expected_statement};
 use crate::syntax::module::parse_import_or_import_equals_declaration;
 use crate::syntax::typescript::ts_parse_error::{expected_ts_type, ts_only_syntax_error};
 
-use crate::span::Span;
 use crate::JsSyntaxFeature::{StrictMode, TypeScript};
 use crate::ParsedSyntax::{Absent, Present};
-use crate::{parser, JsParser, JsSyntaxFeature, ParseRecoveryTokenSet};
+use crate::span::Span;
+use crate::{JsParser, JsSyntaxFeature, ParseRecoveryTokenSet, parser};
 use biome_js_syntax::{JsSyntaxKind::*, *};
+use biome_parser::ParserProgress;
 use biome_parser::diagnostic::expected_token;
 use biome_parser::parse_lists::{ParseNodeList, ParseSeparatedList};
-use biome_parser::ParserProgress;
 use biome_rowan::SyntaxKind;
 
 pub const STMT_RECOVERY_SET: TokenSet<JsSyntaxKind> = token_set![
@@ -332,7 +333,10 @@ pub(crate) fn parse_statement(p: &mut JsParser, context: StatementContext) -> Pa
                 parse_expression_statement(p)
             }
         }
-        T![type] if !p.has_nth_preceding_line_break(1) && is_nth_at_identifier(p, 1) => {
+        T![type]
+            if !p.has_nth_preceding_line_break(1)
+                && (is_nth_at_identifier(p, 1) || is_nth_at_metavariable(p, 1)) =>
+        {
             // test ts ts_type_variable
             // let type;
             // type = getFlowTypeInConstructor(symbol, getDeclaringConstructor(symbol)!);
@@ -369,7 +373,7 @@ pub(crate) fn parse_statement(p: &mut JsParser, context: StatementContext) -> Pa
                 },
             )
         }
-        _ if is_at_expression(p) => parse_expression_statement(p),
+        _ if is_at_expression(p) || is_at_metavariable(p) => parse_expression_statement(p),
         _ => Absent,
     }
 }
@@ -450,11 +454,11 @@ fn parse_labeled_statement(p: &mut JsParser, context: StatementContext) -> Parse
 					.err_builder("Duplicate statement labels are not allowed", identifier_range)
 					.with_detail(
 						identifier_range,
-						format!("a second use of `{}` here is not allowed", label),
+						format!("a second use of `{label}` here is not allowed"),
 					)
 					.with_detail(
 						*label_item.range(),
-						format!("`{}` is first used as a label here", label),
+						format!("`{label}` is first used as a label here"),
 					);
 
 				p.error(err);
@@ -582,6 +586,9 @@ fn parse_throw_statement(p: &mut JsParser) -> ParsedSyntax {
 //    break foo;
 //   }
 // }
+// out: while (true) {
+//   break out;
+// }
 
 // test_err js break_stmt
 // function foo() { break; }
@@ -598,14 +605,14 @@ fn parse_break_statement(p: &mut JsParser) -> ParsedSyntax {
     let start = p.cur_range();
     p.expect(T![break]); // break keyword
 
-    let error = if !p.has_preceding_line_break() && p.at(T![ident]) {
+    let error = if !p.has_preceding_line_break() && is_at_identifier(p) {
         let label_name = p.cur_text();
 
         let error = match p.state().get_labelled_item(label_name) {
             Some(_) => None,
             None => Some(
                 p.err_builder(
-                    format!("Use of undefined statement label `{}`", label_name,),
+                    format!("Use of undefined statement label `{label_name}`",),
                     p.cur_range(),
                 )
                 .with_hint("This label is used, but it is never defined"),
@@ -670,8 +677,7 @@ fn parse_continue_statement(p: &mut JsParser) -> ParsedSyntax {
 			None => {
 				Some(p
 					.err_builder(format!(
-						"Use of undefined statement label `{}`",
-						label_name
+						"Use of undefined statement label `{label_name}`"
 					), p.cur_range())
 					.with_hint(
 
@@ -901,6 +907,10 @@ pub(crate) fn parse_statements(p: &mut JsParser, stop_on_r_curly: bool, statemen
         progress.assert_progressing(p);
         if stop_on_r_curly && p.at(T!['}']) {
             break;
+        }
+
+        if parse_metavariable(p).is_present() {
+            continue;
         }
 
         if parse_statement(p, StatementContext::StatementList)
@@ -1222,8 +1232,6 @@ fn eat_variable_declaration(
         declarator_context: context,
         remaining_declarator_range: None,
     };
-
-    debug_assert!(p.state().name_map.is_empty());
     let list = variable_declarator_list.parse_list(p);
 
     p.state_mut().name_map.clear();
@@ -1638,10 +1646,9 @@ fn parse_for_head(p: &mut JsParser, has_l_paren: bool, is_for_await: bool) -> Js
 
         if p.at(T![in]) || p.at(T![of]) {
             // for (assignment_pattern in ...
-            if let Present(assignment_expr) = init_expr {
-                let mut assignment =
-                    expression_to_assignment_pattern(p, assignment_expr, checkpoint);
-
+            if let Present(mut assignment) = init_expr.and_then(|assignment_expr| {
+                expression_to_assignment_pattern(p, assignment_expr, checkpoint)
+            }) {
                 if TypeScript.is_supported(p)
                     && p.at(T![in])
                     && matches!(

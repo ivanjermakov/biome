@@ -1,133 +1,135 @@
 use crate::changed::get_changed_files;
 use crate::cli_options::CliOptions;
-use crate::commands::validate_configuration_diagnostics;
-use crate::{execute_mode, setup_cli_subscriber, CliDiagnostic, CliSession, Execution};
-use biome_configuration::{organize_imports::PartialOrganizeImports, PartialConfiguration};
-use biome_configuration::{PartialFormatterConfiguration, PartialLinterConfiguration};
+use crate::commands::{CommandRunner, LoadEditorConfig};
+use crate::{CliDiagnostic, Execution};
+use biome_configuration::analyzer::LinterEnabled;
+use biome_configuration::analyzer::assist::{AssistConfiguration, AssistEnabled};
+use biome_configuration::formatter::FormatterEnabled;
+use biome_configuration::{Configuration, FormatterConfiguration, LinterConfiguration};
+use biome_console::Console;
 use biome_deserialize::Merge;
-use biome_service::configuration::{
-    load_configuration, LoadedConfiguration, PartialConfigurationExt,
-};
-use biome_service::workspace::{RegisterProjectFolderParams, UpdateSettingsParams};
+use biome_fs::FileSystem;
+use biome_service::configuration::LoadedConfiguration;
+use biome_service::projects::ProjectKey;
+use biome_service::{Workspace, WorkspaceError};
 use std::ffi::OsString;
 
 pub(crate) struct CiCommandPayload {
-    pub(crate) formatter_enabled: Option<bool>,
-    pub(crate) linter_enabled: Option<bool>,
-    pub(crate) organize_imports_enabled: Option<bool>,
+    pub(crate) formatter_enabled: Option<FormatterEnabled>,
+    pub(crate) linter_enabled: Option<LinterEnabled>,
+    pub(crate) assist_enabled: Option<AssistEnabled>,
     pub(crate) paths: Vec<OsString>,
-    pub(crate) configuration: Option<PartialConfiguration>,
-    pub(crate) cli_options: CliOptions,
+    pub(crate) configuration: Option<Configuration>,
     pub(crate) changed: bool,
     pub(crate) since: Option<String>,
 }
 
-/// Handler for the "ci" command of the Biome CLI
-pub(crate) fn ci(session: CliSession, payload: CiCommandPayload) -> Result<(), CliDiagnostic> {
-    let CiCommandPayload {
-        cli_options,
-        formatter_enabled,
-        linter_enabled,
-        organize_imports_enabled,
-        configuration,
-        mut paths,
-        since,
-        changed,
-    } = payload;
-    setup_cli_subscriber(cli_options.log_level, cli_options.log_kind);
-
-    let loaded_configuration =
-        load_configuration(&session.app.fs, cli_options.as_configuration_path_hint())?;
-
-    validate_configuration_diagnostics(
-        &loaded_configuration,
-        session.app.console,
-        cli_options.verbose,
-    )?;
-
-    let LoadedConfiguration {
-        configuration: mut fs_configuration,
-        directory_path: configuration_path,
-        ..
-    } = loaded_configuration;
-    let formatter = fs_configuration
-        .formatter
-        .get_or_insert_with(PartialFormatterConfiguration::default);
-
-    if formatter_enabled.is_some() {
-        formatter.enabled = formatter_enabled;
+impl LoadEditorConfig for CiCommandPayload {
+    fn should_load_editor_config(&self, fs_configuration: &Configuration) -> bool {
+        self.configuration
+            .as_ref()
+            .is_some_and(|c| c.use_editorconfig())
+            || fs_configuration.use_editorconfig()
     }
+}
 
-    let linter = fs_configuration
-        .linter
-        .get_or_insert_with(PartialLinterConfiguration::default);
+impl CommandRunner for CiCommandPayload {
+    const COMMAND_NAME: &'static str = "ci";
 
-    if linter_enabled.is_some() {
-        linter.enabled = linter_enabled;
-    }
+    fn merge_configuration(
+        &mut self,
+        loaded_configuration: LoadedConfiguration,
+        fs: &dyn FileSystem,
+        _console: &mut dyn Console,
+    ) -> Result<Configuration, WorkspaceError> {
+        let LoadedConfiguration {
+            configuration: biome_configuration,
+            directory_path: configuration_path,
+            ..
+        } = loaded_configuration;
+        let mut configuration =
+            self.combine_configuration(configuration_path, biome_configuration, fs)?;
 
-    let organize_imports = fs_configuration
-        .organize_imports
-        .get_or_insert_with(PartialOrganizeImports::default);
+        let formatter = configuration
+            .formatter
+            .get_or_insert_with(FormatterConfiguration::default);
 
-    if organize_imports_enabled.is_some() {
-        organize_imports.enabled = organize_imports_enabled;
-    }
-
-    // no point in doing the traversal if all the checks have been disabled
-    if fs_configuration.is_formatter_disabled()
-        && fs_configuration.is_linter_disabled()
-        && fs_configuration.is_organize_imports_disabled()
-    {
-        return Err(CliDiagnostic::incompatible_end_configuration("Formatter, linter and organize imports are disabled, can't perform the command. This is probably and error."));
-    }
-
-    if let Some(mut configuration) = configuration {
-        if let Some(linter) = configuration.linter.as_mut() {
-            // Don't overwrite rules from the CLI configuration.
-            // Otherwise, rules that are disabled in the config file might
-            // become re-enabled due to the defaults included in the CLI
-            // configuration.
-            linter.rules = None;
+        if self.formatter_enabled.is_some() {
+            formatter.enabled = self.formatter_enabled;
         }
-        fs_configuration.merge_with(configuration);
+
+        let linter = configuration
+            .linter
+            .get_or_insert_with(LinterConfiguration::default);
+
+        if self.linter_enabled.is_some() {
+            linter.enabled = self.linter_enabled;
+        }
+
+        let assist = configuration
+            .assist
+            .get_or_insert_with(AssistConfiguration::default);
+
+        if self.assist_enabled.is_some() {
+            assist.enabled = self.assist_enabled;
+        }
+
+        if let Some(mut conf) = self.configuration.clone() {
+            if let Some(linter) = conf.linter.as_mut() {
+                // Don't overwrite rules from the CLI configuration.
+                // Otherwise, rules that are disabled in the config file might
+                // become re-enabled due to the defaults included in the CLI
+                // configuration.
+                linter.rules = None;
+            }
+            configuration.merge_with(conf);
+        }
+
+        Ok(configuration)
     }
 
-    // check if support of git ignore files is enabled
-    let vcs_base_path = configuration_path.or(session.app.fs.working_directory());
-    let (vcs_base_path, gitignore_matches) =
-        fs_configuration.retrieve_gitignore_matches(&session.app.fs, vcs_base_path.as_deref())?;
-
-    if since.is_some() && !changed {
-        return Err(CliDiagnostic::incompatible_arguments("since", "changed"));
+    fn get_files_to_process(
+        &self,
+        fs: &dyn FileSystem,
+        configuration: &Configuration,
+    ) -> Result<Vec<OsString>, CliDiagnostic> {
+        if self.changed {
+            get_changed_files(fs, configuration, self.since.as_deref())
+        } else {
+            Ok(self.paths.clone())
+        }
     }
 
-    if changed {
-        paths = get_changed_files(&session.app.fs, &fs_configuration, since)?;
+    fn get_stdin_file_path(&self) -> Option<&str> {
+        None
     }
 
-    session
-        .app
-        .workspace
-        .register_project_folder(RegisterProjectFolderParams {
-            path: session.app.fs.working_directory(),
-            set_as_current_workspace: true,
-        })?;
+    fn should_write(&self) -> bool {
+        false
+    }
 
-    session
-        .app
-        .workspace
-        .update_settings(UpdateSettingsParams {
-            configuration: fs_configuration,
-            workspace_directory: session.app.fs.working_directory(),
-            vcs_base_path,
-            gitignore_matches,
-        })?;
+    fn get_execution(
+        &self,
+        cli_options: &CliOptions,
+        _console: &mut dyn Console,
+        _workspace: &dyn Workspace,
+        project_key: ProjectKey,
+    ) -> Result<Execution, CliDiagnostic> {
+        Ok(Execution::new_ci(project_key, (false, self.changed).into()).set_report(cli_options))
+    }
 
-    execute_mode(
-        Execution::new_ci().set_report(&cli_options),
-        session,
-        &cli_options,
-        paths,
-    )
+    fn check_incompatible_arguments(&self) -> Result<(), CliDiagnostic> {
+        if self.formatter_enabled.is_some_and(|v| !v.value())
+            && self.linter_enabled.is_some_and(|v| !v.value())
+            && self.assist_enabled.is_some_and(|v| !v.value())
+        {
+            return Err(CliDiagnostic::incompatible_end_configuration(
+                "Formatter, linter and assist are disabled, can't perform the command. At least one feature needs to be enabled. This is probably and error.",
+            ));
+        }
+        if self.since.is_some() && !self.changed {
+            return Err(CliDiagnostic::incompatible_arguments("since", "changed"));
+        }
+        Ok(())
+    }
 }

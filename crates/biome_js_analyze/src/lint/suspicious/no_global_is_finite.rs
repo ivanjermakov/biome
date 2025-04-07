@@ -1,14 +1,12 @@
-use crate::{services::semantic::Semantic, JsRuleAction};
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
-};
+use crate::{JsRuleAction, services::semantic::Semantic};
+use biome_analyze::{FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
-use biome_js_syntax::{global_identifier, AnyJsExpression, T};
+use biome_js_syntax::{AnyJsExpression, T, global_identifier};
 use biome_rowan::{AstNode, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Use `Number.isFinite` instead of global `isFinite`.
     ///
     /// `Number.isFinite()` and `isFinite()` [do not have the same behavior](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isFinite#difference_between_number.isfinite_and_global_isfinite).
@@ -32,7 +30,9 @@ declare_rule! {
     pub NoGlobalIsFinite {
         version: "1.0.0",
         name: "noGlobalIsFinite",
+        language: "js",
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -111,14 +111,14 @@ impl Rule for NoGlobalIsFinite {
             _ => return None,
         };
         mutation.replace_node(old, new.into());
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! {
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {
                 "Use "<Emphasis>"Number.isFinite"</Emphasis>" instead."
             }
             .to_owned(),
             mutation,
-        })
+        ))
     }
 }

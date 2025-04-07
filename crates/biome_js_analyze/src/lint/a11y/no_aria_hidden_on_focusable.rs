@@ -1,13 +1,13 @@
-use crate::{services::aria::Aria, JsRuleAction};
+use crate::{JsRuleAction, services::aria::Aria};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
-use biome_js_syntax::jsx_ext::AnyJsxElement;
+use biome_diagnostics::Severity;
+use biome_js_syntax::{AnyJsxAttributeValue, AnyNumberLikeExpression, jsx_ext::AnyJsxElement};
 use biome_rowan::{AstNode, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce that aria-hidden="true" is not set on focusable elements.
     ///
     /// `aria-hidden="true"` can be used to hide purely decorative content from screen reader users.
@@ -18,21 +18,25 @@ declare_rule! {
     ///
     /// ### Invalid
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <div aria-hidden="true" tabIndex="0" />
     /// ```
     ///
-    /// ```js, expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <a href="/" aria-hidden="true" />
     /// ```
     ///
     /// ### Valid
     ///
-    /// ```js
+    /// ```jsx
     /// <button aria-hidden="true" tabIndex="-1" />
     /// ```
     ///
-    /// ```js
+    /// ```jsx
+    /// <button aria-hidden="true" tabIndex={-1} />
+    /// ```
+    ///
+    /// ```jsx
     /// <div aria-hidden="true"><a href="#"></a></div>
     /// ```
     ///
@@ -45,8 +49,10 @@ declare_rule! {
     pub NoAriaHiddenOnFocusable {
         version: "1.4.0",
         name: "noAriaHiddenOnFocusable",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("no-aria-hidden-on-focusable")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -59,36 +65,52 @@ impl Rule for NoAriaHiddenOnFocusable {
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
-        let aria_roles = ctx.aria_roles();
-        let element_name = node.name().ok()?.as_jsx_name()?.value_token().ok()?;
-
         if node.is_element() {
             let aria_hidden_attr = node.find_attribute_by_name("aria-hidden")?;
             let attr_static_val = aria_hidden_attr.as_static_value()?;
             let attr_text = attr_static_val.text();
-
-            let attributes = ctx.extract_attributes(&node.attributes());
 
             if attr_text == "false" {
                 return None;
             }
 
             if let Some(tabindex_attr) = node.find_attribute_by_name("tabIndex") {
-                if let Some(tabindex_static) = tabindex_attr.as_static_value() {
-                    let tabindex_text = tabindex_static.text();
-                    let tabindex_val = tabindex_text.trim().parse::<i32>();
+                let tabindex_val = tabindex_attr.initializer()?.value().ok()?;
 
-                    if let Ok(num) = tabindex_val {
-                        return (num >= 0).then_some(());
+                match tabindex_val {
+                    AnyJsxAttributeValue::AnyJsxTag(jsx_tag) => {
+                        let value = jsx_tag.to_trimmed_string().parse::<i32>();
+                        if let Ok(num) = value {
+                            return (num >= 0).then_some(());
+                        }
+                    }
+                    AnyJsxAttributeValue::JsxString(jsx_string) => {
+                        let value = jsx_string
+                            .inner_string_text()
+                            .ok()?
+                            .to_string()
+                            .parse::<i32>();
+                        if let Ok(num) = value {
+                            return (num >= 0).then_some(());
+                        }
+                    }
+                    AnyJsxAttributeValue::JsxExpressionAttributeValue(value) => {
+                        let expression = value.expression().ok()?;
+                        let expression_value =
+                            AnyNumberLikeExpression::cast(expression.into_syntax())?
+                                .value()?
+                                .parse::<i32>();
+                        if let Ok(num) = expression_value {
+                            return (num >= 0).then_some(());
+                        }
                     }
                 }
             }
 
-            if !aria_roles.is_not_interactive_element(element_name.text_trimmed(), attributes) {
+            if !ctx.aria_roles().is_not_interactive_element(node) {
                 return Some(());
             }
         }
-
         None
     }
 
@@ -113,11 +135,11 @@ impl Rule for NoAriaHiddenOnFocusable {
         let mut mutation = ctx.root().begin();
         let aria_hidden_attr = node.find_attribute_by_name("aria-hidden")?;
         mutation.remove_node(aria_hidden_attr);
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove the aria-hidden attribute from the element." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the "<Emphasis>"aria-hidden"</Emphasis>" attribute from the element." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

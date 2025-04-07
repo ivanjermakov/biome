@@ -1,21 +1,20 @@
 use std::cmp::Ordering;
 
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
-    numbers::split_into_radix_and_number, AnyJsExpression, AnyJsLiteralExpression,
-    JsNumberLiteralExpression, T,
+    AnyJsExpression, AnyJsLiteralExpression, JsNumberLiteralExpression, T,
+    numbers::split_into_radix_and_number,
 };
 use biome_rowan::{AstNode, BatchMutationExt};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Use standard constants instead of approximated literals.
     ///
     /// Usually, the definition in the standard library is more precise than
@@ -46,8 +45,10 @@ declare_rule! {
     pub NoApproximativeNumericConstant {
         version: "1.3.0",
         name: "noApproximativeNumericConstant",
+        language: "js",
         sources: &[RuleSource::Clippy("approx_constant")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -107,13 +108,12 @@ impl Rule for NoApproximativeNumericConstant {
             AnyJsExpression::AnyJsLiteralExpression(AnyJsLiteralExpression::from(node.clone())),
             AnyJsExpression::from(new_node),
         );
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Use "<Emphasis>"Math."{ constant_name }</Emphasis>" instead." }
-                .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use "<Emphasis>"Math."{ constant_name }</Emphasis>" instead." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

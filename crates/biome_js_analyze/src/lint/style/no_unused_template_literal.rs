@@ -1,15 +1,15 @@
 use crate::JsRuleAction;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsExpression, AnyJsLiteralExpression, AnyJsTemplateElement, JsTemplateExpression,
 };
 use biome_rowan::{AstNode, AstNodeList, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow template literals if interpolation and special-character handling are not needed
     ///
     /// ## Examples
@@ -41,8 +41,9 @@ declare_rule! {
     pub NoUnusedTemplateLiteral {
         version: "1.0.0",
         name: "noUnusedTemplateLiteral",
-        sources: &[RuleSource::EslintTypeScript("no-useless-template-literals")],
-        recommended: true,
+        language: "ts",
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -82,7 +83,7 @@ impl Rule for NoUnusedTemplateLiteral {
                 AnyJsTemplateElement::JsTemplateChunkElement(ele) => {
                     // Safety: if `ele.template_chunk_token()` is `Err` variant, [can_convert_to_string_lit] should return false,
                     // thus `run` will return None
-                    acc += ele.template_chunk_token().unwrap().text();
+                    acc += ele.template_chunk_token().unwrap().text_trimmed();
                     acc
                 }
                 AnyJsTemplateElement::JsTemplateElement(_) => {
@@ -105,12 +106,12 @@ impl Rule for NoUnusedTemplateLiteral {
             ),
         );
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Replace with string literal" }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Replace with string literal" }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 
@@ -126,9 +127,9 @@ fn can_convert_to_string_literal(node: &JsTemplateExpression) -> bool {
                     Ok(token) => {
                         // if token text has any special character
                         token
-                            .text()
-                            .chars()
-                            .any(|ch| matches!(ch, '\n' | '\'' | '"'))
+                            .text_trimmed()
+                            .bytes()
+                            .any(|byte| matches!(byte, b'\n' | b'\'' | b'"'))
                     }
                     Err(_) => {
                         // if we found an error, then just return `true`, which means that this template literal can't be converted to

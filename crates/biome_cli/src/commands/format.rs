@@ -1,196 +1,152 @@
 use crate::cli_options::CliOptions;
-use crate::commands::{
-    get_files_to_process, get_stdin, resolve_manifest, validate_configuration_diagnostics,
-};
-use crate::diagnostics::DeprecatedArgument;
-use crate::{
-    execute_mode, setup_cli_subscriber, CliDiagnostic, CliSession, Execution, TraversalMode,
-};
-use biome_configuration::vcs::PartialVcsConfiguration;
-use biome_configuration::{
-    PartialCssFormatter, PartialFilesConfiguration, PartialFormatterConfiguration,
-    PartialJavascriptFormatter, PartialJsonFormatter,
-};
-use biome_console::{markup, ConsoleExt};
+use crate::commands::{CommandRunner, LoadEditorConfig, get_files_to_process_with_cli_options};
+use crate::{CliDiagnostic, Execution, TraversalMode};
+use biome_configuration::css::CssFormatterConfiguration;
+use biome_configuration::graphql::GraphqlFormatterConfiguration;
+use biome_configuration::html::HtmlFormatterConfiguration;
+use biome_configuration::javascript::JsFormatterConfiguration;
+use biome_configuration::json::JsonFormatterConfiguration;
+use biome_configuration::vcs::VcsConfiguration;
+use biome_configuration::{Configuration, FilesConfiguration, FormatterConfiguration};
+use biome_console::Console;
 use biome_deserialize::Merge;
-use biome_diagnostics::PrintDiagnostic;
-use biome_service::configuration::{
-    load_configuration, LoadedConfiguration, PartialConfigurationExt,
-};
-use biome_service::workspace::{RegisterProjectFolderParams, UpdateSettingsParams};
+use biome_fs::FileSystem;
+use biome_service::configuration::LoadedConfiguration;
+use biome_service::projects::ProjectKey;
+use biome_service::{Workspace, WorkspaceError};
 use std::ffi::OsString;
 
 pub(crate) struct FormatCommandPayload {
-    pub(crate) javascript_formatter: Option<PartialJavascriptFormatter>,
-    pub(crate) json_formatter: Option<PartialJsonFormatter>,
-    pub(crate) css_formatter: Option<PartialCssFormatter>,
-    pub(crate) formatter_configuration: Option<PartialFormatterConfiguration>,
-    pub(crate) vcs_configuration: Option<PartialVcsConfiguration>,
-    pub(crate) files_configuration: Option<PartialFilesConfiguration>,
+    pub(crate) javascript_formatter: Option<JsFormatterConfiguration>,
+    pub(crate) json_formatter: Option<JsonFormatterConfiguration>,
+    pub(crate) css_formatter: Option<CssFormatterConfiguration>,
+    pub(crate) graphql_formatter: Option<GraphqlFormatterConfiguration>,
+    pub(crate) html_formatter: Option<HtmlFormatterConfiguration>,
+    pub(crate) formatter_configuration: Option<FormatterConfiguration>,
+    pub(crate) vcs_configuration: Option<VcsConfiguration>,
+    pub(crate) files_configuration: Option<FilesConfiguration>,
     pub(crate) stdin_file_path: Option<String>,
     pub(crate) write: bool,
-    pub(crate) cli_options: CliOptions,
+    pub(crate) fix: bool,
     pub(crate) paths: Vec<OsString>,
     pub(crate) staged: bool,
     pub(crate) changed: bool,
     pub(crate) since: Option<String>,
 }
 
-/// Handler for the "format" command of the Biome CLI
-pub(crate) fn format(
-    session: CliSession,
-    payload: FormatCommandPayload,
-) -> Result<(), CliDiagnostic> {
-    let FormatCommandPayload {
-        mut javascript_formatter,
-        mut formatter_configuration,
-        vcs_configuration,
-        mut paths,
-        cli_options,
-        stdin_file_path,
-        files_configuration,
-        write,
-        mut json_formatter,
-        mut css_formatter,
-        since,
-        staged,
-        changed,
-    } = payload;
-    setup_cli_subscriber(cli_options.log_level, cli_options.log_kind);
+impl LoadEditorConfig for FormatCommandPayload {
+    fn should_load_editor_config(&self, fs_configuration: &Configuration) -> bool {
+        self.formatter_configuration
+            .as_ref()
+            .is_some_and(|c| c.use_editorconfig_resolved())
+            || fs_configuration.use_editorconfig()
+    }
+}
 
-    let loaded_configuration =
-        load_configuration(&session.app.fs, cli_options.as_configuration_path_hint())?;
-    validate_configuration_diagnostics(
-        &loaded_configuration,
-        session.app.console,
-        cli_options.verbose,
-    )?;
-    resolve_manifest(&session)?;
-    let LoadedConfiguration {
-        mut configuration,
-        directory_path: configuration_path,
-        ..
-    } = loaded_configuration;
-    // TODO: remove in biome 2.0
-    let console = &mut *session.app.console;
-    if let Some(config) = formatter_configuration.as_mut() {
-        if let Some(indent_size) = config.indent_size {
-            let diagnostic = DeprecatedArgument::new(markup! {
-                "The argument "<Emphasis>"--indent-size"</Emphasis>" is deprecated, it will be removed in the next major release. Use "<Emphasis>"--indent-width"</Emphasis>" instead."
-            });
-            console.error(markup! {
-                {PrintDiagnostic::simple(&diagnostic)}
-            });
+impl CommandRunner for FormatCommandPayload {
+    const COMMAND_NAME: &'static str = "format";
 
-            config.indent_width = Some(indent_size);
+    fn merge_configuration(
+        &mut self,
+        loaded_configuration: LoadedConfiguration,
+        fs: &dyn FileSystem,
+        _console: &mut dyn Console,
+    ) -> Result<Configuration, WorkspaceError> {
+        let LoadedConfiguration {
+            configuration: biome_configuration,
+            directory_path: configuration_path,
+            ..
+        } = loaded_configuration;
+
+        let mut configuration =
+            self.combine_configuration(configuration_path, biome_configuration, fs)?;
+
+        // merge formatter options
+        if configuration
+            .formatter
+            .as_ref()
+            .is_none_or(|f| f.is_enabled())
+        {
+            let formatter = configuration.formatter.get_or_insert_with(Default::default);
+            if let Some(formatter_configuration) = self.formatter_configuration.clone() {
+                formatter.merge_with(formatter_configuration);
+            }
+
+            formatter.enabled = Some(true.into());
         }
-    }
-    // TODO: remove in biome 2.0
-    if let Some(js_formatter) = javascript_formatter.as_mut() {
-        if let Some(indent_size) = js_formatter.indent_size {
-            let diagnostic = DeprecatedArgument::new(markup! {
-                "The argument "<Emphasis>"--javascript-formatter-indent-size"</Emphasis>" is deprecated, it will be removed in the next major release. Use "<Emphasis>"--javascript-formatter-indent-width"</Emphasis>" instead."
-            });
-            console.error(markup! {
-                {PrintDiagnostic::simple(&diagnostic)}
-            });
-
-            js_formatter.indent_width = Some(indent_size);
+        if self.css_formatter.is_some() {
+            let css = configuration.css.get_or_insert_with(Default::default);
+            css.formatter.merge_with(self.css_formatter.clone());
         }
-    }
-    // TODO: remove in biome 2.0
-    if let Some(json_formatter) = json_formatter.as_mut() {
-        if let Some(indent_size) = json_formatter.indent_size {
-            let diagnostic = DeprecatedArgument::new(markup! {
-                "The argument "<Emphasis>"--json-formatter-indent-size"</Emphasis>" is deprecated, it will be removed in the next major release. Use "<Emphasis>"--json-formatter-indent-width"</Emphasis>" instead."
-            });
-            console.error(markup! {
-                {PrintDiagnostic::simple(&diagnostic)}
-            });
-
-            json_formatter.indent_width = Some(indent_size);
+        if self.graphql_formatter.is_some() {
+            let graphql = configuration.graphql.get_or_insert_with(Default::default);
+            graphql.formatter.merge_with(self.graphql_formatter.clone());
         }
-    }
-    // TODO: remove in biome 2.0
-    if let Some(css_formatter) = css_formatter.as_mut() {
-        if let Some(indent_size) = css_formatter.indent_size {
-            let diagnostic = DeprecatedArgument::new(markup! {
-                "The argument "<Emphasis>"--css-formatter-indent-size"</Emphasis>" is deprecated, it will be removed in the next major release. Use "<Emphasis>"--css-formatter-indent-width"</Emphasis>" instead."
-            });
-            console.error(markup! {
-                {PrintDiagnostic::simple(&diagnostic)}
-            });
-
-            css_formatter.indent_width = Some(indent_size);
-        }
-    }
-
-    if css_formatter.is_some() {
-        let css = configuration.css.get_or_insert_with(Default::default);
-        css.formatter.merge_with(css_formatter);
-    }
-    configuration.files.merge_with(files_configuration);
-    if !configuration
-        .formatter
-        .as_ref()
-        .is_some_and(PartialFormatterConfiguration::is_disabled)
-    {
-        let formatter = configuration.formatter.get_or_insert_with(Default::default);
-        if let Some(formatter_configuration) = formatter_configuration {
-            formatter.merge_with(formatter_configuration);
+        if self.html_formatter.is_some() {
+            let html = configuration.html.get_or_insert_with(Default::default);
+            html.formatter.merge_with(self.html_formatter.clone());
         }
 
-        formatter.enabled = Some(true);
-    }
-    if javascript_formatter.is_some() {
-        let javascript = configuration
-            .javascript
-            .get_or_insert_with(Default::default);
-        javascript.formatter.merge_with(javascript_formatter);
-    }
-    if json_formatter.is_some() {
-        let json = configuration.json.get_or_insert_with(Default::default);
-        json.formatter.merge_with(json_formatter);
-    }
-    configuration.vcs.merge_with(vcs_configuration);
+        if self.javascript_formatter.is_some() {
+            let javascript = configuration
+                .javascript
+                .get_or_insert_with(Default::default);
+            javascript
+                .formatter
+                .merge_with(self.javascript_formatter.clone());
+        }
+        if self.json_formatter.is_some() {
+            let json = configuration.json.get_or_insert_with(Default::default);
+            json.formatter.merge_with(self.json_formatter.clone());
+        }
 
-    // check if support of git ignore files is enabled
-    let vcs_base_path = configuration_path.or(session.app.fs.working_directory());
-    let (vcs_base_path, gitignore_matches) =
-        configuration.retrieve_gitignore_matches(&session.app.fs, vcs_base_path.as_deref())?;
+        configuration
+            .files
+            .merge_with(self.files_configuration.clone());
+        configuration.vcs.merge_with(self.vcs_configuration.clone());
 
-    if let Some(_paths) =
-        get_files_to_process(since, changed, staged, &session.app.fs, &configuration)?
-    {
-        paths = _paths;
+        Ok(configuration)
     }
 
-    session
-        .app
-        .workspace
-        .register_project_folder(RegisterProjectFolderParams {
-            path: session.app.fs.working_directory(),
-            set_as_current_workspace: true,
-        })?;
-
-    session
-        .app
-        .workspace
-        .update_settings(UpdateSettingsParams {
-            workspace_directory: session.app.fs.working_directory(),
+    fn get_files_to_process(
+        &self,
+        fs: &dyn FileSystem,
+        configuration: &Configuration,
+    ) -> Result<Vec<OsString>, CliDiagnostic> {
+        let paths = get_files_to_process_with_cli_options(
+            self.since.as_deref(),
+            self.changed,
+            self.staged,
+            fs,
             configuration,
-            vcs_base_path,
-            gitignore_matches,
-        })?;
+        )?
+        .unwrap_or(self.paths.clone());
 
-    let stdin = get_stdin(stdin_file_path, console, "format")?;
+        Ok(paths)
+    }
 
-    let execution = Execution::new(TraversalMode::Format {
-        ignore_errors: cli_options.skip_errors,
-        write,
-        stdin,
-    })
-    .set_report(&cli_options);
+    fn get_stdin_file_path(&self) -> Option<&str> {
+        self.stdin_file_path.as_deref()
+    }
 
-    execute_mode(execution, session, &cli_options, paths)
+    fn should_write(&self) -> bool {
+        self.write || self.fix
+    }
+
+    fn get_execution(
+        &self,
+        cli_options: &CliOptions,
+        console: &mut dyn Console,
+        _workspace: &dyn Workspace,
+        project_key: ProjectKey,
+    ) -> Result<Execution, CliDiagnostic> {
+        Ok(Execution::new(TraversalMode::Format {
+            project_key,
+            ignore_errors: cli_options.skip_errors,
+            write: self.should_write(),
+            stdin: self.get_stdin(console)?,
+            vcs_targeted: (self.staged, self.changed).into(),
+        })
+        .set_report(cli_options))
+    }
 }

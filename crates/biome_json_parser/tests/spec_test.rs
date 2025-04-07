@@ -1,9 +1,9 @@
 use biome_console::fmt::{Formatter, Termcolor};
 use biome_console::markup;
+use biome_diagnostics::DiagnosticExt;
 use biome_diagnostics::display::PrintDiagnostic;
 use biome_diagnostics::termcolor;
-use biome_diagnostics::DiagnosticExt;
-use biome_json_parser::{parse_json, JsonParserOptions};
+use biome_json_parser::{JsonParserOptions, parse_json};
 use biome_rowan::SyntaxKind;
 use std::fmt::Write;
 use std::fs;
@@ -35,11 +35,11 @@ pub fn run(test_case: &str, _snapshot_name: &str, test_directory: &str, outcome_
     let content = fs::read_to_string(test_case_path)
         .expect("Expected test path to be a readable file in UTF8 encoding");
 
-    let parse_conifg = JsonParserOptions {
+    let parse_config = JsonParserOptions {
         allow_comments: test_directory.contains("allow_comments"),
         allow_trailing_commas: test_directory.contains("allow_trailing_commas"),
     };
-    let parsed = parse_json(&content, parse_conifg);
+    let parsed = parse_json(&content, parse_config);
     let formatted_ast = format!("{:#?}", parsed.tree());
 
     let mut snapshot = String::new();
@@ -86,7 +86,9 @@ pub fn run(test_case: &str, _snapshot_name: &str, test_directory: &str, outcome_
             std::str::from_utf8(diagnostics_buffer.as_slice()).expect("non utf8 in error buffer");
 
         if matches!(outcome, ExpectedOutcome::Pass) {
-            panic!("Expected no errors to be present in a test case that is expected to pass but the following diagnostics are present:\n{formatted_diagnostics}")
+            panic!(
+                "Expected no errors to be present in a test case that is expected to pass but the following diagnostics are present:\n{formatted_diagnostics}"
+            )
         }
 
         writeln!(snapshot, "## Diagnostics\n\n```").unwrap();
@@ -104,7 +106,9 @@ pub fn run(test_case: &str, _snapshot_name: &str, test_directory: &str, outcome_
                     .descendants()
                     .any(|node| node.kind().is_bogus())
             {
-                panic!("Parsed tree of a 'OK' test case should not contain any missing required children or bogus nodes");
+                panic!(
+                    "Parsed tree of a 'OK' test case should not contain any missing required children or bogus nodes"
+                );
             }
         }
         ExpectedOutcome::Fail => {

@@ -1,5 +1,5 @@
-use crate::lexer::{CssLexContext, CssLexer, CssReLexContext};
 use crate::CssParserOptions;
+use crate::lexer::{CssLexContext, CssLexer, CssReLexContext};
 use biome_css_syntax::CssSyntaxKind::EOF;
 use biome_css_syntax::{CssSyntaxKind, TextRange};
 use biome_parser::diagnostic::ParseDiagnostic;
@@ -15,7 +15,6 @@ pub(crate) struct CssTokenSource<'src> {
     pub(super) trivia_list: Vec<Trivia>,
 }
 
-#[allow(dead_code)]
 pub(crate) type CssTokenSourceCheckpoint = TokenSourceCheckpoint<CssSyntaxKind>;
 
 impl<'src> CssTokenSource<'src> {
@@ -28,8 +27,8 @@ impl<'src> CssTokenSource<'src> {
     }
 
     /// Creates a new token source for the given string
-    pub fn from_str(source: &'src str, config: CssParserOptions) -> Self {
-        let lexer = CssLexer::from_str(source).with_config(config);
+    pub fn from_str(source: &'src str, options: CssParserOptions) -> Self {
+        let lexer = CssLexer::from_str(source).with_options(options);
 
         let buffered = BufferedLexer::new(lexer);
         let mut source = CssTokenSource::new(buffered);
@@ -68,7 +67,6 @@ impl<'src> CssTokenSource<'src> {
     }
 
     /// Creates a checkpoint to which it can later return using [Self::rewind].
-    #[allow(dead_code)]
     pub fn checkpoint(&self) -> CssTokenSourceCheckpoint {
         CssTokenSourceCheckpoint {
             trivia_len: self.trivia_list.len() as u32,
@@ -84,7 +82,7 @@ impl<'src> CssTokenSource<'src> {
     }
 }
 
-impl<'source> TokenSource for CssTokenSource<'source> {
+impl TokenSource for CssTokenSource<'_> {
     type Kind = CssSyntaxKind;
 
     fn current(&self) -> Self::Kind {
@@ -116,7 +114,7 @@ impl<'source> TokenSource for CssTokenSource<'source> {
     }
 }
 
-impl<'source> BumpWithContext for CssTokenSource<'source> {
+impl BumpWithContext for CssTokenSource<'_> {
     type Context = CssLexContext;
 
     fn bump_with_context(&mut self, context: Self::Context) {

@@ -1,18 +1,18 @@
 use crate::services::semantic::Semantic;
-use crate::{ast_utils, JsRuleAction};
+use crate::{JsRuleAction, ast_utils};
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_semantic::SemanticModel;
 use biome_js_syntax::{
-    global_identifier, AnyJsExpression, AnyJsLiteralExpression, AnyJsMemberExpression,
-    JsCallExpression, JsSyntaxToken,
+    AnyJsExpression, AnyJsLiteralExpression, AnyJsMemberExpression, JsCallExpression,
+    JsSyntaxToken, global_identifier,
 };
 use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow `parseInt()` and `Number.parseInt()` in favor of binary, octal, and hexadecimal literals
     ///
     /// _JavaScript_ provides literal forms for binary, octal, and hexadecimal numbers.
@@ -57,8 +57,10 @@ declare_rule! {
     pub UseNumericLiterals {
         version: "1.0.0",
         name: "useNumericLiterals",
+        language: "js",
         sources: &[RuleSource::Eslint("prefer-numeric-literals")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -101,13 +103,12 @@ impl Rule for UseNumericLiterals {
             ),
         );
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Use the computed "{call.radix.description()}" literal instead." }
-                .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use the computed "{call.radix.description()}" literal instead." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 
@@ -169,7 +170,7 @@ fn get_callee(expr: &JsCallExpression, model: &SemanticModel) -> Option<&'static
         }
         return None;
     }
-    let callee = AnyJsMemberExpression::cast_ref(callee.syntax())?;
+    let callee = AnyJsMemberExpression::cast(callee.into_syntax())?;
     if callee.member_name()?.text() != "parseInt" {
         return None;
     }

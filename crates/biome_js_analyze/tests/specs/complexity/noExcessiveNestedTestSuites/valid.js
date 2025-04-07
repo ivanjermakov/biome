@@ -51,3 +51,28 @@ xdescribe("foo", function () {
 describe("foo", () => {
 	describe.each(["hello", "world"])("%s", (a) => {});
 });
+
+z.object({})
+  .describe('')
+  .describe('')
+  .describe('')
+  .describe('')
+  .describe('')
+  .describe('');
+
+z.object({
+	foo: z.object({
+		foo: z.object({
+			foo: z.object({
+				foo: z.object({
+					foo: z.object().strict().describe(),
+				})
+				.describe(),
+			})
+			.describe(),
+		})
+		.describe(),
+	})
+	.describe(),
+})
+.describe();

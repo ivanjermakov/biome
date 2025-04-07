@@ -1,13 +1,13 @@
 use crate::JsRuleAction;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{AnyJsExpression, AnyJsLiteralExpression, JsSyntaxKind, TsEnumDeclaration};
 use biome_rowan::{AstNode, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Require that each enum member value be explicitly initialized.
     ///
     /// _TypeScript_ enums are a practical way to organize semantically related constant values.
@@ -67,8 +67,10 @@ declare_rule! {
     pub UseEnumInitializers {
         version: "1.0.0",
         name: "useEnumInitializers",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("prefer-enum-initializers")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Safe,
     }
 }
@@ -174,7 +176,7 @@ impl Rule for UseEnumInitializers {
                     has_mutations = true;
 
                     // When creating the replacement node we first need to remove the trailing trivia.
-                    // Otherwise nodes without trailing comma will add [JsSyntacKind::EQ] and [EnumInitializer]
+                    // Otherwise nodes without a trailing comma will add [JsSyntacKind::EQ] and [EnumInitializer]
                     // after it.
                     let new_enum_member = enum_member
                         .clone()
@@ -191,12 +193,12 @@ impl Rule for UseEnumInitializers {
         }
 
         if has_mutations {
-            return Some(JsRuleAction {
-                category: ActionCategory::QuickFix,
-                applicability: Applicability::Always,
-                message: markup! { "Initialize all enum members." }.to_owned(),
+            return Some(JsRuleAction::new(
+                ctx.metadata().action_category(ctx.category(), ctx.group()),
+                ctx.metadata().applicability(),
+                markup! { "Initialize all enum members." }.to_owned(),
                 mutation,
-            });
+            ));
         }
         None
     }

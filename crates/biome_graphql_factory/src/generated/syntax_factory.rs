@@ -1,5 +1,6 @@
 //! Generated file, do not edit by hand, see `xtask/codegen`
 
+#![allow(unused_mut)]
 use biome_graphql_syntax::{GraphqlSyntaxKind, GraphqlSyntaxKind::*, T, *};
 use biome_rowan::{
     AstNode, ParsedChildren, RawNodeSlots, RawSyntaxNode, SyntaxFactory, SyntaxKind,
@@ -8,7 +9,6 @@ use biome_rowan::{
 pub struct GraphqlSyntaxFactory;
 impl SyntaxFactory for GraphqlSyntaxFactory {
     type Kind = GraphqlSyntaxKind;
-    #[allow(unused_mut)]
     fn make_syntax(
         kind: Self::Kind,
         children: ParsedChildren<Self::Kind>,
@@ -16,7 +16,6 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
         match kind {
             GRAPHQL_BOGUS
             | GRAPHQL_BOGUS_DEFINITION
-            | GRAPHQL_BOGUS_EXTENSION
             | GRAPHQL_BOGUS_SELECTION
             | GRAPHQL_BOGUS_TYPE
             | GRAPHQL_BOGUS_VALUE => RawSyntaxNode::new(kind, children.into_iter().map(Some)),
@@ -25,7 +24,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 let mut slots: RawNodeSlots<2usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -51,7 +50,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 let mut slots: RawNodeSlots<3usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -221,7 +220,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -268,7 +267,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -376,7 +375,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -406,46 +405,6 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             }
             GRAPHQL_ENUM_TYPE_EXTENSION => {
                 let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<4usize> = RawNodeSlots::default();
-                let mut current_element = elements.next();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![extend] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![enum] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlDirectiveList::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if current_element.is_some() {
-                    return RawSyntaxNode::new(
-                        GRAPHQL_ENUM_TYPE_EXTENSION.to_bogus(),
-                        children.into_iter().map(Some),
-                    );
-                }
-                slots.into_node(GRAPHQL_ENUM_TYPE_EXTENSION, children)
-            }
-            GRAPHQL_ENUM_TYPE_EXTENSION_WITH_VALUES => {
-                let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<5usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
@@ -463,7 +422,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -485,18 +444,18 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if current_element.is_some() {
                     return RawSyntaxNode::new(
-                        GRAPHQL_ENUM_TYPE_EXTENSION_WITH_VALUES.to_bogus(),
+                        GRAPHQL_ENUM_TYPE_EXTENSION.to_bogus(),
                         children.into_iter().map(Some),
                     );
                 }
-                slots.into_node(GRAPHQL_ENUM_TYPE_EXTENSION_WITH_VALUES, children)
+                slots.into_node(GRAPHQL_ENUM_TYPE_EXTENSION, children)
             }
             GRAPHQL_ENUM_VALUE => {
                 let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<1usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -522,7 +481,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlEnumValue::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -588,7 +547,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -635,7 +594,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -741,7 +700,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -788,7 +747,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -934,7 +893,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -964,46 +923,6 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             }
             GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION => {
                 let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<4usize> = RawNodeSlots::default();
-                let mut current_element = elements.next();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![extend] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![input] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlDirectiveList::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if current_element.is_some() {
-                    return RawSyntaxNode::new(
-                        GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION.to_bogus(),
-                        children.into_iter().map(Some),
-                    );
-                }
-                slots.into_node(GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION, children)
-            }
-            GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION_WITH_FIELDS => {
-                let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<5usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
@@ -1021,7 +940,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1043,11 +962,11 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if current_element.is_some() {
                     return RawSyntaxNode::new(
-                        GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION_WITH_FIELDS.to_bogus(),
+                        GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION.to_bogus(),
                         children.into_iter().map(Some),
                     );
                 }
-                slots.into_node(GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION_WITH_FIELDS, children)
+                slots.into_node(GRAPHQL_INPUT_OBJECT_TYPE_EXTENSION, children)
             }
             GRAPHQL_INPUT_VALUE_DEFINITION => {
                 let mut elements = (&children).into_iter();
@@ -1061,7 +980,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1141,7 +1060,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1178,93 +1097,6 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             }
             GRAPHQL_INTERFACE_TYPE_EXTENSION => {
                 let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<4usize> = RawNodeSlots::default();
-                let mut current_element = elements.next();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![extend] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![interface] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlImplementsInterfaces::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if current_element.is_some() {
-                    return RawSyntaxNode::new(
-                        GRAPHQL_INTERFACE_TYPE_EXTENSION.to_bogus(),
-                        children.into_iter().map(Some),
-                    );
-                }
-                slots.into_node(GRAPHQL_INTERFACE_TYPE_EXTENSION, children)
-            }
-            GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_DIRECTIVES => {
-                let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<5usize> = RawNodeSlots::default();
-                let mut current_element = elements.next();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![extend] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![interface] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlImplementsInterfaces::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlDirectiveList::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if current_element.is_some() {
-                    return RawSyntaxNode::new(
-                        GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_DIRECTIVES.to_bogus(),
-                        children.into_iter().map(Some),
-                    );
-                }
-                slots.into_node(GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_DIRECTIVES, children)
-            }
-            GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_FIELDS => {
-                let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<6usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
@@ -1282,7 +1114,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1311,11 +1143,11 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if current_element.is_some() {
                     return RawSyntaxNode::new(
-                        GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_FIELDS.to_bogus(),
+                        GRAPHQL_INTERFACE_TYPE_EXTENSION.to_bogus(),
                         children.into_iter().map(Some),
                     );
                 }
-                slots.into_node(GRAPHQL_INTERFACE_TYPE_EXTENSION_WITH_FIELDS, children)
+                slots.into_node(GRAPHQL_INTERFACE_TYPE_EXTENSION, children)
             }
             GRAPHQL_LIST_TYPE => {
                 let mut elements = (&children).into_iter();
@@ -1383,12 +1215,12 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.into_node(GRAPHQL_LIST_VALUE, children)
             }
-            GRAPHQL_NAME => {
+            GRAPHQL_LITERAL_NAME => {
                 let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<1usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
-                    if element.kind() == GRAPHQL_NAME {
+                    if element.kind() == IDENT {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1396,18 +1228,18 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if current_element.is_some() {
                     return RawSyntaxNode::new(
-                        GRAPHQL_NAME.to_bogus(),
+                        GRAPHQL_LITERAL_NAME.to_bogus(),
                         children.into_iter().map(Some),
                     );
                 }
-                slots.into_node(GRAPHQL_NAME, children)
+                slots.into_node(GRAPHQL_LITERAL_NAME, children)
             }
-            GRAPHQL_NAMED_TYPE => {
+            GRAPHQL_NAME_BINDING => {
                 let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<1usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if element.kind() == IDENT {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1415,11 +1247,30 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if current_element.is_some() {
                     return RawSyntaxNode::new(
-                        GRAPHQL_NAMED_TYPE.to_bogus(),
+                        GRAPHQL_NAME_BINDING.to_bogus(),
                         children.into_iter().map(Some),
                     );
                 }
-                slots.into_node(GRAPHQL_NAMED_TYPE, children)
+                slots.into_node(GRAPHQL_NAME_BINDING, children)
+            }
+            GRAPHQL_NAME_REFERENCE => {
+                let mut elements = (&children).into_iter();
+                let mut slots: RawNodeSlots<1usize> = RawNodeSlots::default();
+                let mut current_element = elements.next();
+                if let Some(element) = &current_element {
+                    if element.kind() == IDENT {
+                        slots.mark_present();
+                        current_element = elements.next();
+                    }
+                }
+                slots.next_slot();
+                if current_element.is_some() {
+                    return RawSyntaxNode::new(
+                        GRAPHQL_NAME_REFERENCE.to_bogus(),
+                        children.into_iter().map(Some),
+                    );
+                }
+                slots.into_node(GRAPHQL_NAME_REFERENCE, children)
             }
             GRAPHQL_NON_NULL_TYPE => {
                 let mut elements = (&children).into_iter();
@@ -1471,7 +1322,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 let mut slots: RawNodeSlots<3usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1518,7 +1369,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1555,93 +1406,6 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             }
             GRAPHQL_OBJECT_TYPE_EXTENSION => {
                 let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<4usize> = RawNodeSlots::default();
-                let mut current_element = elements.next();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![extend] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![type] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlImplementsInterfaces::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if current_element.is_some() {
-                    return RawSyntaxNode::new(
-                        GRAPHQL_OBJECT_TYPE_EXTENSION.to_bogus(),
-                        children.into_iter().map(Some),
-                    );
-                }
-                slots.into_node(GRAPHQL_OBJECT_TYPE_EXTENSION, children)
-            }
-            GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_DIRECTIVES => {
-                let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<5usize> = RawNodeSlots::default();
-                let mut current_element = elements.next();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![extend] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![type] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlImplementsInterfaces::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlDirectiveList::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if current_element.is_some() {
-                    return RawSyntaxNode::new(
-                        GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_DIRECTIVES.to_bogus(),
-                        children.into_iter().map(Some),
-                    );
-                }
-                slots.into_node(GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_DIRECTIVES, children)
-            }
-            GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_FIELDS => {
-                let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<6usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
@@ -1659,7 +1423,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1688,11 +1452,11 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if current_element.is_some() {
                     return RawSyntaxNode::new(
-                        GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_FIELDS.to_bogus(),
+                        GRAPHQL_OBJECT_TYPE_EXTENSION.to_bogus(),
                         children.into_iter().map(Some),
                     );
                 }
-                slots.into_node(GRAPHQL_OBJECT_TYPE_EXTENSION_WITH_FIELDS, children)
+                slots.into_node(GRAPHQL_OBJECT_TYPE_EXTENSION, children)
             }
             GRAPHQL_OBJECT_VALUE => {
                 let mut elements = (&children).into_iter();
@@ -1739,7 +1503,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1845,7 +1609,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlNamedType::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1858,6 +1622,39 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                     );
                 }
                 slots.into_node(GRAPHQL_ROOT_OPERATION_TYPE_DEFINITION, children)
+            }
+            GRAPHQL_ROOT_OPERATION_TYPES => {
+                let mut elements = (&children).into_iter();
+                let mut slots: RawNodeSlots<3usize> = RawNodeSlots::default();
+                let mut current_element = elements.next();
+                if let Some(element) = &current_element {
+                    if element.kind() == T!['{'] {
+                        slots.mark_present();
+                        current_element = elements.next();
+                    }
+                }
+                slots.next_slot();
+                if let Some(element) = &current_element {
+                    if GraphqlRootOperationTypeDefinitionList::can_cast(element.kind()) {
+                        slots.mark_present();
+                        current_element = elements.next();
+                    }
+                }
+                slots.next_slot();
+                if let Some(element) = &current_element {
+                    if element.kind() == T!['}'] {
+                        slots.mark_present();
+                        current_element = elements.next();
+                    }
+                }
+                slots.next_slot();
+                if current_element.is_some() {
+                    return RawSyntaxNode::new(
+                        GRAPHQL_ROOT_OPERATION_TYPES.to_bogus(),
+                        children.into_iter().map(Some),
+                    );
+                }
+                slots.into_node(GRAPHQL_ROOT_OPERATION_TYPES, children)
             }
             GRAPHQL_SCALAR_TYPE_DEFINITION => {
                 let mut elements = (&children).into_iter();
@@ -1878,7 +1675,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1918,7 +1715,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1941,7 +1738,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             }
             GRAPHQL_SCHEMA_DEFINITION => {
                 let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<6usize> = RawNodeSlots::default();
+                let mut slots: RawNodeSlots<4usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
                     if GraphqlDescription::can_cast(element.kind()) {
@@ -1965,21 +1762,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if element.kind() == T!['{'] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlRootOperationTypeDefinitionList::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T!['}'] {
+                    if GraphqlRootOperationTypes::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -1995,7 +1778,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             }
             GRAPHQL_SCHEMA_EXTENSION => {
                 let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<3usize> = RawNodeSlots::default();
+                let mut slots: RawNodeSlots<4usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
                     if element.kind() == T![extend] {
@@ -2013,6 +1796,13 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if let Some(element) = &current_element {
                     if GraphqlDirectiveList::can_cast(element.kind()) {
+                        slots.mark_present();
+                        current_element = elements.next();
+                    }
+                }
+                slots.next_slot();
+                if let Some(element) = &current_element {
+                    if GraphqlRootOperationTypes::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -2025,60 +1815,6 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                     );
                 }
                 slots.into_node(GRAPHQL_SCHEMA_EXTENSION, children)
-            }
-            GRAPHQL_SCHEMA_EXTENSION_WITH_ROOT_OPERATION_TYPE => {
-                let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<6usize> = RawNodeSlots::default();
-                let mut current_element = elements.next();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![extend] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![schema] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlDirectiveList::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T!['{'] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlRootOperationTypeDefinitionList::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T!['}'] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if current_element.is_some() {
-                    return RawSyntaxNode::new(
-                        GRAPHQL_SCHEMA_EXTENSION_WITH_ROOT_OPERATION_TYPE.to_bogus(),
-                        children.into_iter().map(Some),
-                    );
-                }
-                slots.into_node(GRAPHQL_SCHEMA_EXTENSION_WITH_ROOT_OPERATION_TYPE, children)
             }
             GRAPHQL_SELECTION_SET => {
                 let mut elements = (&children).into_iter();
@@ -2144,7 +1880,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlNamedType::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -2210,7 +1946,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -2240,46 +1976,6 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             }
             GRAPHQL_UNION_TYPE_EXTENSION => {
                 let mut elements = (&children).into_iter();
-                let mut slots: RawNodeSlots<4usize> = RawNodeSlots::default();
-                let mut current_element = elements.next();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![extend] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if element.kind() == T![union] {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if let Some(element) = &current_element {
-                    if GraphqlDirectiveList::can_cast(element.kind()) {
-                        slots.mark_present();
-                        current_element = elements.next();
-                    }
-                }
-                slots.next_slot();
-                if current_element.is_some() {
-                    return RawSyntaxNode::new(
-                        GRAPHQL_UNION_TYPE_EXTENSION.to_bogus(),
-                        children.into_iter().map(Some),
-                    );
-                }
-                slots.into_node(GRAPHQL_UNION_TYPE_EXTENSION, children)
-            }
-            GRAPHQL_UNION_TYPE_EXTENSION_WITH_MEMBERS => {
-                let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<5usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
@@ -2297,7 +1993,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlNameReference::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -2319,13 +2015,13 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if current_element.is_some() {
                     return RawSyntaxNode::new(
-                        GRAPHQL_UNION_TYPE_EXTENSION_WITH_MEMBERS.to_bogus(),
+                        GRAPHQL_UNION_TYPE_EXTENSION.to_bogus(),
                         children.into_iter().map(Some),
                     );
                 }
-                slots.into_node(GRAPHQL_UNION_TYPE_EXTENSION_WITH_MEMBERS, children)
+                slots.into_node(GRAPHQL_UNION_TYPE_EXTENSION, children)
             }
-            GRAPHQL_VARIABLE => {
+            GRAPHQL_VARIABLE_BINDING => {
                 let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<2usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
@@ -2337,7 +2033,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.next_slot();
                 if let Some(element) = &current_element {
-                    if GraphqlName::can_cast(element.kind()) {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -2345,18 +2041,18 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 slots.next_slot();
                 if current_element.is_some() {
                     return RawSyntaxNode::new(
-                        GRAPHQL_VARIABLE.to_bogus(),
+                        GRAPHQL_VARIABLE_BINDING.to_bogus(),
                         children.into_iter().map(Some),
                     );
                 }
-                slots.into_node(GRAPHQL_VARIABLE, children)
+                slots.into_node(GRAPHQL_VARIABLE_BINDING, children)
             }
             GRAPHQL_VARIABLE_DEFINITION => {
                 let mut elements = (&children).into_iter();
                 let mut slots: RawNodeSlots<5usize> = RawNodeSlots::default();
                 let mut current_element = elements.next();
                 if let Some(element) = &current_element {
-                    if GraphqlVariable::can_cast(element.kind()) {
+                    if GraphqlVariableBinding::can_cast(element.kind()) {
                         slots.mark_present();
                         current_element = elements.next();
                     }
@@ -2431,6 +2127,32 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
                 }
                 slots.into_node(GRAPHQL_VARIABLE_DEFINITIONS, children)
             }
+            GRAPHQL_VARIABLE_REFERENCE => {
+                let mut elements = (&children).into_iter();
+                let mut slots: RawNodeSlots<2usize> = RawNodeSlots::default();
+                let mut current_element = elements.next();
+                if let Some(element) = &current_element {
+                    if element.kind() == T ! [$] {
+                        slots.mark_present();
+                        current_element = elements.next();
+                    }
+                }
+                slots.next_slot();
+                if let Some(element) = &current_element {
+                    if GraphqlLiteralName::can_cast(element.kind()) {
+                        slots.mark_present();
+                        current_element = elements.next();
+                    }
+                }
+                slots.next_slot();
+                if current_element.is_some() {
+                    return RawSyntaxNode::new(
+                        GRAPHQL_VARIABLE_REFERENCE.to_bogus(),
+                        children.into_iter().map(Some),
+                    );
+                }
+                slots.into_node(GRAPHQL_VARIABLE_REFERENCE, children)
+            }
             GRAPHQL_ARGUMENT_DEFINITION_LIST => {
                 Self::make_node_list_syntax(kind, children, GraphqlInputValueDefinition::can_cast)
             }
@@ -2459,7 +2181,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             GRAPHQL_IMPLEMENTS_INTERFACE_LIST => Self::make_separated_list_syntax(
                 kind,
                 children,
-                GraphqlNamedType::can_cast,
+                GraphqlNameReference::can_cast,
                 T ! [&],
                 false,
             ),
@@ -2483,7 +2205,7 @@ impl SyntaxFactory for GraphqlSyntaxFactory {
             GRAPHQL_UNION_MEMBER_TYPE_LIST => Self::make_separated_list_syntax(
                 kind,
                 children,
-                GraphqlNamedType::can_cast,
+                GraphqlNameReference::can_cast,
                 T ! [|],
                 false,
             ),

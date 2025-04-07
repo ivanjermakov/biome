@@ -1,19 +1,26 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
-use biome_js_syntax::{inner_string_text, AnyJsImportSpecifierLike, JsSyntaxKind, JsSyntaxToken};
+use biome_diagnostics::Severity;
+use biome_js_syntax::{AnyJsImportLike, JsSyntaxKind, JsSyntaxToken, inner_string_text};
 use biome_rowan::BatchMutationExt;
 
-use crate::{globals::is_node_builtin_module, JsRuleAction};
+use crate::services::manifest::Manifest;
+use crate::{JsRuleAction, globals::is_node_builtin_module};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforces using the `node:` protocol for Node.js builtin modules.
     ///
     /// The rule marks traditional imports like `import fs from "fs";` as invalid,
     /// suggesting the format `import fs from "node:fs";` instead.
+    ///
+    /// The rule also isn't triggered if there are dependencies declared in the `package.json` that match
+    /// the name of a built-in Node.js module.
+    ///
+    /// :::caution
+    /// The rule doesn't support dependencies installed inside a monorepo.
+    /// :::
     ///
     /// ## Examples
     ///
@@ -44,14 +51,16 @@ declare_rule! {
     pub UseNodejsImportProtocol {
         version: "1.5.0",
         name: "useNodejsImportProtocol",
+        language: "js",
         sources: &[RuleSource::EslintUnicorn("prefer-node-protocol")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
 
 impl Rule for UseNodejsImportProtocol {
-    type Query = Ast<AnyJsImportSpecifierLike>;
+    type Query = Manifest<AnyJsImportLike>;
     type State = JsSyntaxToken;
     type Signals = Option<Self::State>;
     type Options = ();
@@ -62,7 +71,15 @@ impl Rule for UseNodejsImportProtocol {
             return None;
         }
         let module_name = node.module_name_token()?;
-        is_node_module_without_protocol(&inner_string_text(&module_name)).then_some(module_name)
+        let module_name_trimmed = inner_string_text(&module_name);
+        if ctx.is_dependency(&module_name_trimmed)
+            || ctx.is_dev_dependency(&module_name_trimmed)
+            || ctx.is_peer_dependency(&module_name_trimmed)
+            || ctx.is_optional_dependency(&module_name_trimmed)
+        {
+            return None;
+        }
+        is_node_module_without_protocol(&module_name_trimmed).then_some(module_name)
     }
 
     fn diagnostic(_: &RuleContext<Self>, module_name: &Self::State) -> Option<RuleDiagnostic> {
@@ -83,22 +100,22 @@ impl Rule for UseNodejsImportProtocol {
             module_name.kind() == JsSyntaxKind::JS_STRING_LITERAL,
             "The module name token should be a string literal."
         );
-        let delimiter = module_name.text_trimmed().chars().nth(0)?;
+        let str_delimiter = (*module_name.text_trimmed().as_bytes().first()?) as char;
         let module_inner_name = inner_string_text(module_name);
         let new_module_name = JsSyntaxToken::new_detached(
             JsSyntaxKind::JS_STRING_LITERAL,
-            &format!("{delimiter}node:{module_inner_name}{delimiter}"),
+            &format!("{str_delimiter}node:{module_inner_name}{str_delimiter}"),
             [],
             [],
         );
         let mut mutation = ctx.root().begin();
         mutation.replace_token(module_name.clone(), new_module_name);
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Add the "<Emphasis>"node:"</Emphasis>" protocol." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Add the "<Emphasis>"node:"</Emphasis>" protocol." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

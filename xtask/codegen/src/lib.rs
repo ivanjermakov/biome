@@ -5,23 +5,23 @@ mod css_kinds_src;
 mod formatter;
 mod generate_analyzer;
 mod generate_macros;
-pub mod generate_new_lintrule;
+pub mod generate_new_analyzer_rule;
 mod generate_node_factory;
 mod generate_nodes;
 mod generate_nodes_mut;
 mod generate_syntax_factory;
 mod generate_syntax_kinds;
+mod generate_target_language_constants;
 mod graphql_kind_src;
 mod grit_kinds_src;
 mod js_kinds_src;
 mod json_kinds_src;
+mod markdown_kinds_src;
 mod yaml_kinds_src;
 
-mod generate_crate;
 mod html_kinds_src;
 mod kind_src;
 mod language_kind;
-mod parser_tests;
 pub mod promote_rule;
 mod termcolorful;
 mod unicode;
@@ -29,14 +29,13 @@ mod unicode;
 use bpaf::Bpaf;
 use std::path::Path;
 
-use xtask::{glue::fs2, Mode, Result};
+use crate::generate_new_analyzer_rule::Category;
+use xtask::{Mode, Result, glue::fs2};
 
 pub use self::ast::generate_ast;
 pub use self::formatter::generate_formatters;
 pub use self::generate_analyzer::generate_analyzer;
-pub use self::generate_crate::generate_crate;
-pub use self::generate_new_lintrule::{generate_new_lintrule, RuleKind};
-pub use self::parser_tests::generate_parser_tests;
+pub use self::generate_new_analyzer_rule::{LanguageKind, generate_new_analyzer_rule};
 pub use self::unicode::generate_tables;
 
 pub enum UpdateResult {
@@ -59,6 +58,11 @@ pub fn update(path: &Path, contents: &str, mode: &Mode) -> Result<UpdateResult> 
     }
 
     eprintln!("updating {}", path.display());
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            fs2::create_dir_all(parent)?;
+        }
+    }
     fs2::write(path, contents)?;
     Ok(UpdateResult::Updated)
 }
@@ -97,22 +101,24 @@ pub enum TaskCommand {
     /// Transforms ungram files into AST
     #[bpaf(command)]
     Grammar(Vec<String>),
-    /// Extracts parser inline comments into test files
-    #[bpaf(command)]
-    Test,
     /// Generates unicode table inside lexer
     #[bpaf(command)]
     Unicode,
     /// Creates a new lint rule
     #[bpaf(command, long("new-lintrule"))]
-    NewLintRule(
+    NewRule {
         /// Path of the rule
         #[bpaf(long("kind"))]
-        RuleKind,
+        kind: LanguageKind,
+
         /// Name of the rule
         #[bpaf(long("name"))]
-        String,
-    ),
+        name: String,
+
+        /// Name of the rule
+        #[bpaf(long("category"))]
+        category: Category,
+    },
     /// Promotes a nursery rule
     #[bpaf(command, long("promote-rule"))]
     PromoteRule {
@@ -126,11 +132,4 @@ pub enum TaskCommand {
     /// Runs ALL the codegen
     #[bpaf(command)]
     All,
-    /// Creates a new crate
-    #[bpaf(command, long("new-crate"))]
-    NewCrate {
-        /// The name of the crate
-        #[bpaf(long("name"), argument("STRING"))]
-        name: String,
-    },
 }

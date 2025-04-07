@@ -4,10 +4,14 @@
 
 #[macro_use]
 mod generated;
+mod file_source;
+pub mod string_value_ext;
 mod syntax_node;
 
 use biome_rowan::{AstNode, RawSyntaxKind, SyntaxKind};
+
 pub use biome_rowan::{TextLen, TextRange, TextSize, TokenAtOffset, TriviaPieceKind, WalkEvent};
+pub use file_source::GraphqlFileSource;
 pub use generated::*;
 pub use syntax_node::*;
 
@@ -47,7 +51,6 @@ impl biome_rowan::SyntaxKind for GraphqlSyntaxKind {
                 | GRAPHQL_BOGUS_SELECTION
                 | GRAPHQL_BOGUS_VALUE
                 | GRAPHQL_BOGUS_TYPE
-                | GRAPHQL_BOGUS_EXTENSION
         )
     }
 
@@ -57,12 +60,6 @@ impl biome_rowan::SyntaxKind for GraphqlSyntaxKind {
             kind if AnyGraphqlSelection::can_cast(*kind) => GRAPHQL_BOGUS_SELECTION,
             kind if AnyGraphqlValue::can_cast(*kind) => GRAPHQL_BOGUS_VALUE,
             kind if AnyGraphqlType::can_cast(*kind) => GRAPHQL_BOGUS_TYPE,
-            kind if AnyGraphqlSchemaExtension::can_cast(*kind) => GRAPHQL_BOGUS_EXTENSION,
-            kind if AnyGraphqlObjectTypeExtension::can_cast(*kind) => GRAPHQL_BOGUS_EXTENSION,
-            kind if AnyGraphqlInterfaceTypeExtension::can_cast(*kind) => GRAPHQL_BOGUS_EXTENSION,
-            kind if AnyGraphqlUnionTypeExtension::can_cast(*kind) => GRAPHQL_BOGUS_EXTENSION,
-            kind if AnyGraphqlEnumTypeExtension::can_cast(*kind) => GRAPHQL_BOGUS_EXTENSION,
-            kind if AnyGraphqlInputObjectTypeExtension::can_cast(*kind) => GRAPHQL_BOGUS_EXTENSION,
             _ => GRAPHQL_BOGUS,
         }
     }

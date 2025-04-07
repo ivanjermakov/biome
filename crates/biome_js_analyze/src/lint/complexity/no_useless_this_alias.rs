@@ -1,12 +1,12 @@
 use crate::{
-    services::control_flow::AnyJsControlFlowRoot, services::semantic::Semantic, JsRuleAction,
+    JsRuleAction, services::control_flow::AnyJsControlFlowRoot, services::semantic::Semantic,
 };
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
-    RuleSourceKind,
+    FixKind, Rule, RuleDiagnostic, RuleSource, RuleSourceKind, context::RuleContext,
+    declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_semantic::ReferencesExtensions;
 use biome_js_syntax::{
@@ -16,7 +16,7 @@ use biome_js_syntax::{
 };
 use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow useless `this` aliasing.
     ///
     /// Arrow functions inherits `this` from their enclosing scope;
@@ -54,9 +54,11 @@ declare_rule! {
     pub NoUselessThisAlias {
         version: "1.0.0",
         name: "noUselessThisAlias",
+        language: "js",
         sources: &[RuleSource::EslintTypeScript("no-this-alias")],
         source_kind: RuleSourceKind::Inspired,
         recommended: true,
+        severity: Severity::Information,
         fix_kind: FixKind::Safe,
     }
 }
@@ -175,14 +177,14 @@ impl Rule for NoUselessThisAlias {
             mutation.remove_node(declarator.clone());
             mutation.remove_token(deleted_comma?);
         }
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! {
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {
                 "Use "<Emphasis>"this"</Emphasis>" instead of an alias."
             }
             .to_owned(),
             mutation,
-        })
+        ))
     }
 }

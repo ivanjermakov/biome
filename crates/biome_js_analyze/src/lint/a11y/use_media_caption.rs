@@ -1,11 +1,13 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::jsx_ext::AnyJsxElement;
 use biome_js_syntax::{AnyJsxChild, JsxElement, TextRange};
 use biome_rowan::AstNode;
+use biome_string_case::StrLikeExtension;
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforces that `audio` and `video` elements must have a `track` for captions.
     ///
     /// ## Examples
@@ -33,8 +35,10 @@ declare_rule! {
     pub UseMediaCaption {
         version: "1.0.0",
         name: "useMediaCaption",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("media-has-caption")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -47,8 +51,10 @@ impl Rule for UseMediaCaption {
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
 
-        let has_audio_or_video =
-            matches!(node.name_value_token()?.text_trimmed(), "video" | "audio");
+        let has_audio_or_video = matches!(
+            node.name_value_token().ok()?.text_trimmed(),
+            "video" | "audio"
+        );
         let has_muted = node.find_attribute_by_name("muted").is_some();
         let has_spread_prop = node
             .attributes()
@@ -76,7 +82,7 @@ impl Rule for UseMediaCaption {
                             _ => None,
                         }?;
 
-                        let has_track = any_jsx.name_value_token()?.text_trimmed() == "track";
+                        let has_track = any_jsx.name_value_token().ok()?.text_trimmed() == "track";
                         let has_valid_kind = &any_jsx
                             .find_attribute_by_name("kind")?
                             .initializer()?
@@ -85,7 +91,7 @@ impl Rule for UseMediaCaption {
                             .as_jsx_string()?
                             .inner_string_text()
                             .ok()?
-                            .to_lowercase()
+                            .to_ascii_lowercase_cow()
                             == "captions";
 
                         Some(has_track && has_valid_kind)

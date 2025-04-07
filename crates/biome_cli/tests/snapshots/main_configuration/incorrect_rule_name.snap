@@ -1,6 +1,6 @@
 ---
 source: crates/biome_cli/tests/snap_test.rs
-expression: content
+expression: redactor(content)
 ---
 ## `biome.json`
 
@@ -48,40 +48,56 @@ biome.json:6:13 deserialize ━━━━━━━━━━━━━━━━━�
   i Known keys:
   
   - recommended
-  - all
   - noChildrenProp
   - noConstAssign
   - noConstantCondition
+  - noConstantMathMinMaxClamp
   - noConstructorReturn
   - noEmptyCharacterClassInRegex
   - noEmptyPattern
+  - noFlatMapIdentity
   - noGlobalObjectCalls
   - noInnerDeclarations
+  - noInvalidBuiltinInstantiation
   - noInvalidConstructorSuper
+  - noInvalidDirectionInLinearGradient
+  - noInvalidGridAreas
   - noInvalidNewBuiltin
+  - noInvalidPositionAtImportRule
   - noInvalidUseBeforeDeclaration
   - noNewSymbol
+  - noNodejsModules
   - noNonoctalDecimalEscape
   - noPrecisionLoss
+  - noPrivateImports
   - noRenderReturnValue
   - noSelfAssign
   - noSetterReturn
   - noStringCaseMismatch
   - noSwitchDeclarations
+  - noUndeclaredDependencies
   - noUndeclaredVariables
-  - noUnnecessaryContinue
+  - noUnknownFunction
+  - noUnknownMediaFeatureName
+  - noUnknownProperty
+  - noUnknownUnit
+  - noUnmatchableAnbSelector
   - noUnreachable
   - noUnreachableSuper
   - noUnsafeFinally
   - noUnsafeOptionalChaining
+  - noUnusedFunctionParameters
   - noUnusedImports
   - noUnusedLabels
   - noUnusedPrivateClassMembers
   - noUnusedVariables
+  - noUselessContinue
   - noVoidElementsWithChildren
   - noVoidTypeReturn
+  - useArrayLiterals
   - useExhaustiveDependencies
   - useHookAtTopLevel
+  - useImportExtensions
   - useIsNan
   - useJsxKeyInIterable
   - useValidForDirection
@@ -105,10 +121,10 @@ biome.json:9:13 deserialize ━━━━━━━━━━━━━━━━━�
   i Known keys:
   
   - recommended
-  - all
   - noArguments
   - noCommaOperator
   - noDefaultExport
+  - noDoneCallback
   - noImplicitBoolean
   - noInferrableTypes
   - noNamespace
@@ -121,14 +137,17 @@ biome.json:9:13 deserialize ━━━━━━━━━━━━━━━━━�
   - noShoutyConstants
   - noUnusedTemplateLiteral
   - noUselessElse
-  - noVar
+  - noYodaExpression
   - useAsConstAssertion
   - useBlockStatements
   - useCollapsedElseIf
   - useConsistentArrayType
+  - useConsistentBuiltinInstantiation
   - useConst
   - useDefaultParameterLast
+  - useDefaultSwitchClause
   - useEnumInitializers
+  - useExplicitLengthCheck
   - useExponentiationOperator
   - useExportType
   - useFilenamingConvention
@@ -148,7 +167,8 @@ biome.json:9:13 deserialize ━━━━━━━━━━━━━━━━━�
   - useSingleCaseStatement
   - useSingleVarDeclarator
   - useTemplate
-  - useWhile
+  - useThrowNewError
+  - useThrowOnlyError
   
 
 ```

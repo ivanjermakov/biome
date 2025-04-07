@@ -1,56 +1,92 @@
+use super::{
+    CommandRunner, FixFileModeOptions, MigrateSubCommand, check_fix_incompatible_arguments,
+};
+use crate::CliDiagnostic;
 use crate::cli_options::CliOptions;
 use crate::diagnostics::MigrationDiagnostic;
-use crate::execute::{execute_mode, Execution, TraversalMode};
-use crate::{setup_cli_subscriber, CliDiagnostic, CliSession};
-use biome_console::{markup, ConsoleExt};
-use biome_service::configuration::{load_configuration, LoadedConfiguration};
-use biome_service::workspace::RegisterProjectFolderParams;
+use crate::execute::{Execution, TraversalMode};
+use biome_configuration::Configuration;
+use biome_console::{Console, ConsoleExt, markup};
+use biome_fs::FileSystem;
+use biome_service::configuration::LoadedConfiguration;
+use biome_service::projects::ProjectKey;
+use biome_service::{Workspace, WorkspaceError};
+use camino::Utf8PathBuf;
+use std::ffi::OsString;
 
-use super::MigrateSubCommand;
+pub(crate) struct MigrateCommandPayload {
+    pub(crate) write: bool,
+    pub(crate) fix: bool,
+    pub(crate) sub_command: Option<MigrateSubCommand>,
+    pub(crate) configuration_file_path: Option<Utf8PathBuf>,
+    pub(crate) configuration_directory_path: Option<Utf8PathBuf>,
+}
 
-/// Handler for the "check" command of the Biome CLI
-pub(crate) fn migrate(
-    session: CliSession,
-    cli_options: CliOptions,
-    write: bool,
-    sub_command: Option<MigrateSubCommand>,
-) -> Result<(), CliDiagnostic> {
-    let base_path = cli_options.as_configuration_path_hint();
-    let LoadedConfiguration {
-        configuration: _,
-        diagnostics: _,
-        directory_path,
-        file_path,
-    } = load_configuration(&session.app.fs, base_path)?;
-    setup_cli_subscriber(cli_options.log_level, cli_options.log_kind);
+impl CommandRunner for MigrateCommandPayload {
+    const COMMAND_NAME: &'static str = "migrate";
 
-    session
-        .app
-        .workspace
-        .register_project_folder(RegisterProjectFolderParams {
-            path: session.app.fs.working_directory(),
-            set_as_current_workspace: true,
-        })?;
+    fn merge_configuration(
+        &mut self,
+        loaded_configuration: LoadedConfiguration,
+        _fs: &dyn FileSystem,
+        _console: &mut dyn Console,
+    ) -> Result<Configuration, WorkspaceError> {
+        self.configuration_file_path = loaded_configuration.file_path;
+        self.configuration_directory_path = loaded_configuration.directory_path;
+        Ok(loaded_configuration.configuration)
+    }
 
-    if let (Some(path), Some(directory_path)) = (file_path, directory_path) {
-        execute_mode(
-            Execution::new(TraversalMode::Migrate {
-                write,
+    fn get_files_to_process(
+        &self,
+        _fs: &dyn FileSystem,
+        _configuration: &Configuration,
+    ) -> Result<Vec<OsString>, CliDiagnostic> {
+        Ok(vec![])
+    }
+
+    fn get_stdin_file_path(&self) -> Option<&str> {
+        None
+    }
+
+    fn should_write(&self) -> bool {
+        self.write || self.fix
+    }
+
+    fn get_execution(
+        &self,
+        _cli_options: &CliOptions,
+        console: &mut dyn Console,
+        _workspace: &dyn Workspace,
+        project_key: ProjectKey,
+    ) -> Result<Execution, CliDiagnostic> {
+        if let Some(path) = self.configuration_file_path.clone() {
+            Ok(Execution::new(TraversalMode::Migrate {
+                project_key,
+                write: self.should_write(),
                 configuration_file_path: path,
-                configuration_directory_path: directory_path,
-                sub_command,
-            }),
-            session,
-            &cli_options,
-            vec![],
-        )
-    } else {
-        let console = session.app.console;
-        console.log(markup! {
+                sub_command: self.sub_command.clone(),
+            }))
+        } else {
+            console.log(markup! {
             <Info>"If this project has not yet been set up with Biome yet, please follow the "<Hyperlink href="https://biomejs.dev/guides/getting-started/">"Getting Started guide"</Hyperlink>" first."</Info>
         });
-        Err(CliDiagnostic::MigrateError(MigrationDiagnostic {
-            reason: "Biome couldn't find the Biome configuration file.".to_string(),
-        }))
+            Err(CliDiagnostic::MigrateError(MigrationDiagnostic {
+                reason: "Biome couldn't find the Biome configuration file.".to_string(),
+            }))
+        }
+    }
+
+    fn check_incompatible_arguments(&self) -> Result<(), CliDiagnostic> {
+        check_fix_incompatible_arguments(FixFileModeOptions {
+            write: self.write,
+            fix: self.fix,
+            unsafe_: false,
+            suppress: false,
+            suppression_reason: None,
+        })
+    }
+
+    fn should_validate_configuration_diagnostics(&self) -> bool {
+        false
     }
 }

@@ -1,19 +1,18 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsClass, AnyJsClassMember, AnyJsExpression, JsArrowFunctionExpression, JsSuperExpression,
     JsSyntaxToken, JsThisExpression,
 };
-use biome_rowan::{declare_node_union, AstNode, AstNodeList, BatchMutationExt, SyntaxResult};
+use biome_rowan::{AstNode, AstNodeList, BatchMutationExt, SyntaxResult, declare_node_union};
 
-use crate::{services::control_flow::AnyJsControlFlowRoot, JsRuleAction};
+use crate::{JsRuleAction, services::control_flow::AnyJsControlFlowRoot};
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow `this` and `super` in `static` contexts.
     ///
     /// In JavaScript, the `this` keyword in static contexts refers to the class (the constructor) instance,
@@ -81,8 +80,10 @@ declare_rule! {
     pub NoThisInStatic {
         version: "1.3.1",
         name: "noThisInStatic",
+        language: "js",
         sources: &[RuleSource::EslintMysticatea("no-this-in-static")],
         recommended: true,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -170,12 +171,12 @@ impl Rule for NoThisInStatic {
         let expr = AnyJsExpression::cast_ref(this_super_expression.syntax())?;
         let mut mutation = ctx.root().begin();
         mutation.replace_node(expr, suggested_class_name.into());
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Use the class name instead." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use the class name instead." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

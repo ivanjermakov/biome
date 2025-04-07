@@ -1,11 +1,12 @@
 use crate::react::{ReactApiCall, ReactCreateElementCall};
 use crate::services::semantic::Semantic;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{JsCallExpression, JsxAttribute};
-use biome_rowan::{declare_node_union, AstNode, TextRange};
-declare_rule! {
+use biome_rowan::{AstNode, TextRange, declare_node_union};
+declare_lint_rule! {
     /// Prevent passing of **children** as props.
     ///
     /// When using JSX, the children should be nested between the opening and closing tags.
@@ -15,7 +16,7 @@ declare_rule! {
     ///
     /// ### Invalid
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <FirstComponent children={'foo'} />
     /// ```
     ///
@@ -25,8 +26,10 @@ declare_rule! {
     pub NoChildrenProp {
         version: "1.0.0",
         name: "noChildrenProp",
+        language: "jsx",
         sources: &[RuleSource::EslintReact("no-children-prop")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

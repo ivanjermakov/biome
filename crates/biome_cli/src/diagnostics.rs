@@ -1,9 +1,10 @@
-use biome_console::fmt::Display;
+use biome_console::fmt::Formatter;
 use biome_console::markup;
-use biome_diagnostics::adapters::{BpafError, IoError, SerdeJsonError};
 use biome_diagnostics::{
     Advices, Category, Diagnostic, Error, LogCategory, MessageAndDescription, Severity, Visit,
+    category,
 };
+use biome_diagnostics::{BpafError, IoError, SerdeJsonError};
 use biome_service::WorkspaceError;
 use std::process::{ExitCode, Termination};
 use std::{env::current_exe, fmt::Debug};
@@ -56,6 +57,8 @@ pub enum CliDiagnostic {
     MigrateError(MigrationDiagnostic),
     /// Emitted during the reporting phase
     Report(ReportDiagnostic),
+    /// Emitted when there's an error emitted when using stdin mode
+    Stdin(StdinDiagnostic),
 }
 
 #[derive(Debug, Diagnostic)]
@@ -256,14 +259,6 @@ pub struct DeprecatedArgument {
     pub message: MessageAndDescription,
 }
 
-impl DeprecatedArgument {
-    pub fn new(message: impl Display) -> Self {
-        Self {
-            message: MessageAndDescription::from(markup! {{message}}.to_owned()),
-        }
-    }
-}
-
 #[derive(Debug, Diagnostic)]
 pub enum ReportDiagnostic {
     /// Emitted when trying to serialise the report
@@ -458,6 +453,12 @@ impl From<std::io::Error> for CliDiagnostic {
     }
 }
 
+impl From<StdinDiagnostic> for CliDiagnostic {
+    fn from(error: StdinDiagnostic) -> Self {
+        CliDiagnostic::Stdin(error)
+    }
+}
+
 impl Termination for CliDiagnostic {
     fn report(self) -> ExitCode {
         let severity = self.severity();
@@ -469,23 +470,42 @@ impl Termination for CliDiagnostic {
     }
 }
 
-#[derive(Debug, Diagnostic)]
-#[diagnostic(
-category = "internalError/fs",
-    severity = Warning,
-    message(
-        description = "The configuration file {path} is deprecated. Use biome.json instead.",
-        message("The configuration file "<Emphasis>{self.path}</Emphasis>" is deprecated. Use "<Emphasis>"biome.json"</Emphasis>" instead."),
-    )
-)]
-pub struct DeprecatedConfigurationFile {
-    #[location(resource)]
-    pub path: String,
+#[derive(Debug)]
+pub enum StdinDiagnostic {
+    NotFormatted,
+    NoExtension,
 }
 
-impl DeprecatedConfigurationFile {
-    pub fn new(path: impl Into<String>) -> Self {
-        Self { path: path.into() }
+impl StdinDiagnostic {
+    pub(crate) fn new_not_formatted() -> Self {
+        Self::NotFormatted
+    }
+
+    pub(crate) fn new_no_extension() -> Self {
+        Self::NoExtension
+    }
+}
+
+impl Diagnostic for StdinDiagnostic {
+    fn category(&self) -> Option<&'static Category> {
+        Some(category!("stdin"))
+    }
+
+    fn severity(&self) -> Severity {
+        Severity::Error
+    }
+
+    fn message(&self, fmt: &mut Formatter<'_>) -> std::io::Result<()> {
+        match self {
+            StdinDiagnostic::NotFormatted => {
+                fmt.write_str("The contents aren't fixed. Use the `--fix` flag to fix them.")
+            },
+            StdinDiagnostic::NoExtension => {
+                fmt.write_markup(markup!{
+                    "The file passed via "<Emphasis>"--stdin-file-path"</Emphasis>" doesn't have an extension. Biome needs a file extension to know how handle the file."
+                })
+            }
+        }
     }
 }
 

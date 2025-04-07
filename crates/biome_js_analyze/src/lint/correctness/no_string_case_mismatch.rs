@@ -1,14 +1,17 @@
+use std::borrow::Cow;
+
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::*;
-use biome_rowan::{declare_node_union, AstNode, AstSeparatedList, BatchMutationExt};
+use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt, declare_node_union};
+use biome_string_case::StrOnlyExtension;
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow comparison of expressions modifying the string case with non-compliant value.
     ///
     /// ## Examples
@@ -34,8 +37,10 @@ declare_rule! {
     pub NoStringCaseMismatch {
         version: "1.0.0",
         name: "noStringCaseMismatch",
+        language: "js",
         sources: &[RuleSource::Clippy("match_str_case_mismatch")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -43,10 +48,10 @@ declare_rule! {
 impl Rule for NoStringCaseMismatch {
     type Query = Ast<QueryCandidate>;
     type State = CaseMismatchInfo;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
-    fn run(ctx: &RuleContext<Self>) -> Vec<Self::State> {
+    fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let query = ctx.query();
         match query {
             QueryCandidate::JsBinaryExpression(expr) => CaseMismatchInfo::from_binary_expr(expr)
@@ -54,6 +59,7 @@ impl Rule for NoStringCaseMismatch {
                 .collect(),
             QueryCandidate::JsSwitchStatement(stmt) => CaseMismatchInfo::from_switch_stmt(stmt),
         }
+        .into_boxed_slice()
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, state: &Self::State) -> Option<RuleDiagnostic> {
@@ -89,24 +95,27 @@ impl Rule for NoStringCaseMismatch {
 
     fn action(ctx: &RuleContext<Self>, state: &Self::State) -> Option<JsRuleAction> {
         let mut mutation = ctx.root().begin();
+        let static_value = state.literal.as_static_value()?;
+
+        let expected_value = state.expected_case.convert(static_value.text());
         mutation.replace_node(
             state.literal.clone(),
             AnyJsExpression::AnyJsLiteralExpression(
                 AnyJsLiteralExpression::JsStringLiteralExpression(
                     make::js_string_literal_expression(if ctx.as_preferred_quote().is_double() {
-                        make::js_string_literal(&state.expected_value)
+                        make::js_string_literal(&expected_value)
                     } else {
-                        make::js_string_literal_single_quotes(&state.expected_value)
+                        make::js_string_literal_single_quotes(&expected_value)
                     }),
                 ),
             ),
         );
-        Some(JsRuleAction {
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! {"Use "<Emphasis>{state.expected_case.description()}</Emphasis>" string value."}.to_owned(),
             mutation,
-            message: markup! {"Use "<Emphasis>{state.expected_case.description()}</Emphasis>" string value."}.to_owned(),
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-        })
+        ))
     }
 }
 
@@ -115,8 +124,7 @@ declare_node_union! {
 }
 
 pub struct CaseMismatchInfo {
-    expected_case: ExpectedStringCase,
-    expected_value: String,
+    expected_case: StringCase,
     call: JsCallExpression,
     literal: AnyJsExpression,
 }
@@ -155,35 +163,32 @@ impl CaseMismatchInfo {
     }
 
     fn compare_call_with_literal(call: JsCallExpression, literal: AnyJsExpression) -> Option<Self> {
-        let expected_case = ExpectedStringCase::from_call(&call)?;
-        let static_value = literal.as_static_value()?;
-        let literal_value = static_value.text();
-        let expected_value = expected_case.convert(literal_value);
-        if literal_value != expected_value {
-            Some(Self {
-                expected_case,
-                expected_value,
-                call,
-                literal,
-            })
-        } else {
-            None
-        }
+        let expected_case = StringCase::from_call(&call)?;
+        let value = literal.as_static_value()?;
+        let literal_value = value.text();
+        let mut case_iter = CharCaseIterator::from(literal_value);
+        let is_mismatch = case_iter.any(|case| case != expected_case);
+        is_mismatch.then_some(Self {
+            expected_case,
+            call,
+            literal,
+        })
     }
 }
 
-enum ExpectedStringCase {
+#[derive(Debug, Eq, PartialEq)]
+enum StringCase {
     Upper,
     Lower,
 }
 
-impl ExpectedStringCase {
+impl StringCase {
     fn from_call(call: &JsCallExpression) -> Option<Self> {
         if call.arguments().ok()?.args().len() != 0 {
             return None;
         }
         let callee = call.callee().ok()?;
-        let member_expr = AnyJsMemberExpression::cast_ref(callee.syntax())?;
+        let member_expr = AnyJsMemberExpression::cast(callee.into_syntax())?;
         let member_name = member_expr.member_name()?;
         let member_name = member_name.text();
         if member_name == "toLowerCase" {
@@ -195,17 +200,68 @@ impl ExpectedStringCase {
         None
     }
 
-    fn convert(&self, s: &str) -> String {
+    fn convert<'a>(&self, s: &'a str) -> Cow<'a, str> {
         match self {
-            ExpectedStringCase::Upper => s.to_uppercase(),
-            ExpectedStringCase::Lower => s.to_lowercase(),
+            StringCase::Upper => Cow::Owned(s.to_uppercase()),
+            StringCase::Lower => s.to_lowercase_cow(),
         }
     }
 
     fn description(&self) -> &str {
         match self {
-            ExpectedStringCase::Upper => "upper case",
-            ExpectedStringCase::Lower => "lower case",
+            StringCase::Upper => "upper case",
+            StringCase::Lower => "lower case",
         }
+    }
+}
+
+struct CharCaseIterator<'a> {
+    iter: std::str::Chars<'a>,
+}
+impl<'a> CharCaseIterator<'a> {
+    fn from(s: &'a str) -> Self {
+        CharCaseIterator { iter: s.chars() }
+    }
+}
+impl Iterator for CharCaseIterator<'_> {
+    type Item = StringCase;
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(c) = self.iter.next() {
+            match c {
+                '\\' => {
+                    match self.iter.next()? {
+                        'x' => {
+                            // \xHH
+                            self.iter.next();
+                            self.iter.next();
+                        }
+                        'u' => {
+                            if self.iter.next()? == '{' {
+                                // \u{H}, \u{HH}, ..., \u{HHHHHH}
+                                while self.iter.next()? != '}' {}
+                            } else {
+                                // \uHHHH
+                                self.iter.next();
+                                self.iter.next();
+                                self.iter.next();
+                                self.iter.next();
+                            }
+                        }
+                        _ => {
+                            // \n, ...
+                            self.iter.next();
+                        }
+                    }
+                }
+                c => {
+                    if c.is_uppercase() {
+                        return Some(StringCase::Upper);
+                    } else if c.is_lowercase() {
+                        return Some(StringCase::Lower);
+                    }
+                }
+            }
+        }
+        None
     }
 }

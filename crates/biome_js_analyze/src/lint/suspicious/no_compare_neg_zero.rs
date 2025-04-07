@@ -1,9 +1,8 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsExpression, AnyJsLiteralExpression, JsBinaryExpression, JsSyntaxKind, JsUnaryOperator,
@@ -18,7 +17,7 @@ pub struct NoCompareNegZeroState {
     right_need_replaced: bool,
 }
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow comparing against `-0`
     ///
     /// ## Examples
@@ -37,8 +36,10 @@ declare_rule! {
     pub NoCompareNegZero {
         version: "1.0.0",
         name: "noCompareNegZero",
+        language: "js",
         sources: &[RuleSource::Eslint("no-compare-neg-zero")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Safe,
     }
 }
@@ -64,7 +65,7 @@ impl Rule for NoCompareNegZero {
         if is_left_neg_zero || is_right_neg_zero {
             // SAFETY: Because we know those T![>] | T![>=] | T![<] | T![<=] | T![==] | T![===] | T![!=] | T![!==] SyntaxKind will
             // always success in to_string, you could look at our test case `noCompareNegZero.js`
-            let operator_kind = op.kind().to_string().unwrap();
+            let operator_kind = op.kind().to_string()?;
 
             Some(NoCompareNegZeroState {
                 operator_kind,
@@ -123,12 +124,12 @@ impl Rule for NoCompareNegZero {
             );
         }
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Replace -0 with 0" }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Replace -0 with 0" }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

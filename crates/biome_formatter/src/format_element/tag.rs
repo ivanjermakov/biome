@@ -250,7 +250,10 @@ impl PartialEq for LabelId {
         #[cfg(debug_assertions)]
         {
             if is_equal {
-                assert_eq!(self.name, other.name, "Two `LabelId`s with different names have the same `value`. Are you mixing labels of two different `LabelDefinition` or are the values returned by the `LabelDefinition` not unique?");
+                assert_eq!(
+                    self.name, other.name,
+                    "Two `LabelId`s with different names have the same `value`. Are you mixing labels of two different `LabelDefinition` or are the values returned by the `LabelDefinition` not unique?"
+                );
             }
         }
 
@@ -282,6 +285,8 @@ pub trait Label {
 pub enum VerbatimKind {
     Bogus,
     Suppressed,
+    /// This was intentionally skipped, not as a result of suppression.
+    Skipped,
     Verbatim {
         /// the length of the formatted node
         length: TextSize,

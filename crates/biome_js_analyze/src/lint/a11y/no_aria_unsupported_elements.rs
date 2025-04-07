@@ -1,13 +1,16 @@
-use crate::{services::aria::Aria, JsRuleAction};
+use std::str::FromStr;
+
+use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
+use biome_aria_metadata::AriaAttribute;
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::jsx_ext::AnyJsxElement;
 use biome_rowan::{AstNode, AstNodeList, BatchMutationExt};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce that elements that do not support ARIA roles, states, and properties do not have those attributes.
     ///
     /// ## Examples
@@ -36,8 +39,10 @@ declare_rule! {
     pub NoAriaUnsupportedElements {
         version: "1.0.0",
         name: "noAriaUnsupportedElements",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("aria-unsupported-elements")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -66,14 +71,13 @@ pub struct RuleState {
 }
 
 impl Rule for NoAriaUnsupportedElements {
-    type Query = Aria<AnyJsxElement>;
+    type Query = Ast<AnyJsxElement>;
     type State = RuleState;
     type Signals = Option<Self::State>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
-        let aria_properties = ctx.aria_properties();
 
         let element_name = node.name().ok()?.as_jsx_name()?.value_token().ok()?;
         let element_name = element_name.text_trimmed();
@@ -85,9 +89,7 @@ impl Rule for NoAriaUnsupportedElements {
                 let attribute_name = attribute.name().ok()?.as_jsx_name()?.value_token().ok()?;
 
                 if attribute_name.text_trimmed().starts_with("aria-")
-                    && aria_properties
-                        .get_property(attribute_name.text_trimmed())
-                        .is_some()
+                    && AriaAttribute::from_str(attribute_name.text_trimmed()).is_ok()
                 {
                     return Some(RuleState {
                         attribute_kind: AttributeKind::Aria,
@@ -125,9 +127,9 @@ impl Rule for NoAriaUnsupportedElements {
         )
     }
 
-    fn action(_ctx: &RuleContext<Self>, _state: &Self::State) -> Option<JsRuleAction> {
-        let element = _ctx.query();
-        let mut mutation = _ctx.root().begin();
+    fn action(ctx: &RuleContext<Self>, _state: &Self::State) -> Option<JsRuleAction> {
+        let element = ctx.query();
+        let mut mutation = ctx.root().begin();
 
         let attribute = element.attributes().into_iter().find_map(|attribute| {
             let jsx_attribute = attribute.as_jsx_attribute()?;
@@ -144,13 +146,12 @@ impl Rule for NoAriaUnsupportedElements {
         let removed_attribute = attribute.to_string();
         mutation.remove_node(attribute);
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message:
-                markup! { "Remove the "<Emphasis>""{removed_attribute}""</Emphasis>" attribute." }
-                    .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the "<Emphasis>""{removed_attribute}""</Emphasis>" attribute." }
+                .to_owned(),
             mutation,
-        })
+        ))
     }
 }

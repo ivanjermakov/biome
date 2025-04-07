@@ -1,9 +1,13 @@
 use crate::{
-    inner_string_text, AnyJsBinding, AnyJsImportClause, AnyJsNamedImportSpecifier,
-    JsCallExpression, JsImport, JsImportAssertion, JsImportCallExpression, JsModuleSource,
-    JsSyntaxToken, TsExternalModuleDeclaration,
+    AnyJsBinding, AnyJsCombinedSpecifier, AnyJsImportClause, AnyJsModuleSource,
+    AnyJsNamedImportSpecifier, JsCallExpression, JsDefaultImportSpecifier, JsImport,
+    JsImportAssertion, JsImportCallExpression, JsModuleSource, JsNamedImportSpecifier,
+    JsNamedImportSpecifiers, JsNamespaceImportSpecifier, JsShorthandNamedImportSpecifier,
+    JsSyntaxKind, JsSyntaxToken, inner_string_text,
 };
-use biome_rowan::{declare_node_union, AstNode, SyntaxNodeOptionExt, SyntaxResult, TokenText};
+use biome_rowan::{
+    AstNode, SyntaxError, SyntaxNodeOptionExt, SyntaxResult, TokenText, declare_node_union,
+};
 
 impl JsImport {
     /// It checks if the source of an import against the string `source_to_check`
@@ -17,7 +21,7 @@ impl JsImport {
     /// let source = make::js_module_source(make::js_string_literal("react"));
     /// let binding = make::js_identifier_binding(make::ident("React"));
     /// let specifier = make::js_default_import_specifier(binding.into());
-    /// let clause = make::js_import_default_clause(specifier, make::token(T![from]), source).build();
+    /// let clause = make::js_import_default_clause(specifier, make::token(T![from]), source.into()).build();
     /// let import = make::js_import(make::token(T![import]), clause.into()).build();
     ///
     /// assert_eq!(import.source_text().unwrap().text(), "react");
@@ -36,11 +40,10 @@ impl AnyJsImportClause {
     /// ```
     pub fn type_token(&self) -> Option<JsSyntaxToken> {
         match self {
-            Self::JsImportBareClause(_) => None,
             Self::JsImportDefaultClause(clause) => clause.type_token(),
             Self::JsImportNamedClause(clause) => clause.type_token(),
             Self::JsImportNamespaceClause(clause) => clause.type_token(),
-            Self::JsImportCombinedClause(_) => None,
+            Self::JsImportBareClause(_) | Self::JsImportCombinedClause(_) => None,
         }
     }
 
@@ -53,21 +56,44 @@ impl AnyJsImportClause {
     /// let source = make::js_module_source(make::js_string_literal("react"));
     /// let binding = make::js_identifier_binding(make::ident("React"));
     /// let specifier = make::js_default_import_specifier(binding.into());
-    /// let clause = make::js_import_default_clause(specifier, make::token(T![from]), source).build();
+    /// let clause = make::js_import_default_clause(specifier, make::token(T![from]), source.into()).build();
     ///
-    /// assert_eq!(clause.source().unwrap().inner_string_text().unwrap().text(), "react");
+    /// assert_eq!(clause.source().unwrap().as_js_module_source().unwrap().inner_string_text().unwrap().text(), "react");
     /// ```
     pub fn source(&self) -> SyntaxResult<JsModuleSource> {
-        match self {
+        let source = match self {
             Self::JsImportBareClause(clause) => clause.source(),
             Self::JsImportDefaultClause(clause) => clause.source(),
             Self::JsImportNamedClause(clause) => clause.source(),
             Self::JsImportNamespaceClause(clause) => clause.source(),
             Self::JsImportCombinedClause(clause) => clause.source(),
+        };
+
+        source.and_then(|source| match source {
+            AnyJsModuleSource::JsModuleSource(source) => Ok(source),
+            AnyJsModuleSource::JsMetavariable(_) => Err(SyntaxError::UnexpectedMetavariable),
+        })
+    }
+
+    pub fn named_specifiers(&self) -> Option<JsNamedImportSpecifiers> {
+        match self {
+            Self::JsImportBareClause(_) => None,
+            Self::JsImportCombinedClause(clause) => {
+                if let Ok(AnyJsCombinedSpecifier::JsNamedImportSpecifiers(named_specifiers)) =
+                    clause.specifier()
+                {
+                    Some(named_specifiers)
+                } else {
+                    None
+                }
+            }
+            Self::JsImportDefaultClause(_) => None,
+            Self::JsImportNamedClause(clause) => clause.named_specifiers().ok(),
+            Self::JsImportNamespaceClause(_) => None,
         }
     }
 
-    /// Assertion of this import clause.
+    /// Attribute of this import clause.
     ///
     /// ```
     /// use biome_js_factory::make;
@@ -76,17 +102,50 @@ impl AnyJsImportClause {
     /// let source = make::js_module_source(make::js_string_literal("react"));
     /// let binding = make::js_identifier_binding(make::ident("React"));
     /// let specifier = make::js_default_import_specifier(binding.into());
-    /// let clause = make::js_import_default_clause(specifier, make::token(T![from]), source).build();
+    /// let clause = make::js_import_default_clause(specifier, make::token(T![from]), source.into()).build();
     ///
-    /// assert_eq!(clause.source().unwrap().inner_string_text().unwrap().text(), "react");
+    /// assert_eq!(clause.source().unwrap().as_js_module_source().unwrap().inner_string_text().unwrap().text(), "react");
     /// ```
-    pub fn assertion(&self) -> Option<JsImportAssertion> {
+    pub fn attribute(&self) -> Option<JsImportAssertion> {
         match self {
             Self::JsImportBareClause(clause) => clause.assertion(),
             Self::JsImportDefaultClause(clause) => clause.assertion(),
             Self::JsImportNamedClause(clause) => clause.assertion(),
             Self::JsImportNamespaceClause(clause) => clause.assertion(),
             Self::JsImportCombinedClause(clause) => clause.assertion(),
+        }
+    }
+
+    /// Returns an import clause with `named_specifiers` as named specifiers
+    /// or the import clause itself if it doesn't accept any named specifiers.
+    pub fn with_named_specifiers(self, named_specifiers: JsNamedImportSpecifiers) -> Self {
+        match self {
+            Self::JsImportBareClause(_) => self,
+            Self::JsImportCombinedClause(clause) => if matches!(
+                clause.specifier(),
+                Ok(AnyJsCombinedSpecifier::JsNamedImportSpecifiers(_))
+            ) {
+                clause.with_specifier(named_specifiers.into())
+            } else {
+                clause
+            }
+            .into(),
+            Self::JsImportDefaultClause(_) => self,
+            Self::JsImportNamedClause(clause) => {
+                clause.with_named_specifiers(named_specifiers).into()
+            }
+            Self::JsImportNamespaceClause(_) => self,
+        }
+    }
+
+    /// Returns an import clause with `attribute` as import attribute.
+    pub fn with_attribute(self, attribute: Option<JsImportAssertion>) -> Self {
+        match self {
+            Self::JsImportBareClause(clause) => clause.with_assertion(attribute).into(),
+            Self::JsImportCombinedClause(clause) => clause.with_assertion(attribute).into(),
+            Self::JsImportDefaultClause(clause) => clause.with_assertion(attribute).into(),
+            Self::JsImportNamedClause(clause) => clause.with_assertion(attribute).into(),
+            Self::JsImportNamespaceClause(clause) => clause.with_assertion(attribute).into(),
         }
     }
 }
@@ -202,27 +261,26 @@ declare_node_union! {
     ///    import("lodash")
     /// // ^^^^^^^^^^^^^^^^
     /// ```
-    pub AnyJsImportSpecifierLike = JsModuleSource | JsCallExpression |  JsImportCallExpression
+    pub AnyJsImportLike = JsModuleSource | JsCallExpression |  JsImportCallExpression
 }
 
-impl AnyJsImportSpecifierLike {
+impl AnyJsImportLike {
     /// Returns the inner text of specifier:
     ///
     /// ## Examples
     ///
     /// ```
     /// use biome_js_factory::make;
-    /// use biome_js_syntax::AnyJsImportSpecifierLike;
-    /// use biome_rowan::TriviaPieceKind;
+    /// use biome_js_syntax::AnyJsImportLike;
     ///
     /// let source_name = make::js_module_source(make::js_string_literal("foo"));
-    /// let any_import_specifier = AnyJsImportSpecifierLike::JsModuleSource(source_name);
+    /// let any_import_specifier = AnyJsImportLike::JsModuleSource(source_name);
     /// assert_eq!(any_import_specifier.inner_string_text().unwrap().text(), "foo")
     /// ```
     pub fn inner_string_text(&self) -> Option<TokenText> {
         match self {
-            AnyJsImportSpecifierLike::JsModuleSource(source) => source.inner_string_text().ok(),
-            AnyJsImportSpecifierLike::JsCallExpression(expression) => {
+            AnyJsImportLike::JsModuleSource(source) => source.inner_string_text().ok(),
+            AnyJsImportLike::JsCallExpression(expression) => {
                 let callee = expression.callee().ok()?;
                 let name = callee.as_js_reference_identifier()?.value_token().ok()?;
                 if name.text_trimmed() == "require" {
@@ -240,7 +298,7 @@ impl AnyJsImportSpecifierLike {
                     None
                 }
             }
-            AnyJsImportSpecifierLike::JsImportCallExpression(import_call) => {
+            AnyJsImportLike::JsImportCallExpression(import_call) => {
                 let [Some(argument)] = import_call.arguments().ok()?.get_arguments_by_index([0])
                 else {
                     return None;
@@ -261,17 +319,16 @@ impl AnyJsImportSpecifierLike {
     ///
     /// ```
     /// use biome_js_factory::make;
-    /// use biome_js_syntax::AnyJsImportSpecifierLike;
-    /// use biome_rowan::TriviaPieceKind;
+    /// use biome_js_syntax::AnyJsImportLike;
     ///
     /// let source_name = make::js_module_source(make::js_string_literal("foo"));
-    /// let any_import_specifier = AnyJsImportSpecifierLike::JsModuleSource(source_name);
+    /// let any_import_specifier = AnyJsImportLike::JsModuleSource(source_name);
     /// assert_eq!(any_import_specifier.module_name_token().unwrap().text(), "\"foo\"")
     /// ```
     pub fn module_name_token(&self) -> Option<JsSyntaxToken> {
         match self {
-            AnyJsImportSpecifierLike::JsModuleSource(source) => source.value_token().ok(),
-            AnyJsImportSpecifierLike::JsCallExpression(expression) => {
+            AnyJsImportLike::JsModuleSource(source) => source.value_token().ok(),
+            AnyJsImportLike::JsCallExpression(expression) => {
                 let callee = expression.callee().ok()?;
                 let name = callee.as_js_reference_identifier()?.value_token().ok()?;
                 if name.text_trimmed() == "require" {
@@ -289,7 +346,7 @@ impl AnyJsImportSpecifierLike {
                     None
                 }
             }
-            AnyJsImportSpecifierLike::JsImportCallExpression(import_call) => {
+            AnyJsImportLike::JsImportCallExpression(import_call) => {
                 let [Some(argument)] = import_call.arguments().ok()?.get_arguments_by_index([0])
                 else {
                     return None;
@@ -305,35 +362,61 @@ impl AnyJsImportSpecifierLike {
     }
 
     /// Check whether the js import specifier like is in a ts module declaration:
+    ///
     /// ```ts
-    /// declare "abc" {}
+    /// declare module "abc" {}
     /// ```
+    ///
     /// ## Examples
     ///
     /// ```
     /// use biome_js_factory::make;
-    /// use biome_js_syntax::{AnyJsImportSpecifierLike, JsSyntaxKind, JsSyntaxToken};
-    /// use biome_rowan::TriviaPieceKind;
+    /// use biome_js_syntax::{AnyJsImportLike, JsSyntaxKind, JsSyntaxToken};
     ///
     /// let module_token = JsSyntaxToken::new_detached(JsSyntaxKind::MODULE_KW, "module", [], []);
     /// let module_source = make::js_module_source(make::js_string_literal("foo"));
-    /// let module_declaration = make::ts_external_module_declaration(module_token, module_source).build();
-    /// let any_import_specifier = AnyJsImportSpecifierLike::JsModuleSource(module_declaration.source().expect("module source"));
+    /// let module_declaration = make::ts_external_module_declaration(module_token, module_source.into()).build();
+    /// let any_import_specifier = AnyJsImportLike::JsModuleSource(module_declaration.source().unwrap().as_js_module_source().unwrap().clone());
     /// assert!(any_import_specifier.is_in_ts_module_declaration());
     ///
     /// let module_source = make::js_module_source(make::js_string_literal("bar"));
-    /// let any_import_specifier = AnyJsImportSpecifierLike::JsModuleSource(module_source);
+    /// let any_import_specifier = AnyJsImportLike::JsModuleSource(module_source.into());
     /// assert!(!any_import_specifier.is_in_ts_module_declaration());
     /// ```
     pub fn is_in_ts_module_declaration(&self) -> bool {
         // It first has to be a JsModuleSource
-        if !matches!(self, AnyJsImportSpecifierLike::JsModuleSource(_)) {
-            return false;
+        matches!(self, AnyJsImportLike::JsModuleSource(_))
+            && matches!(
+                self.syntax().parent().kind(),
+                Some(JsSyntaxKind::TS_EXTERNAL_MODULE_DECLARATION)
+            )
+    }
+
+    /// Returns whether this is a static import.
+    ///
+    /// Static imports are those where no variables are allowed within the
+    /// module specifier. Compare this to  `import()` and `require()`
+    /// expressions, which are considered dynamic imports.
+    pub fn is_static_import(&self) -> bool {
+        matches!(self, AnyJsImportLike::JsModuleSource(_))
+    }
+}
+
+declare_node_union! {
+    pub AnyJsImportSpecifier = JsNamedImportSpecifier
+        | JsShorthandNamedImportSpecifier
+        | JsNamespaceImportSpecifier
+        | JsDefaultImportSpecifier
+}
+
+impl AnyJsImportSpecifier {
+    /// Imported name of this import specifier.
+    pub fn local_name(&self) -> SyntaxResult<AnyJsBinding> {
+        match self {
+            Self::JsNamedImportSpecifier(specifier) => specifier.local_name(),
+            Self::JsShorthandNamedImportSpecifier(specifier) => specifier.local_name(),
+            Self::JsNamespaceImportSpecifier(specifier) => specifier.local_name(),
+            Self::JsDefaultImportSpecifier(specifier) => specifier.local_name(),
         }
-        // Then test whether its parent is a TsExternalModuleDeclaration
-        if let Some(parent_syntax_kind) = self.syntax().parent().kind() {
-            return TsExternalModuleDeclaration::can_cast(parent_syntax_kind);
-        }
-        false
     }
 }

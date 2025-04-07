@@ -1,14 +1,14 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::jsx_ext::AnyJsxElement;
 use biome_js_syntax::*;
 use biome_rowan::{AstNode, BatchMutationExt};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforces that no distracting elements are used.
     ///
     /// Elements that can be visually distracting can cause accessibility issues with visually impaired users.
@@ -40,8 +40,10 @@ declare_rule! {
     pub NoDistractingElements {
         version: "1.0.0",
         name: "noDistractingElements",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("no-distracting-elements")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -54,7 +56,7 @@ impl Rule for NoDistractingElements {
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let element = ctx.query();
-        let name = element.name_value_token()?;
+        let name = element.name_value_token().ok()?;
         match name.text_trimmed() {
             "marquee" | "blink" => Some(name),
             _ => None,
@@ -80,11 +82,11 @@ impl Rule for NoDistractingElements {
         let mut mutation = ctx.root().begin();
         mutation.remove_node(element.clone());
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove the '"{name.text_trimmed()}"' element." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the '"{name.text_trimmed()}"' element." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }

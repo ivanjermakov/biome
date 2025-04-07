@@ -1,10 +1,11 @@
 use crate::services::semantic::Semantic;
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_js_syntax::{global_identifier, AnyJsExpression};
+use biome_diagnostics::Severity;
+use biome_js_syntax::{AnyJsExpression, global_identifier};
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of global `eval()`.
     ///
     /// The `eval()` function evaluates the passed string as a _JavaScript_ code.
@@ -52,8 +53,10 @@ declare_rule! {
     pub NoGlobalEval {
         version: "1.5.0",
         name: "noGlobalEval",
+        language: "js",
         sources: &[RuleSource::Eslint("no-eval")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

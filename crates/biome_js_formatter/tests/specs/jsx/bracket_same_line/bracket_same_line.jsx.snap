@@ -8,21 +8,47 @@ info: jsx/bracket_same_line/bracket_same_line.jsx
 const a = <div></div>;
 
 <Foo
-    className={style}
-    reallyLongAttributeName1={longComplexValue}
-    reallyLongAttributeName2={anotherLongValue}
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue}
 />;
 
 <Foo
-    className={style}
-    reallyLongAttributeName1={longComplexValue}
-    reallyLongAttributeName2={anotherLongValue}
+		className={style}
+		reallyLongAttributeName1={longComplexValue}
+		reallyLongAttributeName2={anotherLongValue} // comment
+/>;
+
+<Foo
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue}
 >
-    Hi
+	Hi
+</Foo>;
+
+<Foo
+		className={style}
+		reallyLongAttributeName1={longComplexValue}
+		reallyLongAttributeName2={anotherLongValue}
+		// comment
+>
+	Hi
+</Foo>;
+
+<Foo
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue}
+	// comment
+	reallyLongAttributeName3={yetAnotherLongValue}
+>
+	Hi
 </Foo>;
 
 <div className="hi" />;
 <div className="hi"></div>;
+
 ```
 
 
@@ -40,12 +66,13 @@ Line width: 80
 Quote style: Double Quotes
 JSX quote style: Double Quotes
 Quote properties: As needed
-Trailing comma: All
+Trailing commas: All
 Semicolons: Always
 Arrow parentheses: Always
 Bracket spacing: true
 Bracket same line: false
 Attribute Position: Auto
+Expand lists: Auto
 -----
 
 ```jsx
@@ -60,7 +87,32 @@ const a = <div></div>;
 <Foo
 	className={style}
 	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue} // comment
+/>;
+
+<Foo
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
 	reallyLongAttributeName2={anotherLongValue}
+>
+	Hi
+</Foo>;
+
+<Foo
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue}
+	// comment
+>
+	Hi
+</Foo>;
+
+<Foo
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue}
+	// comment
+	reallyLongAttributeName3={yetAnotherLongValue}
 >
 	Hi
 </Foo>;
@@ -79,12 +131,13 @@ Line width: 80
 Quote style: Double Quotes
 JSX quote style: Double Quotes
 Quote properties: As needed
-Trailing comma: All
+Trailing commas: All
 Semicolons: Always
 Arrow parentheses: Always
 Bracket spacing: true
 Bracket same line: true
 Attribute Position: Auto
+Expand lists: Auto
 -----
 
 ```jsx
@@ -99,7 +152,31 @@ const a = <div></div>;
 <Foo
 	className={style}
 	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue} // comment
+/>;
+
+<Foo
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
 	reallyLongAttributeName2={anotherLongValue}>
+	Hi
+</Foo>;
+
+<Foo
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue}
+	// comment
+>
+	Hi
+</Foo>;
+
+<Foo
+	className={style}
+	reallyLongAttributeName1={longComplexValue}
+	reallyLongAttributeName2={anotherLongValue}
+	// comment
+	reallyLongAttributeName3={yetAnotherLongValue}>
 	Hi
 </Foo>;
 

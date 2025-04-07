@@ -1,20 +1,24 @@
+use std::ops::{BitOr, Sub};
+
 use crate::parser::{RecoveryError, RecoveryResult};
 use crate::prelude::*;
 use crate::state::{EnterType, SignatureFlags};
 use crate::syntax::expr::{
-    is_at_binary_operator, is_at_expression, is_at_identifier, is_nth_at_identifier,
-    is_nth_at_identifier_or_keyword, parse_big_int_literal_expression, parse_identifier,
-    parse_literal_expression, parse_name, parse_number_literal_expression,
-    parse_reference_identifier, parse_template_elements, ExpressionContext,
+    ExpressionContext, is_at_binary_operator, is_at_expression, is_at_identifier,
+    is_nth_at_identifier, is_nth_at_identifier_or_keyword, parse_big_int_literal_expression,
+    parse_identifier, parse_literal_expression, parse_name, parse_number_literal_expression,
+    parse_reference_identifier, parse_template_elements,
 };
 use crate::syntax::function::{
-    parse_formal_parameter, parse_parameter_list, skip_parameter_start, ParameterContext,
+    ParameterContext, parse_formal_parameter, parse_parameter_list, skip_parameter_start,
 };
 use crate::syntax::js_parse_error::{
     decorators_not_allowed, expected_identifier, expected_object_member_name, expected_parameter,
     expected_parameters, expected_property_or_signature, modifier_already_seen,
     modifier_must_precede_modifier,
 };
+use crate::syntax::metavariable::parse_metavariable;
+use crate::syntax::module::ImportAssertionList;
 use crate::syntax::object::{
     is_at_object_member_name, is_nth_at_type_member_name, parse_object_member_name,
 };
@@ -26,48 +30,65 @@ use crate::syntax::typescript::ts_parse_error::{
     ts_in_out_modifier_cannot_appear_on_a_type_parameter,
 };
 use biome_parser::parse_lists::{ParseNodeList, ParseSeparatedList};
-use bitflags::bitflags;
+use enumflags2::{BitFlags, bitflags, make_bitflags};
 use smallvec::SmallVec;
 
+use crate::JsSyntaxFeature::TypeScript;
 use crate::lexer::{JsLexContext, JsReLexContext};
 use crate::span::Span;
 use crate::syntax::class::parse_decorators;
-use crate::JsSyntaxFeature::TypeScript;
 use crate::{Absent, JsParser, ParseRecoveryTokenSet, ParsedSyntax, Present};
 use biome_js_syntax::JsSyntaxKind::TS_TYPE_ANNOTATION;
 use biome_js_syntax::T;
 use biome_js_syntax::{JsSyntaxKind::*, *};
 
-use super::{expect_ts_index_signature_member, is_at_ts_index_signature_member, MemberParent};
+use super::ts_parse_error::expected_ts_import_type_with_arguments;
+use super::{MemberParent, expect_ts_index_signature_member, is_at_ts_index_signature_member};
 
-bitflags! {
-    /// Context tracking state that applies to the parsing of all types
-    #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-    pub(crate) struct TypeContext: u8 {
-        /// Whether conditional types `extends string ? string : number` are allowed in the current context.
-        ///
-        /// By default, conditional types are allowed.
-        const DISALLOW_CONDITIONAL_TYPES = 1 << 0;
-
-        /// Whether 'in' and 'out' modifiers are allowed in the current context.
-        ///
-        /// By default, 'in' and 'out' modifiers are not allowed.
-        const ALLOW_IN_OUT_MODIFIER = 1 << 1;
-
-        /// Whether 'const' modifier is allowed in the current context.
-        ///
-        /// By default, 'const' modifier is not allowed.
-        const ALLOW_CONST_MODIFIER = 1 << 2;
-
-        /// Whether the parser is inside a conditional extends
-        const IN_CONDITIONAL_EXTENDS = 1 << 3;
-
-        /// Whether the current context is within a type or interface declaration
-        const TYPE_OR_INTERFACE_DECLARATION = 1 << 4;
-    }
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[bitflags]
+#[repr(u8)]
+enum ContextFlag {
+    DisallowConditionalTypes = 1 << 0,
+    AllowInOutModifier = 1 << 1,
+    AllowConstModifier = 1 << 2,
+    InConditionalExtends = 1 << 3,
+    TypeOrInterfaceDeclaration = 1 << 4,
 }
 
+/// Context tracking state that applies to the parsing of all types
+#[derive(Debug, Default, Copy, Clone)]
+pub(crate) struct TypeContext(BitFlags<ContextFlag>);
+
 impl TypeContext {
+    /// Whether conditional types `extends string ? string : number` are allowed in the current context.
+    ///
+    /// By default, conditional types are allowed.
+    pub const DISALLOW_CONDITIONAL_TYPES: Self =
+        Self(make_bitflags!(ContextFlag::{DisallowConditionalTypes}));
+
+    /// Whether 'in' and 'out' modifiers are allowed in the current context.
+    ///
+    /// By default, 'in' and 'out' modifiers are not allowed.
+    pub const ALLOW_IN_OUT_MODIFIER: Self = Self(make_bitflags!(ContextFlag::{AllowInOutModifier}));
+
+    /// Whether 'const' modifier is allowed in the current context.
+    ///
+    /// By default, 'const' modifier is not allowed.
+    pub const ALLOW_CONST_MODIFIER: Self = Self(make_bitflags!(ContextFlag::{AllowConstModifier}));
+
+    /// Whether the parser is inside a conditional extends
+    pub const IN_CONDITIONAL_EXTENDS: Self =
+        Self(make_bitflags!(ContextFlag::{InConditionalExtends}));
+
+    /// Whether the current context is within a type or interface declaration
+    pub const TYPE_OR_INTERFACE_DECLARATION: Self =
+        Self(make_bitflags!(ContextFlag::{TypeOrInterfaceDeclaration}));
+
+    pub fn contains(&self, other: impl Into<TypeContext>) -> bool {
+        self.0.contains(other.into().0)
+    }
+
     pub(crate) fn and_allow_conditional_types(self, allow: bool) -> Self {
         self.and(TypeContext::DISALLOW_CONDITIONAL_TYPES, !allow)
     }
@@ -88,53 +109,64 @@ impl TypeContext {
         self.and(TypeContext::TYPE_OR_INTERFACE_DECLARATION, allow)
     }
 
-    pub(crate) const fn is_conditional_type_allowed(&self) -> bool {
+    pub(crate) fn is_conditional_type_allowed(&self) -> bool {
         !self.contains(TypeContext::DISALLOW_CONDITIONAL_TYPES)
     }
 
-    pub(crate) const fn is_in_out_modifier_allowed(&self) -> bool {
+    pub(crate) fn is_in_out_modifier_allowed(&self) -> bool {
         self.contains(TypeContext::ALLOW_IN_OUT_MODIFIER)
     }
 
-    pub(crate) const fn is_const_modifier_allowed(&self) -> bool {
+    pub(crate) fn is_const_modifier_allowed(&self) -> bool {
         self.contains(TypeContext::ALLOW_CONST_MODIFIER)
     }
 
-    pub(crate) const fn in_conditional_extends(&self) -> bool {
+    pub(crate) fn in_conditional_extends(&self) -> bool {
         self.contains(TypeContext::IN_CONDITIONAL_EXTENDS)
     }
 
-    pub(crate) const fn is_in_type_or_interface_declaration(&self) -> bool {
+    pub(crate) fn is_in_type_or_interface_declaration(&self) -> bool {
         self.contains(TypeContext::TYPE_OR_INTERFACE_DECLARATION)
     }
 
     /// Adds the `flag` if `set` is `true`, otherwise removes the `flag`
     fn and(self, flag: TypeContext, set: bool) -> Self {
-        if set {
-            self | flag
-        } else {
-            self - flag
-        }
+        if set { self | flag } else { self - flag }
+    }
+}
+
+impl BitOr for TypeContext {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+
+impl Sub for TypeContext {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 & !rhs.0)
     }
 }
 
 pub(crate) fn is_reserved_type_name(name: &str) -> bool {
-    name.len() <= 6
-        && name.len() >= 3
-        && matches!(
-            name,
-            "string"
-                | "null"
-                | "number"
-                | "object"
-                | "any"
-                | "unknown"
-                | "boolean"
-                | "bigint"
-                | "symbol"
-                | "void"
-                | "never"
-        )
+    matches!(
+        name,
+        "string"
+            | "null"
+            | "number"
+            | "object"
+            | "any"
+            | "unknown"
+            | "boolean"
+            | "bigint"
+            | "symbol"
+            | "void"
+            | "never"
+            | "undefined"
+    )
 }
 
 pub(crate) fn is_reserved_module_name(name: &str) -> bool {
@@ -883,6 +915,7 @@ fn parse_ts_non_array_type(p: &mut JsParser, context: TypeContext) -> ParsedSynt
             }
         }
         T![import] => parse_ts_import_type(p, context),
+        t if t.is_metavariable() => parse_metavariable(p),
         _ => {
             if !p.nth_at(1, T![.]) {
                 let mapping = match p.cur() {
@@ -1115,6 +1148,11 @@ fn parse_ts_mapped_type_optional_modifier_clause(p: &mut JsParser) -> ParsedSynt
 // type C = typeof import("test").a.b.c.d.e.f;
 // type D = import("test")<string>;
 // type E = import("test").C<string>;
+// type F = typeof import("test", { with: { "resolution-mode": "import" } });
+// type G = import("test", { with: { "resolution-mode": "import" } }).TypeFromImport;
+// type H = import("test", { with: { "resolution-mode": "import" } })<string>;
+// type I = import("test", { with: { "resolution-mode": "require" } }).C<string>;
+// type J = typeof import("test", { with: { "resolution-mode": "require" } }).a.b.c.d.e.f;
 fn parse_ts_import_type(p: &mut JsParser, context: TypeContext) -> ParsedSyntax {
     if !p.at(T![typeof]) && !p.at(T![import]) {
         return Absent;
@@ -1123,9 +1161,9 @@ fn parse_ts_import_type(p: &mut JsParser, context: TypeContext) -> ParsedSyntax 
     let m = p.start();
     p.eat(T![typeof]);
     p.expect(T![import]);
-    p.expect(T!['(']);
-    p.expect(JS_STRING_LITERAL);
-    p.expect(T![')']);
+
+    parse_ts_import_type_arguments(p, context)
+        .or_add_diagnostic(p, expected_ts_import_type_with_arguments);
 
     if p.at(T![.]) {
         let qualifier = p.start();
@@ -1294,6 +1332,7 @@ fn parse_ts_call_signature_type_member(p: &mut JsParser, context: TypeContext) -
 // type A = { new (): string; }
 // type B = { new (a: string, b: number) }
 // type C = { new <A, B>(a: A, b: B): string }
+// type D = { new <const T>(a: T, b: B): string }
 
 // test_err ts ts_construct_signature_member_err
 // type C = { new <>(a: A, b: B): string }
@@ -1307,7 +1346,13 @@ fn parse_ts_construct_signature_type_member(
 
     let m = p.start();
     p.expect(T![new]);
-    parse_ts_type_parameters(p, context.and_allow_in_out_modifier(true)).ok();
+    parse_ts_type_parameters(
+        p,
+        context
+            .and_allow_const_modifier(true)
+            .and_allow_in_out_modifier(true),
+    )
+    .ok();
     parse_parameter_list(
         p,
         ParameterContext::Declaration,
@@ -1350,6 +1395,9 @@ fn parse_ts_getter_signature_type_member(p: &mut JsParser, context: TypeContext)
 // type C = { set(a) }
 // type D = { set: number }
 // type E = { set }
+// type F = { set(b: number,) }
+// type G = {set a(b,)}
+// type H = {set(a, ) }
 fn parse_ts_setter_signature_type_member(p: &mut JsParser, context: TypeContext) -> ParsedSyntax {
     if !p.at(T![set]) {
         return Absent;
@@ -1381,6 +1429,11 @@ fn parse_ts_setter_signature_type_member(p: &mut JsParser, context: TypeContext)
         context,
     )
     .or_add_diagnostic(p, expected_parameter);
+
+    if p.at(T![,]) {
+        p.bump_any();
+    }
+
     p.expect(T![')']);
     parse_ts_type_member_semi(p);
     Present(m.complete(p, TS_SETTER_SIGNATURE_TYPE_MEMBER))
@@ -1616,6 +1669,88 @@ fn parse_ts_constructor_type(p: &mut JsParser, context: TypeContext) -> ParsedSy
     p.expect(T![=>]);
     parse_ts_type(p, context).or_add_diagnostic(p, expected_ts_type);
     Present(m.complete(p, TS_CONSTRUCTOR_TYPE))
+}
+
+fn parse_ts_import_type_assertion(p: &mut JsParser) -> ParsedSyntax {
+    if !p.at(T![assert]) && !p.at(T![with]) {
+        return Absent;
+    }
+
+    let m = p.start();
+    match p.cur() {
+        T![assert] => {
+            p.expect(T![assert]);
+        }
+        T![with] => {
+            p.expect(T![with]);
+        }
+        _ => {
+            m.abandon(p);
+            return Absent;
+        }
+    };
+
+    // bump assert or with
+    p.expect(T![:]);
+    p.expect(T!['{']);
+    ImportAssertionList::default().parse_list(p);
+
+    p.expect(T!['}']);
+
+    Present(m.complete(p, TS_IMPORT_TYPE_ASSERTION))
+}
+
+fn parse_ts_import_type_assertion_block(p: &mut JsParser) -> ParsedSyntax {
+    if !p.at(T!['{']) {
+        return Absent;
+    }
+
+    let m = p.start();
+
+    if p.at(T!['{']) {
+        p.bump(T!['{']);
+        if p.at(T!['}']) {
+            p.error(
+                p.err_builder(
+                    "Missing import type assertion keyword 'with'",
+                    p.cur_range(),
+                )
+                .with_detail(p.cur_range(), "'with' expected."),
+            );
+        }
+    }
+
+    parse_ts_import_type_assertion(p).ok();
+
+    p.expect(T!['}']);
+
+    Present(m.complete(p, TS_IMPORT_TYPE_ASSERTION_BLOCK))
+}
+
+fn parse_ts_import_type_arguments(p: &mut JsParser, context: TypeContext) -> ParsedSyntax {
+    if !p.at(T!['(']) {
+        return Absent;
+    }
+    let m = p.start();
+    p.bump(T!('('));
+    parse_ts_type(p, context).or_add_diagnostic(p, expected_ts_type);
+    if p.at(T![,]) {
+        if p.nth_at(1, T![')']) {
+            p.error(
+                p.err_builder(
+                    "ts import type may not have a trailing comma",
+                    p.cur_range(),
+                )
+                .with_detail(p.cur_range(), "Remove the trailing comma here"),
+            );
+        }
+        p.bump(T![,]);
+        parse_ts_import_type_assertion_block(p).ok();
+    }
+
+    p.expect(T![')']);
+
+    Present(m.complete(p, TS_IMPORT_TYPE_ARGUMENTS))
 }
 
 fn is_at_constructor_type(p: &mut JsParser) -> bool {

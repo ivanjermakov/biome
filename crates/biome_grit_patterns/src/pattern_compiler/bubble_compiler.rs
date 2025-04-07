@@ -1,9 +1,8 @@
-use super::{compilation_context::NodeCompilationContext, PatternCompiler};
-use crate::{grit_context::GritQueryContext, util::TextRangeGritExt, CompileError};
+use super::{PatternCompiler, compilation_context::NodeCompilationContext};
+use crate::{CompileError, grit_context::GritQueryContext, util::TextRangeGritExt};
 use biome_grit_syntax::GritBubble;
 use biome_rowan::AstNode;
 use grit_pattern_matcher::pattern::{Bubble, Pattern, PatternDefinition};
-use itertools::Itertools;
 use std::collections::BTreeMap;
 
 pub(crate) struct BubbleCompiler;
@@ -20,7 +19,7 @@ impl BubbleCompiler {
         // that parameters are registered first
 
         let parameters: Vec<_> = node
-            .variables()
+            .scope()
             .into_iter()
             .map(|node| {
                 let syntax = node.syntax();
@@ -30,26 +29,27 @@ impl BubbleCompiler {
                 )
             })
             .collect();
-        if parameters.iter().unique_by(|n| &n.0).count() != parameters.len() {
+        if parameters
+            .iter()
+            .map(|n| &n.0)
+            .collect::<rustc_hash::FxHashSet<_>>()
+            .len()
+            != parameters.len()
+        {
             return Err(CompileError::DuplicateParameters);
         }
 
-        let params = local_context.get_variables(&parameters)?;
+        let params = local_context.get_variables(&parameters);
 
         let body = PatternCompiler::from_maybe_curly_node(&node.pattern()?, &mut local_context)?;
 
         let args = parameters
             .into_iter()
-            .map(|(name, range)| Ok(Pattern::Variable(context.register_variable(name, range)?)))
+            .map(|(name, range)| Ok(Pattern::Variable(context.register_variable(name, range))))
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        let pattern_def = PatternDefinition::new(
-            "<bubble>".to_owned(),
-            local_scope_index,
-            params,
-            local_vars.values().copied().collect(),
-            body,
-        );
+        let pattern_def =
+            PatternDefinition::new("<bubble>".to_owned(), local_scope_index, params, body);
 
         Ok(Bubble::new(pattern_def, args))
     }

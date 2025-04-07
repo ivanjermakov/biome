@@ -1,19 +1,22 @@
-use crate::diagnostics::MigrationDiagnostic;
+use super::{eslint_eslint::ShorthandVec, node};
 use crate::CliDiagnostic;
-use biome_console::{markup, Console, ConsoleExt};
-use biome_deserialize::{json::deserialize_from_json_str, StringSet};
+use crate::diagnostics::MigrationDiagnostic;
+use anyhow::{Context, Error};
+use biome_configuration::HtmlConfiguration;
+use biome_configuration::html::HtmlFormatterConfiguration;
+use biome_configuration::javascript::JsFormatterConfiguration;
+use biome_console::{Console, ConsoleExt, markup};
+use biome_deserialize::json::deserialize_from_json_str;
 use biome_deserialize_macros::Deserializable;
 use biome_diagnostics::{DiagnosticExt, PrintDiagnostic};
 use biome_formatter::{
-    AttributePosition, LineEnding, LineWidth, LineWidthFromIntError, QuoteStyle,
+    AttributePosition, BracketSpacing, Expand, IndentWidth, LineEnding, LineWidth, QuoteStyle,
 };
 use biome_fs::{FileSystem, OpenOptions};
-use biome_js_formatter::context::{ArrowParentheses, QuoteProperties, Semicolons, TrailingComma};
+use biome_html_formatter::context::SelfCloseVoidElements;
+use biome_js_formatter::context::{ArrowParentheses, QuoteProperties, Semicolons, TrailingCommas};
 use biome_json_parser::JsonParserOptions;
-use biome_service::DynRef;
-use std::path::Path;
-
-use super::{eslint_eslint::ShorthandVec, node};
+use camino::Utf8Path;
 
 #[derive(Debug, Default, Deserializable)]
 #[deserializable(unknown_fields = "allow")]
@@ -36,7 +39,7 @@ pub(crate) struct PrettierConfiguration {
     print_width: u16,
     /// https://prettier.io/docs/en/options#use-tabs
     use_tabs: bool,
-    /// https://prettier.io/docs/en/options#trailing-comma
+    /// https://prettier.io/docs/en/options#trailing-commas
     trailing_comma: PrettierTrailingComma,
     /// https://prettier.io/docs/en/options#tab-width
     tab_width: u8,
@@ -56,6 +59,8 @@ pub(crate) struct PrettierConfiguration {
     arrow_parens: ArrowParens,
     /// https://prettier.io/docs/en/options#end-of-line
     end_of_line: EndOfLine,
+    /// https://prettier.io/docs/options#object-wrap
+    object_wrap: ObjectWrap,
     /// https://prettier.io/docs/en/configuration.html#configuration-overrides
     overrides: Vec<Override>,
 }
@@ -75,6 +80,7 @@ impl Default for PrettierConfiguration {
             jsx_single_quote: false,
             arrow_parens: ArrowParens::default(),
             end_of_line: EndOfLine::default(),
+            object_wrap: ObjectWrap::default(),
             overrides: vec![],
         }
     }
@@ -93,7 +99,7 @@ pub(crate) struct OverrideOptions {
     print_width: Option<u16>,
     /// https://prettier.io/docs/en/options#use-tabs
     use_tabs: Option<bool>,
-    /// https://prettier.io/docs/en/options#trailing-comma
+    /// https://prettier.io/docs/en/options#trailing-commas
     trailing_comma: Option<PrettierTrailingComma>,
     /// https://prettier.io/docs/en/options#tab-width
     tab_width: Option<u8>,
@@ -113,6 +119,8 @@ pub(crate) struct OverrideOptions {
     arrow_parens: Option<ArrowParens>,
     /// https://prettier.io/docs/en/options#end-of-line
     end_of_line: Option<EndOfLine>,
+    /// https://prettier.io/docs/options#object-wrap
+    object_wrap: ObjectWrap,
 }
 
 #[derive(Clone, Debug, Default, Deserializable, Eq, PartialEq)]
@@ -147,7 +155,14 @@ enum QuoteProps {
     Preserve,
 }
 
-impl From<PrettierTrailingComma> for TrailingComma {
+#[derive(Clone, Debug, Default, Deserializable, Eq, PartialEq)]
+enum ObjectWrap {
+    #[default]
+    Preserve,
+    Collapse,
+}
+
+impl From<PrettierTrailingComma> for TrailingCommas {
     fn from(value: PrettierTrailingComma) -> Self {
         match value {
             PrettierTrailingComma::All => Self::All,
@@ -186,29 +201,44 @@ impl From<QuoteProps> for QuoteProperties {
     }
 }
 
-impl TryFrom<PrettierConfiguration> for biome_configuration::PartialConfiguration {
-    type Error = LineWidthFromIntError;
-    fn try_from(value: PrettierConfiguration) -> Result<Self, Self::Error> {
-        let mut result = biome_configuration::PartialConfiguration::default();
+impl From<ObjectWrap> for Expand {
+    fn from(value: ObjectWrap) -> Self {
+        match value {
+            ObjectWrap::Preserve => Self::Auto,
+            ObjectWrap::Collapse => Self::Never,
+        }
+    }
+}
 
-        let line_width = LineWidth::try_from(value.print_width)?;
+impl TryFrom<PrettierConfiguration> for biome_configuration::Configuration {
+    type Error = Error;
+    fn try_from(value: PrettierConfiguration) -> anyhow::Result<Self> {
+        let mut result = biome_configuration::Configuration::default();
+
+        let line_width = LineWidth::try_from(value.print_width)
+            .with_context(|| "top-level Prettier configuration")?;
+        let indent_width = IndentWidth::try_from(value.tab_width)
+            .with_context(|| "top-level Prettier configuration")?;
         let indent_style = if value.use_tabs {
-            biome_configuration::PlainIndentStyle::Tab
+            biome_formatter::IndentStyle::Tab
         } else {
-            biome_configuration::PlainIndentStyle::Space
+            biome_formatter::IndentStyle::Space
         };
-        let formatter = biome_configuration::PartialFormatterConfiguration {
-            indent_width: Some(value.tab_width),
+        let formatter = biome_configuration::FormatterConfiguration {
+            indent_width: Some(indent_width),
             line_width: Some(line_width),
             indent_style: Some(indent_style),
             line_ending: Some(value.end_of_line.into()),
+            bracket_same_line: Some(value.bracket_line.into()),
             attribute_position: Some(AttributePosition::default()),
-            format_with_errors: Some(false),
-            ignore: None,
-            include: None,
-            enabled: Some(true),
-            // deprecated
-            indent_size: None,
+            bracket_spacing: Some(BracketSpacing::default()),
+            expand: Some(value.object_wrap.into()),
+            format_with_errors: Some(false.into()),
+            includes: None,
+            enabled: Some(true.into()),
+            // editorconfig support is intentionally set to true, because prettier always reads the editorconfig file
+            // see: https://github.com/prettier/prettier/issues/15255
+            use_editorconfig: Some(true.into()),
         };
         result.formatter = Some(formatter);
 
@@ -227,35 +257,49 @@ impl TryFrom<PrettierConfiguration> for biome_configuration::PartialConfiguratio
         } else {
             QuoteStyle::Double
         };
-        let js_formatter = biome_configuration::PartialJavascriptFormatter {
+        let js_formatter = JsFormatterConfiguration {
             indent_width: None,
             line_width: None,
             indent_style: None,
             line_ending: None,
+            expand: None,
             enabled: None,
-            // deprecated
-            indent_size: None,
-
             // js ones
-            bracket_same_line: Some(value.bracket_line),
+            bracket_same_line: Some(value.bracket_line.into()),
             arrow_parentheses: Some(value.arrow_parens.into()),
             semicolons: Some(semicolons),
-            trailing_comma: Some(value.trailing_comma.into()),
+            trailing_commas: Some(value.trailing_comma.into()),
             quote_style: Some(quote_style),
             quote_properties: Some(value.quote_props.into()),
-            bracket_spacing: Some(value.bracket_spacing),
+            bracket_spacing: Some(value.bracket_spacing.into()),
             jsx_quote_style: Some(jsx_quote_style),
             attribute_position: Some(AttributePosition::default()),
         };
-        let js_config = biome_configuration::PartialJavascriptConfiguration {
+        let js_config = biome_configuration::JsConfiguration {
             formatter: Some(js_formatter),
             ..Default::default()
         };
+        let html_formatter_config = HtmlFormatterConfiguration {
+            self_close_void_elements: Some(SelfCloseVoidElements::Always),
+            ..Default::default()
+        };
+
+        let html_config = HtmlConfiguration {
+            formatter: Some(html_formatter_config),
+            ..Default::default()
+        };
+
         result.javascript = Some(js_config);
+        result.html = Some(html_config);
         if !value.overrides.is_empty() {
             let mut overrides = biome_configuration::Overrides::default();
             for override_elt in value.overrides {
-                overrides.0.push(override_elt.try_into()?);
+                let sources = override_elt.files.clone();
+                overrides.0.push(
+                    override_elt
+                        .try_into()
+                        .with_context(|| format!("override element matching {sources:?}"))?,
+                );
             }
             result.overrides = Some(overrides);
         }
@@ -264,10 +308,15 @@ impl TryFrom<PrettierConfiguration> for biome_configuration::PartialConfiguratio
 }
 
 impl TryFrom<Override> for biome_configuration::OverridePattern {
-    type Error = LineWidthFromIntError;
-    fn try_from(Override { files, options }: Override) -> Result<Self, Self::Error> {
+    type Error = Error;
+    fn try_from(Override { files, options }: Override) -> anyhow::Result<Self> {
         let mut result = biome_configuration::OverridePattern {
-            include: Some(StringSet::new(files.into_iter().collect())),
+            includes: Some(biome_configuration::OverrideGlobs::Globs(
+                files
+                    .into_iter()
+                    .filter_map(|glob| glob.parse().ok())
+                    .collect(),
+            )),
             ..Default::default()
         };
         if options.print_width.is_some()
@@ -281,15 +330,21 @@ impl TryFrom<Override> for biome_configuration::OverridePattern {
             } else {
                 None
             };
+            // are global options are set
+            let indent_width = if let Some(indent_width) = options.tab_width {
+                Some(IndentWidth::try_from(indent_width)?)
+            } else {
+                None
+            };
             let indent_style = options.use_tabs.map(|use_tabs| {
                 if use_tabs {
-                    biome_configuration::PlainIndentStyle::Tab
+                    biome_formatter::IndentStyle::Tab
                 } else {
-                    biome_configuration::PlainIndentStyle::Space
+                    biome_formatter::IndentStyle::Space
                 }
             });
             let formatter = biome_configuration::OverrideFormatterConfiguration {
-                indent_width: options.tab_width,
+                indent_width,
                 line_width,
                 indent_style,
                 line_ending: options.end_of_line.map(|end_of_line| end_of_line.into()),
@@ -331,20 +386,19 @@ impl TryFrom<Override> for biome_configuration::OverridePattern {
                 QuoteStyle::Double
             }
         });
-        let js_formatter = biome_configuration::PartialJavascriptFormatter {
-            bracket_same_line: options.bracket_line,
+        let js_formatter = JsFormatterConfiguration {
+            bracket_same_line: options.bracket_line.map(Into::into),
             arrow_parentheses: options.arrow_parens.map(|arrow_parens| arrow_parens.into()),
             semicolons,
-            trailing_comma: options
+            trailing_commas: options
                 .trailing_comma
                 .map(|trailing_comma| trailing_comma.into()),
             quote_style,
             quote_properties: options.quote_props.map(|quote_props| quote_props.into()),
-            bracket_spacing: options.bracket_spacing,
             jsx_quote_style,
             ..Default::default()
         };
-        let js_config = biome_configuration::PartialJavascriptConfiguration {
+        let js_config = biome_configuration::JsConfiguration {
             formatter: Some(js_formatter),
             ..Default::default()
         };
@@ -356,7 +410,7 @@ impl TryFrom<Override> for biome_configuration::OverridePattern {
 /// A Prettier config can be embedded in `package.json`
 const PACKAGE_JSON: &str = "package.json";
 
-/// Prettie config files ordered by precedence
+/// Prettier config files ordered by precedence
 const CONFIG_FILES: [&str; 8] = [
     ".prettierrc",
     ".prettierrc.json",
@@ -374,18 +428,18 @@ pub(crate) const IGNORE_FILE: &str = ".prettierignore";
 
 /// This function is in charge of reading prettier files, deserialize its contents
 pub(crate) fn read_config_file(
-    fs: &DynRef<'_, dyn FileSystem>,
+    fs: &dyn FileSystem,
     console: &mut dyn Console,
 ) -> Result<Config, CliDiagnostic> {
     // We don't report an error if Prettier config is not embedded in `PACKAGE_JSON`.
-    if let Ok(data) = load_config(fs, Path::new(PACKAGE_JSON), console) {
+    if let Ok(data) = load_config(fs, Utf8Path::new(PACKAGE_JSON), console) {
         return Ok(Config {
             path: PACKAGE_JSON,
             data,
         });
     }
     for config_name in CONFIG_FILES {
-        let path = Path::new(config_name);
+        let path = Utf8Path::new(config_name);
         if fs.path_exists(path) {
             return Ok(Config {
                 path: config_name,
@@ -399,12 +453,11 @@ pub(crate) fn read_config_file(
 }
 
 fn load_config(
-    fs: &DynRef<'_, dyn FileSystem>,
-    path: &Path,
+    fs: &dyn FileSystem,
+    path: &Utf8Path,
     console: &mut dyn Console,
 ) -> Result<PrettierConfiguration, CliDiagnostic> {
-    let (deserialized, diagnostics) = match path.extension().and_then(|file_ext| file_ext.to_str())
-    {
+    let (deserialized, diagnostics) = match path.extension() {
         None | Some("json") => {
             let mut file = fs.open_with_options(path, OpenOptions::default().read(true))?;
             let mut content = String::new();
@@ -434,7 +487,7 @@ fn load_config(
             }
         }
         Some("js" | "mjs" | "cjs") => {
-            let node::Resolution { content, .. } = node::load_config(&path.to_string_lossy())?;
+            let node::Resolution { content, .. } = node::load_config(path.as_ref())?;
             deserialize_from_json_str::<PrettierConfiguration>(
                 &content,
                 JsonParserOptions::default(),
@@ -447,10 +500,10 @@ fn load_config(
                 reason: format!(
                     "Prettier configuration ending with the extension `{ext}` are not supported."
                 ),
-            }))
+            }));
         }
     };
-    let path_str = path.to_string_lossy();
+    let path_str = path.to_string();
     // Heuristic: the Prettier config file is considered a YAML file if:
     // - desrialization failed
     // - there are at least 3 diagnostics

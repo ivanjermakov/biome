@@ -1,7 +1,8 @@
 use crate::utils::batch::JsBatchMutation;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     AnyJsObjectMember, JsGetterObjectMember, JsObjectExpression, JsSetterObjectMember,
 };
@@ -15,8 +16,8 @@ use std::fmt::Display;
 
 use crate::JsRuleAction;
 
-declare_rule! {
-    /// Prevents object literals having more than one property declaration for the same name.
+declare_lint_rule! {
+    /// Disallow two keys with the same name inside objects.
     ///
     /// If an object property with the same name is defined multiple times (except when combining a getter with a setter), only the last definition makes it into the object and previous definitions are ignored, which is likely a mistake.
     ///
@@ -57,8 +58,10 @@ declare_rule! {
     pub NoDuplicateObjectKeys {
         version: "1.0.0",
         name: "noDuplicateObjectKeys",
+        language: "js",
         sources: &[RuleSource::Eslint("no-dupe-keys")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -212,14 +215,14 @@ impl DefinedProperty {
 impl Rule for NoDuplicateObjectKeys {
     type Query = Ast<JsObjectExpression>;
     type State = PropertyConflict;
-    type Signals = Vec<Self::State>;
+    type Signals = Box<[Self::State]>;
     type Options = ();
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let node = ctx.query();
 
         let mut defined_properties = FxHashMap::default();
-        let mut signals: Self::Signals = Vec::new();
+        let mut signals = Vec::new();
 
         for member_definition in node
             .members()
@@ -250,7 +253,7 @@ impl Rule for NoDuplicateObjectKeys {
             }
         }
 
-        signals
+        signals.into_boxed_slice()
     }
 
     fn diagnostic(
@@ -261,8 +264,7 @@ impl Rule for NoDuplicateObjectKeys {
             rule_category!(),
             member_definition.range(),
             format!(
-                "This {} is later overwritten by an object member with the same name.",
-                member_definition
+                "This {member_definition} is later overwritten by an object member with the same name."
             ),
         );
         diagnostic = match defined_property {
@@ -308,12 +310,12 @@ impl Rule for NoDuplicateObjectKeys {
     ) -> Option<JsRuleAction> {
         let mut batch = ctx.root().begin();
         batch.remove_js_object_member(member_definition.node());
-        Some(JsRuleAction {
-            category: biome_analyze::ActionCategory::QuickFix,
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
             // The property initialization could contain side effects
-            applicability: biome_diagnostics::Applicability::MaybeIncorrect,
-            message: markup!("Remove this " {member_definition.to_string()}).to_owned(),
-            mutation: batch,
-        })
+            ctx.metadata().applicability(),
+            markup!("Remove this " {member_definition.to_string()}).to_owned(),
+            batch,
+        ))
     }
 }

@@ -73,12 +73,13 @@ Line width: 80
 Quote style: Double Quotes
 JSX quote style: Double Quotes
 Quote properties: As needed
-Trailing comma: All
+Trailing commas: All
 Semicolons: Always
 Arrow parentheses: Always
 Bracket spacing: true
 Bracket same line: false
 Attribute Position: Auto
+Expand lists: Auto
 -----
 
 ```js
@@ -164,12 +165,13 @@ Line width: 80
 Quote style: Double Quotes
 JSX quote style: Double Quotes
 Quote properties: As needed
-Trailing comma: All
+Trailing commas: All
 Semicolons: Always
 Arrow parentheses: As needed
 Bracket spacing: true
 Bracket same line: false
 Attribute Position: Auto
+Expand lists: Auto
 -----
 
 ```js

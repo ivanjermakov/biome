@@ -1,21 +1,21 @@
-use crate::services::semantic::Semantic;
 use crate::JsRuleAction;
+use crate::services::semantic::Semantic;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{FixKind, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::{make, syntax::T};
 use biome_js_syntax::{
-    global_identifier, AnyJsCallArgument, AnyJsExpression, AnyJsMemberExpression, JsBinaryOperator,
-    JsCallExpression, JsClassDeclaration, JsClassExpression, JsExtendsClause, JsInExpression,
-    OperatorPrecedence,
+    AnyJsCallArgument, AnyJsExpression, AnyJsMemberExpression, JsBinaryOperator, JsCallExpression,
+    JsClassDeclaration, JsClassExpression, JsExtendsClause, JsInExpression, OperatorPrecedence,
+    global_identifier,
 };
 use biome_rowan::{
-    chain_trivia_pieces, trim_leading_trivia_pieces, AstNode, AstSeparatedList, BatchMutationExt,
-    SyntaxResult,
+    AstNode, AstSeparatedList, BatchMutationExt, SyntaxResult, chain_trivia_pieces,
+    trim_leading_trivia_pieces,
 };
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow the use of `Math.pow` in favor of the `**` operator.
     ///
     /// Introduced in ES2016, the infix exponentiation operator `**` is an alternative for the standard `Math.pow` function.
@@ -56,8 +56,10 @@ declare_rule! {
     pub UseExponentiationOperator {
         version: "1.0.0",
         name: "useExponentiationOperator",
+        language: "js",
         sources: &[RuleSource::Eslint("prefer-exponentiation-operator")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Unsafe,
     }
 }
@@ -72,7 +74,7 @@ impl Rule for UseExponentiationOperator {
         let node = ctx.query();
         let model = ctx.model();
         let callee = node.callee().ok()?.omit_parentheses();
-        let member_expr = AnyJsMemberExpression::cast_ref(callee.syntax())?;
+        let member_expr = AnyJsMemberExpression::cast(callee.into_syntax())?;
         if member_expr.member_name()?.text() != "pow" {
             return None;
         }
@@ -95,8 +97,11 @@ impl Rule for UseExponentiationOperator {
     fn action(ctx: &RuleContext<Self>, _: &Self::State) -> Option<JsRuleAction> {
         let node = ctx.query();
         let args = node.arguments().ok()?;
-        let [Some(AnyJsCallArgument::AnyJsExpression(base)), Some(AnyJsCallArgument::AnyJsExpression(exponent)), None] =
-            node.arguments().ok()?.get_arguments_by_index([0, 1, 2])
+        let [
+            Some(AnyJsCallArgument::AnyJsExpression(base)),
+            Some(AnyJsCallArgument::AnyJsExpression(exponent)),
+            None,
+        ] = node.arguments().ok()?.get_arguments_by_index([0, 1, 2])
         else {
             return None;
         };
@@ -160,12 +165,12 @@ impl Rule for UseExponentiationOperator {
             .prepend_trivia_pieces(node.syntax().first_leading_trivia()?.pieces())?
             .append_trivia_pieces(node.syntax().last_trailing_trivia()?.pieces())?;
         mutation.replace_node_discard_trivia(AnyJsExpression::from(node.clone()), new_node);
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Use the '**' operator instead of 'Math.pow'." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Use the '**' operator instead of 'Math.pow'." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

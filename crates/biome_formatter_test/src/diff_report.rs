@@ -1,4 +1,4 @@
-use similar::{utils::diff_lines, Algorithm, ChangeTag};
+use similar::{Algorithm, ChangeTag, utils::diff_lines};
 use std::sync::Mutex;
 use std::{env, fmt::Write, fs::write, os::raw::c_int, str::FromStr, sync::Once};
 
@@ -63,13 +63,13 @@ impl DiffReport {
         static ONCE: Once = Once::new();
         ONCE.call_once(|| {
             // Import the atexit function from libc
-            extern "C" {
-                fn atexit(f: extern "C" fn()) -> c_int;
+            unsafe extern "C" {
+                fn atexit(f: unsafe extern "C" fn()) -> c_int;
             }
 
             // Trampoline function into the reporter printing logic with the
             // correct extern C ABI
-            extern "C" fn print_report() {
+            unsafe extern "C" fn print_report() {
                 REPORTER.print();
             }
 
@@ -109,6 +109,14 @@ impl DiffReport {
             "js/v8_intrinsic",
             // Babel plugins (mostly experimental syntaxes)
             "js/babel-plugins/",
+            // Bogus nodes
+            "js/chain-expression/new-expression.js",
+            "js/chain-expression/tagged-template-literals.js",
+            "js/optional-chaining-assignment/valid-parenthesized.js",
+            "typescript/conformance/classes/constructorDeclarations/constructorParameters/readonlyReadonly.ts",
+            "typescript/conformance/parser/ecmascript5/Statements/parserES5ForOfStatement21.ts",
+            "typescript/chain-expression/new-expression.ts",
+            "typescript/chain-expression/tagged-template-literals.ts",
             // Experimental syntax: `do {}`
             "js/async-do-expressions/",
             "js/do/",
@@ -147,6 +155,8 @@ impl DiffReport {
             "js/deferred-import-evaluation/",
             // Experimental syntax: `import source`
             "js/source-phase-imports/",
+            "js/dynamic-import/import-phase.js",
+            "js/dynamic-import/template-literal.js",
             // Experimental syntax: `import module`
             "js/import-reflection/",
             // Experimental syntax: `throw` expressions
@@ -352,7 +362,7 @@ impl DiffReport {
                         }
 
                         let line = line.strip_suffix('\n').unwrap_or(line);
-                        writeln!(diff, "{}{}", tag, line).unwrap();
+                        writeln!(diff, "{tag}{line}").unwrap();
                     }
 
                     let ratio = matched_lines as f64 / biome_lines.max(prettier_lines) as f64;
@@ -402,7 +412,7 @@ impl DiffReport {
             diff,
         } in report_metric_data.files.iter()
         {
-            writeln!(report, "### {}", filename).unwrap();
+            writeln!(report, "### {filename}").unwrap();
 
             if let Some(diff) = diff {
                 writeln!(report, "```diff").unwrap();

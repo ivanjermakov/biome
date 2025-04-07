@@ -1,17 +1,16 @@
-use crate::{services::aria::Aria, JsRuleAction};
+use crate::{JsRuleAction, services::aria::Aria};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
-use biome_aria::AriaRoles;
+use biome_aria_metadata::AriaRole;
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
-    jsx_ext::AnyJsxElement, AnyJsxAttributeValue, JsNumberLiteralExpression,
-    JsStringLiteralExpression, JsUnaryExpression, TextRange,
+    AnyJsxAttributeValue, AnyNumberLikeExpression, TextRange, jsx_ext::AnyJsxElement,
 };
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt};
+use biome_rowan::{AstNode, BatchMutationExt, TokenText};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce that `tabIndex` is not assigned to non-interactive HTML elements.
     ///
     /// When using the tab key to navigate a webpage, limit it to interactive elements.
@@ -51,49 +50,17 @@ declare_rule! {
     pub NoNoninteractiveTabindex {
         version: "1.0.0",
         name: "noNoninteractiveTabindex",
+        language: "jsx",
         sources: &[RuleSource::EslintJsxA11y("no-noninteractive-tabindex")],
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Unsafe,
-    }
-}
-
-declare_node_union! {
-    /// Subset of expressions supported by this rule.
-    ///
-    /// ## Examples
-    ///
-    /// - `JsStringLiteralExpression` &mdash; `"5"`
-    /// - `JsNumberLiteralExpression` &mdash; `5`
-    /// - `JsUnaryExpression` &mdash; `+5` | `-5`
-    ///
-    pub AnyNumberLikeExpression = JsStringLiteralExpression | JsNumberLiteralExpression | JsUnaryExpression
-}
-
-impl AnyNumberLikeExpression {
-    /// Returns the value of a number-like expression; it returns the expression
-    /// text for literal expressions. However, for unary expressions, it only
-    /// returns the value for signed numeric expressions.
-    pub(crate) fn value(&self) -> Option<String> {
-        match self {
-            AnyNumberLikeExpression::JsStringLiteralExpression(string_literal) => {
-                return Some(string_literal.inner_string_text().ok()?.to_string());
-            }
-            AnyNumberLikeExpression::JsNumberLiteralExpression(number_literal) => {
-                return Some(number_literal.value_token().ok()?.to_string());
-            }
-            AnyNumberLikeExpression::JsUnaryExpression(unary_expression) => {
-                if unary_expression.is_signed_numeric_literal().ok()? {
-                    return Some(unary_expression.text());
-                }
-            }
-        }
-        None
     }
 }
 
 pub struct RuleState {
     attribute_range: TextRange,
-    element_name: String,
+    element_name: TokenText,
 }
 
 impl Rule for NoNoninteractiveTabindex {
@@ -108,45 +75,50 @@ impl Rule for NoNoninteractiveTabindex {
             return None;
         }
 
-        let element_name = node.name().ok()?.as_jsx_name()?.value_token().ok()?;
-        let aria_roles = ctx.aria_roles();
-        let attributes = ctx.extract_attributes(&node.attributes());
-
-        if aria_roles.is_not_interactive_element(element_name.text_trimmed(), attributes) {
+        if ctx.aria_roles().is_not_interactive_element(node) {
             let tabindex_attribute = node.find_attribute_by_name("tabIndex")?;
             let tabindex_attribute_value = tabindex_attribute.initializer()?.value().ok()?;
             if attribute_has_negative_tabindex(&tabindex_attribute_value)? {
                 return None;
             }
 
+            let element_name = node
+                .name()
+                .ok()?
+                .as_jsx_name()?
+                .value_token()
+                .ok()?
+                .token_text_trimmed();
+
             let role_attribute = node.find_attribute_by_name("role");
             let Some(role_attribute) = role_attribute else {
                 return Some(RuleState {
                     attribute_range: tabindex_attribute.range(),
-                    element_name: element_name.text_trimmed().to_string(),
+                    element_name,
                 });
             };
 
             let role_attribute_value = role_attribute.initializer()?.value().ok()?;
-            if attribute_has_interactive_role(&role_attribute_value, aria_roles)? {
+            if attribute_has_interactive_role(&role_attribute_value)? {
                 return None;
             }
 
             return Some(RuleState {
                 attribute_range: tabindex_attribute.range(),
-                element_name: element_name.text_trimmed().to_string(),
+                element_name,
             });
         }
         None
     }
 
     fn diagnostic(_: &RuleContext<Self>, state: &Self::State) -> Option<RuleDiagnostic> {
+        let element_name = state.element_name.text();
         Some(
             RuleDiagnostic::new(
                 rule_category!(),
                 state.attribute_range,
                 markup! {
-                "The HTML element "<Emphasis>{{&state.element_name}}</Emphasis>" is non-interactive. Do not use "<Emphasis>"tabIndex"</Emphasis>"."
+                "The HTML element "<Emphasis>{{element_name}}</Emphasis>" is non-interactive. Do not use "<Emphasis>"tabIndex"</Emphasis>"."
 
                 },
             )
@@ -162,13 +134,12 @@ impl Rule for NoNoninteractiveTabindex {
         let mut mutation = ctx.root().begin();
 
         mutation.remove_node(tabindex_attribute);
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::MaybeIncorrect,
-            message: markup! { "Remove the "<Emphasis>"tabIndex"</Emphasis>" attribute." }
-                .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the "<Emphasis>"tabIndex"</Emphasis>" attribute." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 
@@ -194,7 +165,7 @@ fn attribute_has_negative_tabindex(
         AnyJsxAttributeValue::JsxExpressionAttributeValue(value) => {
             let expression = value.expression().ok()?;
             let expression_value =
-                AnyNumberLikeExpression::cast_ref(expression.syntax())?.value()?;
+                AnyNumberLikeExpression::cast(expression.into_syntax())?.value()?;
             Some(is_negative_tabindex(&expression_value))
         }
         _ => None,
@@ -202,9 +173,9 @@ fn attribute_has_negative_tabindex(
 }
 
 /// Checks if the given role attribute value is interactive or not based on ARIA roles.
-fn attribute_has_interactive_role(
-    role_attribute_value: &AnyJsxAttributeValue,
-    aria_roles: &AriaRoles,
-) -> Option<bool> {
-    Some(aria_roles.is_role_interactive(role_attribute_value.as_static_value()?.text()))
+fn attribute_has_interactive_role(role_attribute_value: &AnyJsxAttributeValue) -> Option<bool> {
+    Some(
+        AriaRole::from_roles(role_attribute_value.as_static_value()?.text())
+            .is_some_and(|role| role.is_interactive()),
+    )
 }

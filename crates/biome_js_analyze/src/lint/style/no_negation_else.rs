@@ -1,18 +1,16 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsExpression, AnyJsStatement, JsConditionalExpression, JsIfStatement, JsUnaryOperator, T,
 };
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt};
+use biome_rowan::{AstNode, BatchMutationExt, declare_node_union};
 
 use crate::JsRuleAction;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow negation in the condition of an `if` statement if it has an `else` clause.
     ///
     /// ## Examples
@@ -47,6 +45,7 @@ declare_rule! {
     pub NoNegationElse {
         version: "1.0.0",
         name: "noNegationElse",
+        language: "js",
         sources: &[
             RuleSource::Eslint("no-negated-condition"),
             RuleSource::Clippy("if_not_else"),
@@ -120,12 +119,12 @@ impl Rule for NoNegationElse {
             }
         }
 
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Invert the condition and the blocks." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Invert the condition and the blocks." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

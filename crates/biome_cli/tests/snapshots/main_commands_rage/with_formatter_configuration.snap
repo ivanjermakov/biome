@@ -10,7 +10,7 @@ expression: content
     "attributePosition": "multiline",
     "enabled": true,
     "formatWithErrors": true,
-    "include": [
+    "includes": [
       "**/*.html",
       "**/*.css",
       "**/*.js",
@@ -18,13 +18,13 @@ expression: content
       "**/*.tsx",
       "**/*.jsx",
       "**/*.json",
-      "**/*.md"
+      "**/*.md",
+      "!configuration-schema.json"
     ],
     "indentStyle": "space",
     "indentWidth": 2,
     "lineEnding": "lf",
-    "lineWidth": 120,
-    "ignore": ["configuration-schema.json"]
+    "lineWidth": 120
   },
   "javascript": {
     "formatter": {
@@ -61,7 +61,9 @@ Platform:
   OS:                           **PLACEHOLDER**
 
 Environment:
-  BIOME_LOG_DIR:                **PLACEHOLDER**
+  BIOME_LOG_PATH:               **PLACEHOLDER**
+  BIOME_LOG_PREFIX_NAME:        unset
+  BIOME_CONFIG_PATH:            unset
   NO_COLOR:                     **PLACEHOLDER**
   TERM:                         **PLACEHOLDER**
   JS_RUNTIME_VERSION:           unset
@@ -70,47 +72,63 @@ Environment:
 
 Biome Configuration:
   Status:                       Loaded successfully
-  Formatter disabled:           false
-  Linter disabled:              false
-  Organize imports disabled:    false
-  VCS disabled:                 true
+  Path:                         biome.json
+  Formatter enabled:            true
+  Linter enabled:               true
+  Assist enabled:               true
+  VCS enabled:                  false
 
 Formatter:
   Format with errors:           true
   Indent style:                 Space
-  Indent size:                  0
   Indent width:                 2
-  Line ending:                  Lf
+  Line ending:                  LF
   Line width:                   120
   Attribute position:           Multiline
-  Ignore:                       ["configuration-schema.json"]
-  Include:                      ["**/*.html", "**/*.css", "**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.json", "**/*.md"]
+  Bracket spacing:              unset
+  Includes:                     **/*.html, **/*.css, **/*.js, **/*.ts, **/*.tsx, **/*.jsx, **/*.json, **/*.md, !configuration-schema.json
 
 JavaScript Formatter:
   Enabled:                      true
-  JSX quote style:              Single
-  Quote properties:             AsNeeded
-  Trailing comma:               All
-  Semicolons:                   Always
+  JSX quote style:              Single Quotes
+  Quote properties:             unset
+  Trailing commas:              unset
+  Semicolons:                   unset
   Arrow parentheses:            Always
-  Bracket spacing:              false
-  Bracket same line:            false
-  Quote style:                  Double
+  Bracket spacing:              unset
+  Bracket same line:            unset
+  Quote style:                  unset
   Indent style:                 Tab
-  Indent size:                  unset
   Indent width:                 2
-  Line ending:                  Lf
+  Line ending:                  LF
   Line width:                   100
-  Attribute position:           Auto
+  Attribute position:           unset
 
 JSON Formatter:
   Enabled:                      true
   Indent style:                 Space
   Indent width:                 2
-  Indent size:                  unset
-  Line ending:                  Lf
+  Line ending:                  LF
   Line width:                   100
   Trailing Commas:              unset
+  Expand lists:                 unset
+
+CSS Formatter:
+  Enabled:                      unset
+  Indent style:                 unset
+  Indent width:                 unset
+  Line ending:                  unset
+  Line width:                   unset
+  Quote style:                  unset
+
+GraphQL Formatter:
+  Enabled:                      unset
+  Indent style:                 unset
+  Indent width:                 unset
+  Line ending:                  unset
+  Line width:                   unset
+  Bracket spacing:              unset
+  Quote style:                  unset
 
 Server:
   Version:                      0.0.0

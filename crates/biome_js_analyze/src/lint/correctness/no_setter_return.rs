@@ -1,12 +1,13 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{JsReturnStatement, JsSetterClassMember, JsSetterObjectMember};
-use biome_rowan::{declare_node_union, AstNode};
+use biome_rowan::{AstNode, declare_node_union};
 
 use crate::services::control_flow::AnyJsControlFlowRoot;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow returning a value from a setter
     ///
     /// While returning a value from a setter does not produce an error, the returned value is being ignored. Therefore, returning a value from a setter is either unnecessary or a possible error.
@@ -67,8 +68,10 @@ declare_rule! {
     pub NoSetterReturn {
         version: "1.0.0",
         name: "noSetterReturn",
+        language: "js",
         sources: &[RuleSource::Eslint("no-setter-return")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

@@ -304,7 +304,7 @@ impl SimpleArgument {
                                 Ok(AnyJsObjectMemberName::JsComputedMemberName(_))
                             );
 
-                            let is_simple = property.value().map_or(false, |value| {
+                            let is_simple = property.value().is_ok_and(|value| {
                                 SimpleArgument::from(value).is_simple_impl(depth + 1)
                             });
 
@@ -356,7 +356,7 @@ impl From<AnyJsCallArgument> for SimpleArgument {
 ///
 /// - all strings dont contain newlines
 /// - the expressions contained in the template are considered as `is_simple_call_argument`. Check
-/// [is_simple_call_argument].
+///     [is_simple_call_argument].
 pub fn is_simple_template_literal(
     template: &JsTemplateExpression,
     depth: u8,

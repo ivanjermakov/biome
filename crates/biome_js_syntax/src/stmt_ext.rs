@@ -2,11 +2,12 @@
 
 use crate::{
     AnyJsArrayAssignmentPatternElement, AnyJsAssignmentPattern, AnyJsSwitchClause,
-    JsBreakStatement, JsContinueStatement, JsForVariableDeclaration, JsLabeledStatement,
-    JsStatementList, JsSyntaxKind, JsSyntaxToken as SyntaxToken, JsVariableDeclaration,
-    JsVariableDeclarator, TsModuleDeclaration, T,
+    JsBlockStatement, JsBreakStatement, JsCatchClause, JsContinueStatement, JsFinallyClause,
+    JsForVariableDeclaration, JsLabeledStatement, JsStatementList, JsSyntaxKind,
+    JsSyntaxToken as SyntaxToken, JsTryFinallyStatement, JsTryStatement, JsVariableDeclaration,
+    JsVariableDeclarator, T, TsModuleDeclaration,
 };
-use biome_rowan::{declare_node_union, AstNode, SyntaxResult};
+use biome_rowan::{AstNode, SyntaxResult, declare_node_union};
 
 impl AnyJsSwitchClause {
     pub fn clause_token(&self) -> SyntaxResult<SyntaxToken> {
@@ -27,6 +28,40 @@ impl AnyJsSwitchClause {
         match &self {
             AnyJsSwitchClause::JsCaseClause(item) => item.consequent(),
             AnyJsSwitchClause::JsDefaultClause(item) => item.consequent(),
+        }
+    }
+}
+
+declare_node_union! {
+    pub AnyJsTryStatement = JsTryStatement | JsTryFinallyStatement
+}
+
+impl AnyJsTryStatement {
+    pub fn try_token(&self) -> SyntaxResult<SyntaxToken> {
+        match self {
+            Self::JsTryStatement(node) => node.try_token(),
+            Self::JsTryFinallyStatement(node) => node.try_token(),
+        }
+    }
+
+    pub fn body(&self) -> SyntaxResult<JsBlockStatement> {
+        match self {
+            Self::JsTryStatement(node) => node.body(),
+            Self::JsTryFinallyStatement(node) => node.body(),
+        }
+    }
+
+    pub fn catch_clause(&self) -> Option<JsCatchClause> {
+        match self {
+            Self::JsTryStatement(node) => node.catch_clause().ok(),
+            Self::JsTryFinallyStatement(node) => node.catch_clause(),
+        }
+    }
+
+    pub fn finally_clause(&self) -> Option<JsFinallyClause> {
+        match self {
+            Self::JsTryStatement(_) => None,
+            Self::JsTryFinallyStatement(node) => node.finally_clause().ok(),
         }
     }
 }
@@ -181,8 +216,8 @@ impl JsContinueStatement {
 
 #[cfg(test)]
 mod tests {
-    use biome_js_factory::syntax::{JsSyntaxKind::*, JsVariableDeclaration};
     use biome_js_factory::JsSyntaxTreeBuilder;
+    use biome_js_factory::syntax::{JsSyntaxKind::*, JsVariableDeclaration};
     use biome_rowan::AstNode;
 
     #[test]

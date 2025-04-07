@@ -1,10 +1,11 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{JsCaseClause, JsDefaultClause};
 use biome_rowan::{AstNode, Direction};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce default clauses in switch statements to be last
     ///
     /// A switch statement can optionally have a default clause.
@@ -72,8 +73,10 @@ declare_rule! {
     pub UseDefaultSwitchClauseLast {
         version: "1.0.0",
         name: "useDefaultSwitchClauseLast",
+        language: "js",
         sources: &[RuleSource::Eslint("default-case-last")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

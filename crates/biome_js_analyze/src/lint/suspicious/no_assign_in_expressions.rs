@@ -1,13 +1,14 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource, RuleSourceKind};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, RuleSourceKind, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
     JsAssignmentExpression, JsExpressionStatement, JsForStatement, JsParenthesizedExpression,
     JsSequenceExpression,
 };
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Disallow assignments in expressions.
     ///
     /// In expressions, it is common to mistype a comparison operator (such as `==`) as an assignment operator (such as `=`).
@@ -44,9 +45,11 @@ declare_rule! {
     pub NoAssignInExpressions {
         version: "1.0.0",
         name: "noAssignInExpressions",
+        language: "js",
         sources: &[RuleSource::Eslint("no-cond-assign")],
         source_kind: RuleSourceKind::Inspired,
         recommended: true,
+        severity: Severity::Error,
     }
 }
 

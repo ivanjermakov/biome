@@ -1,5 +1,5 @@
 #![cfg(test)]
-#![allow(unused_mut, unused_variables, unused_assignments)]
+#![expect(unused_mut, unused_variables)]
 
 use super::{JsLexContext, JsLexer, TextRange, TextSize};
 use crate::span::Span;
@@ -88,12 +88,7 @@ fn losslessness(string: String) -> bool {
     });
     let token_ranges = receiver
         .recv_timeout(Duration::from_secs(2))
-        .unwrap_or_else(|_| {
-            panic!(
-                "Lexer is infinitely recursing with this code: ->{}<-",
-                string
-            )
-        });
+        .unwrap_or_else(|_| panic!("Lexer is infinitely recursing with this code: ->{string}<-"));
 
     let mut new_str = String::with_capacity(string.len());
     let mut idx = TextSize::from(0);
@@ -1397,8 +1392,7 @@ fn keywords() {
         let lexed_kind = lexer.current();
         assert_eq!(
             lexed_kind, kind,
-            "Expected token '{keyword}' to be of kind {:?} but is {:?}.",
-            kind, lexed_kind
+            "Expected token '{keyword}' to be of kind {kind:?} but is {lexed_kind:?}."
         );
 
         let lexed_range = lexer.current_range();

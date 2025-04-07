@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use xtask_bench::{bench_formatter_group, TestCase};
-use xtask_bench::{criterion_group, criterion_main, Criterion};
+use xtask_bench::{Criterion, criterion_group, criterion_main};
+use xtask_bench::{TestCase, bench_formatter_group};
 #[cfg(target_os = "windows")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -30,7 +30,7 @@ fn bench_css_formatter(criterion: &mut Criterion) {
             Ok(test_case) => {
                 bench_formatter_group(&mut group, test_case);
             }
-            Err(e) => println!("{:?}", e),
+            Err(e) => println!("{e:?}"),
         }
     }
     group.finish();

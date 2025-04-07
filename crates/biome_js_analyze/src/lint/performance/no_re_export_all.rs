@@ -1,11 +1,11 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource, RuleSourceKind,
+    Ast, Rule, RuleDiagnostic, RuleSource, RuleSourceKind, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
 use biome_js_syntax::JsExportFromClause;
 use biome_rowan::AstNode;
 
-declare_rule! {
+declare_lint_rule! {
     /// Avoid re-export all.
     ///
     /// Deeply nested import chains in modular projects, where a barrel file imports another barrel file, can lead to increased load times and complexity.
@@ -38,6 +38,7 @@ declare_rule! {
     pub NoReExportAll {
         version: "1.6.0",
         name: "noReExportAll",
+        language: "js",
         recommended: false,
         sources: &[RuleSource::EslintBarrelFiles("avoid-re-export-all")],
         source_kind: RuleSourceKind::SameLogic,

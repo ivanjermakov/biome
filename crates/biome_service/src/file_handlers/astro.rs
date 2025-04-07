@@ -1,31 +1,31 @@
+use crate::WorkspaceError;
 use crate::file_handlers::{
-    javascript, AnalyzerCapabilities, Capabilities, CodeActionsParams, DebugCapabilities,
+    AnalyzerCapabilities, Capabilities, CodeActionsParams, DebugCapabilities, EnabledForPath,
     ExtensionHandler, FixAllParams, FormatterCapabilities, LintParams, LintResults, ParseResult,
-    ParserCapabilities,
+    ParserCapabilities, javascript,
 };
 use crate::settings::WorkspaceSettingsHandle;
-use crate::workspace::{
-    DocumentFileSource, FixFileResult, OrganizeImportsResult, PullActionsResult,
-};
-use crate::WorkspaceError;
+use crate::workspace::{DocumentFileSource, FixFileResult, PullActionsResult};
 use biome_formatter::Printed;
 use biome_fs::BiomePath;
-use biome_js_parser::{parse_js_with_cache, JsParserOptions};
+use biome_js_parser::{JsParserOptions, parse_js_with_cache};
 use biome_js_syntax::{JsFileSource, TextRange, TextSize};
 use biome_parser::AnyParse;
 use biome_rowan::NodeCache;
-use lazy_static::lazy_static;
 use regex::{Matches, Regex, RegexBuilder};
+use std::sync::LazyLock;
+
+use super::SearchCapabilities;
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct AstroFileHandler;
 
-lazy_static! {
-    pub static ref ASTRO_FENCE: Regex = RegexBuilder::new(r#"^---\s*$"#)
+pub static ASTRO_FENCE: LazyLock<Regex> = LazyLock::new(|| {
+    RegexBuilder::new(r#"^---\s*$"#)
         .multi_line(true)
         .build()
-        .unwrap();
-}
+        .unwrap()
+});
 
 impl AstroFileHandler {
     /// It extracts the JavaScript code contained in the frontmatter of an Astro file
@@ -68,6 +68,13 @@ impl AstroFileHandler {
 impl ExtensionHandler for AstroFileHandler {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            enabled_for_path: EnabledForPath {
+                formatter: Some(javascript::formatter_enabled),
+                search: Some(javascript::search_enabled),
+                assist: Some(javascript::assist_enabled),
+                linter: Some(javascript::linter_enabled),
+            },
+
             parser: ParserCapabilities { parse: Some(parse) },
             debug: DebugCapabilities {
                 debug_syntax_tree: None,
@@ -79,13 +86,14 @@ impl ExtensionHandler for AstroFileHandler {
                 code_actions: Some(code_actions),
                 rename: None,
                 fix_all: Some(fix_all),
-                organize_imports: Some(organize_imports),
             },
             formatter: FormatterCapabilities {
                 format: Some(format),
                 format_range: Some(format_range),
                 format_on_type: Some(format_on_type),
             },
+            // TODO: We should be able to search JS portions already
+            search: SearchCapabilities { search: None },
         }
     }
 }
@@ -106,20 +114,14 @@ fn parse(
         JsParserOptions::default(),
         cache,
     );
-    let root = parse.syntax();
-    let diagnostics = parse.into_diagnostics();
 
     ParseResult {
-        any_parse: AnyParse::new(
-            // SAFETY: the parser should always return a root node
-            root.as_send().unwrap(),
-            diagnostics,
-        ),
+        any_parse: parse.into(),
         language: Some(JsFileSource::astro().into()),
     }
 }
 
-#[tracing::instrument(level = "trace", skip(parse, settings))]
+#[tracing::instrument(level = "debug", skip(parse, settings))]
 fn format(
     biome_path: &BiomePath,
     document_file_source: &DocumentFileSource,
@@ -158,8 +160,4 @@ pub(crate) fn code_actions(params: CodeActionsParams) -> PullActionsResult {
 
 fn fix_all(params: FixAllParams) -> Result<FixFileResult, WorkspaceError> {
     javascript::fix_all(params)
-}
-
-fn organize_imports(parse: AnyParse) -> Result<OrganizeImportsResult, WorkspaceError> {
-    javascript::organize_imports(parse)
 }

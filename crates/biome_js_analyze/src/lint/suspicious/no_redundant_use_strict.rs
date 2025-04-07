@@ -1,16 +1,14 @@
 use crate::JsRuleAction;
-use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-};
+use biome_analyze::{Ast, FixKind, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_syntax::{
-    AnyJsClass, JsDirective, JsDirectiveList, JsFunctionBody, JsModule, JsScript,
+    AnyJsClass, JsDirective, JsDirectiveList, JsFileSource, JsFunctionBody, JsModule, JsScript,
 };
 
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt};
+use biome_rowan::{AstNode, AstNodeList, BatchMutationExt, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
  /// Prevents from having redundant `"use strict"`.
  ///
  /// The directive `"use strict"` **isn't** needed in `.mjs` files, or in `.js` files inside projects where the `package.json` defines library as module:
@@ -85,7 +83,9 @@ declare_rule! {
  pub NoRedundantUseStrict {
         version: "1.0.0",
         name: "noRedundantUseStrict",
+        language: "js",
         recommended: true,
+        severity: Severity::Error,
         fix_kind: FixKind::Safe,
     }
 }
@@ -98,8 +98,12 @@ impl AnyNodeWithDirectives {
             AnyNodeWithDirectives::JsScript(script) => script.directives(),
         }
     }
+
+    const fn is_script(&self) -> bool {
+        matches!(self, AnyNodeWithDirectives::JsScript(_))
+    }
 }
-declare_node_union! { pub AnyJsStrictModeNode = AnyJsClass| JsModule | JsDirective  }
+declare_node_union! { pub AnyJsStrictModeNode = AnyJsClass | JsModule | JsDirective  }
 
 impl Rule for NoRedundantUseStrict {
     type Query = Ast<JsDirective>;
@@ -112,22 +116,38 @@ impl Rule for NoRedundantUseStrict {
         if node.inner_string_text().ok()? != "use strict" {
             return None;
         }
+        let file_source = ctx.source_type::<JsFileSource>();
         let mut outer_most: Option<AnyJsStrictModeNode> = None;
         let root = ctx.root();
         match root {
             biome_js_syntax::AnyJsRoot::JsModule(js_module) => outer_most = Some(js_module.into()),
             _ => {
                 for n in node.syntax().ancestors() {
-                    if let Some(parent) = AnyNodeWithDirectives::cast_ref(&n) {
-                        for directive in parent.directives() {
-                            let directive_text = directive.inner_string_text().ok()?;
-                            if directive_text == "use strict" {
-                                outer_most = Some(directive.into());
-                                break; // continue with next parent
+                    match AnyNodeWithDirectives::try_cast(n) {
+                        Ok(parent) => {
+                            let directives_len = parent.directives().len();
+                            for (index, directive) in parent.directives().into_iter().enumerate() {
+                                let directive_text = directive.inner_string_text().ok()?;
+
+                                if directive_text == "use strict" {
+                                    // if we are analysing a commonjs file, we ignore the first directive that we have at the top, because it's not redundant
+                                    if index + 1 == directives_len
+                                        && parent.is_script()
+                                        && file_source.is_script()
+                                        && outer_most.is_none()
+                                    {
+                                        break;
+                                    }
+                                    outer_most = Some(directive.into());
+                                    break; // continue with next parent
+                                }
                             }
                         }
-                    } else if let Some(module_or_class) = AnyJsClass::cast_ref(&n) {
-                        outer_most = Some(module_or_class.into());
+                        Err(n) => {
+                            if let Some(module_or_class) = AnyJsClass::cast(n) {
+                                outer_most = Some(module_or_class.into());
+                            }
+                        }
                     }
                 }
             }
@@ -175,13 +195,12 @@ impl Rule for NoRedundantUseStrict {
         // This will also remove the trivia of the node
         // which is intended
         mutation.remove_node(node.clone());
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message:
-                markup! { "Remove the redundant "<Emphasis>"use strict"</Emphasis>" directive." }
-                    .to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Remove the redundant "<Emphasis>"use strict"</Emphasis>" directive." }
+                .to_owned(),
             mutation,
-        })
+        ))
     }
 }

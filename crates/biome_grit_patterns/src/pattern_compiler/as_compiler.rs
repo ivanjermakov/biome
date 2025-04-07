@@ -1,15 +1,15 @@
 use super::{
-    compilation_context::NodeCompilationContext, snippet_compiler::split_snippet,
-    variable_compiler::VariableCompiler, PatternCompiler,
+    PatternCompiler, compilation_context::NodeCompilationContext, snippet_compiler::split_snippet,
+    variable_compiler::VariableCompiler,
 };
 use crate::{
-    diagnostics::CompilerDiagnostic, grit_context::GritQueryContext, grit_node::GritNode,
-    CompileError,
+    CompileError, diagnostics::CompilerDiagnostic, grit_context::GritQueryContext,
+    grit_node::GritNode,
 };
 use biome_grit_syntax::{AnyGritPattern, GritPatternAs, GritSyntaxKind};
 use biome_rowan::AstNode as _;
 use grit_pattern_matcher::pattern::{Container, Match, Pattern, Predicate, Where};
-use grit_util::{traverse, AstNode, Language, Order};
+use grit_util::{AstNode, Language, Order, traverse};
 
 pub(crate) struct AsCompiler;
 
@@ -29,15 +29,15 @@ impl AsCompiler {
         // require much greater changes.
         if pattern_repeated_variable(&pattern, name, &context.compilation.lang)? {
             context.log(CompilerDiagnostic::new_warning(
-                format!("It is usually incorrect to redefine a variable {name} using as"),
+                format!("It is usually incorrect to redefine a variable \"{name}\" using `as`"),
                 node.range(),
             ));
         }
 
         let pattern = PatternCompiler::from_node(&pattern, context)?;
-        let variable = VariableCompiler::from_node(&variable, context)?;
+        let variable = VariableCompiler::from_node(&variable, context);
         Ok(Where::new(
-            Pattern::Variable(variable),
+            Pattern::Variable(variable.clone()),
             Predicate::Match(Box::new(Match::new(
                 Container::Variable(variable),
                 Some(pattern),
@@ -54,16 +54,16 @@ fn pattern_repeated_variable(
     let node = GritNode::from(pattern.syntax());
     let cursor = traverse(node.walk(), Order::Pre);
     Ok(cursor
-        .filter(|n| {
-            n.kind() == GritSyntaxKind::GRIT_VARIABLE
-                || n.kind() == GritSyntaxKind::GRIT_CODE_SNIPPET
+        .filter(|node| {
+            node.kind() == GritSyntaxKind::GRIT_VARIABLE
+                || node.kind() == GritSyntaxKind::GRIT_CODE_SNIPPET
         })
-        .map(|n| {
-            let s = n.text_trimmed();
-            if n.kind() == GritSyntaxKind::GRIT_VARIABLE {
-                Ok(s == name)
+        .map(|node| {
+            let text = node.text_trimmed();
+            if node.kind() == GritSyntaxKind::GRIT_VARIABLE {
+                Ok(text == name)
             } else {
-                Ok(is_variables_in_snippet(name, &s.to_string(), lang))
+                Ok(is_variables_in_snippet(name, &text.to_string(), lang))
             }
         })
         .collect::<Result<Vec<bool>, CompileError>>()?
@@ -73,5 +73,5 @@ fn pattern_repeated_variable(
 
 fn is_variables_in_snippet(name: &str, snippet: &str, lang: &impl Language) -> bool {
     let variables = split_snippet(snippet, lang);
-    variables.iter().any(|v| v.1 == name)
+    variables.iter().any(|variable| variable.1 == name)
 }

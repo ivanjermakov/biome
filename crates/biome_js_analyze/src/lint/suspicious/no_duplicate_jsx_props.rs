@@ -1,40 +1,43 @@
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, RuleSource, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::jsx_ext::AnyJsxElement;
 use biome_js_syntax::{AnyJsxAttribute, JsxAttribute};
 use biome_rowan::AstNode;
 use rustc_hash::FxHashMap;
 
-declare_rule! {
+declare_lint_rule! {
     /// Prevents JSX properties to be assigned multiple times.
     ///
     /// ## Examples
     ///
     /// ### Invalid
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <Hello name="John" name="John" />
     /// ```
     ///
-    /// ```js,expect_diagnostic
+    /// ```jsx,expect_diagnostic
     /// <label xml:lang="en-US" xml:lang="en-US"></label>
     /// ```
     ///
     /// ### Valid
     ///
-    /// ```js
+    /// ```jsx
     /// <Hello firstname="John" lastname="Doe" />
     /// ```
     ///
-    /// ```js
+    /// ```jsx
     /// <label xml:lang="en-US" lang="en-US"></label>
     /// ```
  pub NoDuplicateJsxProps {
         version: "1.0.0",
         name: "noDuplicateJsxProps",
+        language: "jsx",
         sources: &[RuleSource::EslintReact("jsx-no-duplicate-props")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -52,7 +55,7 @@ impl Rule for NoDuplicateJsxProps {
             if let AnyJsxAttribute::JsxAttribute(attr) = attribute {
                 if let Ok(name) = attr.name() {
                     defined_attributes
-                        .entry(name.text())
+                        .entry(name.to_trimmed_string())
                         .or_default()
                         .push(attr);
                 }

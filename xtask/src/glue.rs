@@ -9,7 +9,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
 pub mod fs2 {
     use std::{fs, path::Path};
@@ -112,7 +112,7 @@ pub fn rm_rf(path: impl AsRef<Path>) -> Result<()> {
 
 #[doc(hidden)]
 pub fn run_process(cmd: String, echo: bool, stdin: Option<&[u8]>) -> Result<String> {
-    run_process_inner(&cmd, echo, stdin).with_context(|| format!("process `{}` failed", cmd))
+    run_process_inner(&cmd, echo, stdin).with_context(|| format!("process `{cmd}` failed"))
 }
 
 pub fn date_iso() -> Result<String> {
@@ -125,7 +125,7 @@ fn run_process_inner(cmd: &str, echo: bool, stdin: Option<&[u8]>) -> Result<Stri
     let current_dir = Env::with(|it| it.cwd().to_path_buf());
 
     if echo {
-        println!("> {}", cmd)
+        println!("> {cmd}")
     }
 
     let mut command = Command::new(binary);
@@ -145,7 +145,7 @@ fn run_process_inner(cmd: &str, echo: bool, stdin: Option<&[u8]>) -> Result<Stri
     let stdout = String::from_utf8(output.stdout)?;
 
     if echo {
-        print!("{}", stdout)
+        print!("{stdout}")
     }
 
     if !output.status.success() {
@@ -198,13 +198,13 @@ impl Env {
     }
     fn pushenv(&mut self, var: OsString, value: OsString) {
         self.pushenv_stack.push((var.clone(), env::var_os(&var)));
-        env::set_var(var, value)
+        unsafe { env::set_var(var, value) }
     }
     fn popenv(&mut self) {
         let (var, value) = self.pushenv_stack.pop().unwrap();
         match value {
-            None => env::remove_var(var),
-            Some(value) => env::set_var(var, value),
+            None => unsafe { env::remove_var(var) },
+            Some(value) => unsafe { env::set_var(var, value) },
         }
     }
     fn cwd(&self) -> &Path {

@@ -1,10 +1,10 @@
 use crate::{
+    AddVisitor, AnalysisFilter, GroupCategory, QueryMatcher, Rule, RuleGroup, RuleKey,
+    RuleMetadata, ServiceBag, SignalEntry, Visitor,
     context::RuleContext,
     matcher::{GroupKey, MatchQueryParams},
     query::{QueryKey, Queryable},
     signals::RuleSignal,
-    AddVisitor, AnalysisFilter, GroupCategory, QueryMatcher, Rule, RuleGroup, RuleKey,
-    RuleMetadata, ServiceBag, SignalEntry, Visitor,
 };
 use biome_diagnostics::Error;
 use biome_rowan::{AstNode, Language, RawSyntaxKind, SyntaxKind, SyntaxNode};
@@ -50,9 +50,7 @@ pub trait RegistryVisitor<L: Language> {
     /// Record the rule `R` to this visitor
     fn record_rule<R>(&mut self)
     where
-        R: Rule + 'static,
-        R::Query: Queryable<Language = L>,
-        <R::Query as Queryable>::Output: Clone;
+        R: Rule<Query: Queryable<Language = L, Output: Clone>> + 'static;
 }
 
 /// Stores metadata information for all the rules in the registry, sorted
@@ -85,9 +83,7 @@ impl MetadataRegistry {
 impl<L: Language> RegistryVisitor<L> for MetadataRegistry {
     fn record_rule<R>(&mut self)
     where
-        R: Rule + 'static,
-        R::Query: Queryable<Language = L>,
-        <R::Query as Queryable>::Output: Clone,
+        R: Rule<Query: Queryable<Language = L, Output: Clone>> + 'static,
     {
         self.insert_rule(<R::Group as RuleGroup>::NAME, R::METADATA.name);
     }
@@ -99,7 +95,7 @@ impl<L: Language> RegistryVisitor<L> for MetadataRegistry {
 /// we have:
 /// - Syntax Phase: No services are offered, thus its rules can be run immediately;
 /// - Semantic Phase: Offers the semantic model, thus these rules can only run
-/// after the "SemanticModel" is ready, which demands a whole transverse of the parsed tree.
+///     after the "SemanticModel" is ready, which demands a whole transverse of the parsed tree.
 pub struct RuleRegistry<L: Language> {
     /// Holds a collection of rules for each phase.
     phase_rules: [PhaseRules<L>; 2],
@@ -165,10 +161,7 @@ impl<L: Language + Default + 'static> RegistryVisitor<L> for RuleRegistryBuilder
     /// Add the rule `R` to the list of rules stores in this registry instance
     fn record_rule<R>(&mut self)
     where
-        R: Rule + 'static,
-        <R as Rule>::Options: Default,
-        R::Query: Queryable<Language = L>,
-        <R::Query as Queryable>::Output: Clone,
+        R: Rule<Options: Default, Query: Queryable<Language = L, Output: Clone>> + 'static,
     {
         if !self.filter.match_rule::<R>() {
             return;
@@ -186,7 +179,9 @@ impl<L: Language + Default + 'static> RegistryVisitor<L> for RuleRegistryBuilder
                     .entry(TypeId::of::<SyntaxNode<L>>())
                     .or_insert_with(|| TypeRules::SyntaxRules { rules: Vec::new() })
                 else {
-                    unreachable!("the SyntaxNode type has already been registered as a TypeRules instead of a SyntaxRules, this is generally caused by an implementation of `Queryable::key` returning a `QueryKey::TypeId` with the type ID of `SyntaxNode`")
+                    unreachable!(
+                        "the SyntaxNode type has already been registered as a TypeRules instead of a SyntaxRules, this is generally caused by an implementation of `Queryable::key` returning a `QueryKey::TypeId` with the type ID of `SyntaxNode`"
+                    )
                 };
 
                 // Iterate on all the SyntaxKind variants this node can match
@@ -214,7 +209,9 @@ impl<L: Language + Default + 'static> RegistryVisitor<L> for RuleRegistryBuilder
                     .entry(key)
                     .or_insert_with(|| TypeRules::TypeRules { rules: Vec::new() })
                 else {
-                    unreachable!("the query type has already been registered as a SyntaxRules instead of a TypeRules, this is generally ca used by an implementation of `Queryable::key` returning a `QueryKey::TypeId` with the type ID of `SyntaxNode`")
+                    unreachable!(
+                        "the query type has already been registered as a SyntaxRules instead of a TypeRules, this is generally caused by an implementation of `Queryable::key` returning a `QueryKey::TypeId` with the type ID of `SyntaxNode`"
+                    )
                 };
 
                 rules.push(rule);
@@ -384,10 +381,7 @@ type RuleExecutor<L> = fn(&mut MatchQueryParams<L>, &mut RuleState<L>) -> Result
 impl<L: Language + Default> RegistryRule<L> {
     fn new<R>(state_index: usize) -> Self
     where
-        R: Rule + 'static,
-        <R as Rule>::Options: Default,
-        R::Query: Queryable<Language = L> + 'static,
-        <R::Query as Queryable>::Output: Clone,
+        R: Rule<Options: Default, Query: Queryable<Language = L, Output: Clone>> + 'static,
     {
         /// Generic implementation of RuleExecutor for any rule type R
         fn run<R>(
@@ -395,10 +389,7 @@ impl<L: Language + Default> RegistryRule<L> {
             state: &mut RuleState<RuleLanguage<R>>,
         ) -> Result<(), Error>
         where
-            R: Rule + 'static,
-            R::Query: 'static,
-            <R::Query as Queryable>::Output: Clone,
-            <R as Rule>::Options: Default,
+            R: Rule<Options: Default, Query: Queryable<Output: Clone>> + 'static,
         {
             if let Some(node) = params.query.downcast_ref::<SyntaxNode<RuleLanguage<R>>>() {
                 if state.suppressions.inner.contains(node) {
@@ -412,21 +403,20 @@ impl<L: Language + Default> RegistryRule<L> {
             let query_result = <R::Query as Queryable>::unwrap_match(params.services, query_result);
             let globals = params.options.globals();
             let preferred_quote = params.options.preferred_quote();
+            let preferred_jsx_quote = params.options.preferred_jsx_quote();
             let jsx_runtime = params.options.jsx_runtime();
             let options = params.options.rule_options::<R>().unwrap_or_default();
-            let ctx = match RuleContext::new(
+            let ctx = RuleContext::new(
                 &query_result,
                 params.root,
                 params.services,
                 &globals,
-                &params.options.file_path,
+                params.options.file_path.as_path(),
                 &options,
                 preferred_quote,
+                preferred_jsx_quote,
                 jsx_runtime,
-            ) {
-                Ok(ctx) => ctx,
-                Err(error) => return Err(error),
-            };
+            )?;
 
             for result in R::run(&ctx) {
                 let text_range =
@@ -434,18 +424,20 @@ impl<L: Language + Default> RegistryRule<L> {
 
                 R::suppressed_nodes(&ctx, &result, &mut state.suppressions);
 
+                let instances = R::instances_for_signal(&result);
                 let signal = Box::new(RuleSignal::<R>::new(
                     params.root,
                     query_result.clone(),
                     result,
                     params.services,
-                    params.apply_suppression_comment,
+                    params.suppression_action,
                     params.options,
                 ));
 
                 params.signal_queue.push(SignalEntry {
                     signal,
                     rule: RuleKey::rule::<R>(),
+                    instances,
                     text_range,
                 });
             }

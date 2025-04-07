@@ -1,10 +1,10 @@
 use crate::green::{GreenToken, GreenTrivia};
-use crate::syntax::element::SyntaxElementKey;
 use crate::syntax::SyntaxTrivia;
+use crate::syntax::element::SyntaxElementKey;
 use crate::token_text::TokenText;
 use crate::{
-    chain_trivia_pieces, cursor, Direction, Language, NodeOrToken, SyntaxElement, SyntaxKind,
-    SyntaxNode, SyntaxTriviaPiece, TriviaPiece, TriviaPieceKind,
+    Direction, Language, NodeOrToken, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxTriviaPiece,
+    TriviaPiece, TriviaPieceKind, chain_trivia_pieces, cursor,
 };
 use biome_text_size::{TextLen, TextRange, TextSize};
 use std::fmt;
@@ -69,7 +69,7 @@ impl<L: Language> SyntaxToken<L> {
         self.raw.text_trimmed_range()
     }
 
-    pub(crate) fn index(&self) -> usize {
+    pub fn index(&self) -> usize {
         self.raw.index()
     }
 
@@ -152,7 +152,7 @@ impl<L: Language> SyntaxToken<L> {
         self.raw.parent().map(SyntaxNode::from)
     }
 
-    pub fn ancestors(&self) -> impl Iterator<Item = SyntaxNode<L>> {
+    pub fn ancestors(&self) -> impl Iterator<Item = SyntaxNode<L>> + use<L> {
         self.raw.ancestors().map(SyntaxNode::from)
     }
 
@@ -166,7 +166,7 @@ impl<L: Language> SyntaxToken<L> {
     pub fn siblings_with_tokens(
         &self,
         direction: Direction,
-    ) -> impl Iterator<Item = SyntaxElement<L>> {
+    ) -> impl Iterator<Item = SyntaxElement<L>> + use<L> {
         self.raw
             .siblings_with_tokens(direction)
             .map(SyntaxElement::from)
@@ -433,7 +433,9 @@ impl<L: Language> SyntaxToken<L> {
     }
 
     /// Return whitespace that juxtapose the token until the first non-whitespace item.
-    pub fn indentation_trivia_pieces(&self) -> impl ExactSizeIterator<Item = SyntaxTriviaPiece<L>> {
+    pub fn indentation_trivia_pieces(
+        &self,
+    ) -> impl ExactSizeIterator<Item = SyntaxTriviaPiece<L>> + use<L> {
         let leading_trivia = self.leading_trivia().pieces();
         let skip_count = leading_trivia.len()
             - leading_trivia
@@ -499,6 +501,13 @@ impl<L: Language> SyntaxToken<L> {
             .any(|piece| piece.is_comments())
     }
 
+    /// Checks if the token has any trailing trivia that is a whitespace
+    pub fn has_trailing_whitespace(&self) -> bool {
+        self.trailing_trivia()
+            .pieces()
+            .any(|piece| piece.is_whitespace())
+    }
+
     /// Checks if the current token has leading comments
     pub fn has_leading_comments(&self) -> bool {
         self.leading_trivia()
@@ -506,8 +515,8 @@ impl<L: Language> SyntaxToken<L> {
             .any(|piece| piece.is_comments())
     }
 
-    /// Checks if the token has any leading trivia that isn't a whitespace nor a line break
-    pub fn has_leading_non_whitespace_trivia(&self) -> bool {
+    /// Checks if the token has any leading trivia that is a whitespace or a line break
+    pub fn has_leading_whitespace_or_newline(&self) -> bool {
         self.leading_trivia()
             .pieces()
             .any(|piece| piece.is_whitespace() || piece.is_newline())

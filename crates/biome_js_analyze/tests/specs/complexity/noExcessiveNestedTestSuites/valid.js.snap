@@ -1,9 +1,10 @@
 ---
 source: crates/biome_js_analyze/tests/spec_tests.rs
 expression: valid.js
+snapshot_kind: text
 ---
 # Input
-```jsx
+```js
 describe("foo", function () {
 	describe("bar", function () {
 		describe("baz", function () {
@@ -58,6 +59,29 @@ describe("foo", () => {
 	describe.each(["hello", "world"])("%s", (a) => {});
 });
 
+z.object({})
+  .describe('')
+  .describe('')
+  .describe('')
+  .describe('')
+  .describe('')
+  .describe('');
+
+z.object({
+	foo: z.object({
+		foo: z.object({
+			foo: z.object({
+				foo: z.object({
+					foo: z.object().strict().describe(),
+				})
+				.describe(),
+			})
+			.describe(),
+		})
+		.describe(),
+	})
+	.describe(),
+})
+.describe();
+
 ```
-
-

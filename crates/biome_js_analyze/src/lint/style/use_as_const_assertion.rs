@@ -1,19 +1,18 @@
 use crate::JsRuleAction;
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
-    RuleSource,
+    Ast, FixKind, Rule, RuleDiagnostic, RuleSource, context::RuleContext, declare_lint_rule,
 };
 use biome_console::markup;
-use biome_diagnostics::Applicability;
+use biome_diagnostics::Severity;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyJsExpression, AnyJsLiteralExpression, AnyTsName, AnyTsType, JsInitializerClause,
     JsPropertyClassMember, JsSyntaxKind, JsVariableDeclarator, TsAsExpression,
     TsTypeAssertionExpression,
 };
-use biome_rowan::{declare_node_union, AstNode, BatchMutationExt, TextRange};
+use biome_rowan::{AstNode, BatchMutationExt, TextRange, declare_node_union};
 
-declare_rule! {
+declare_lint_rule! {
     /// Enforce the use of `as const` over literal type and type annotation.
     ///
     /// In TypeScript, there are three common ways to specify that a value is of a specific type such as `2` and not a general type such as `number`:
@@ -48,8 +47,10 @@ declare_rule! {
     pub UseAsConstAssertion {
         version: "1.3.0",
         name: "useAsConstAssertion",
+        language: "ts",
         sources: &[RuleSource::EslintTypeScript("prefer-as-const")],
-        recommended: true,
+        recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Safe,
     }
 }
@@ -189,12 +190,12 @@ impl Rule for UseAsConstAssertion {
                 mutation.replace_node(previous_initializer.expression().ok()?, new_expr);
             }
         };
-        Some(JsRuleAction {
-            category: ActionCategory::QuickFix,
-            applicability: Applicability::Always,
-            message: markup! { "Replace with "<Emphasis>"as const"</Emphasis>"." }.to_owned(),
+        Some(JsRuleAction::new(
+            ctx.metadata().action_category(ctx.category(), ctx.group()),
+            ctx.metadata().applicability(),
+            markup! { "Replace with "<Emphasis>"as const"</Emphasis>"." }.to_owned(),
             mutation,
-        })
+        ))
     }
 }
 

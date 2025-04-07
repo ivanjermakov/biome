@@ -1,6 +1,7 @@
 use biome_analyze::RuleSource;
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic};
+use biome_analyze::{Ast, Rule, RuleDiagnostic, context::RuleContext, declare_lint_rule};
 use biome_console::markup;
+use biome_diagnostics::Severity;
 use biome_js_syntax::parameter_ext::{AnyJsParameterList, AnyJsParameters, AnyParameter};
 use biome_js_syntax::{
     AnyJsArrayBindingPatternElement, AnyJsBinding, AnyJsBindingPattern,
@@ -9,7 +10,7 @@ use biome_js_syntax::{
 use biome_rowan::AstNode;
 use rustc_hash::FxHashSet;
 
-declare_rule! {
+declare_lint_rule! {
     ///  Disallow duplicate function parameter name.
     ///
     /// If more than one parameter has the same name in a function definition,
@@ -40,8 +41,10 @@ declare_rule! {
     pub NoDuplicateParameters {
         version: "1.0.0",
         name: "noDuplicateParameters",
+        language: "js",
         sources: &[RuleSource::Eslint("no-dupe-args")],
         recommended: true,
+        severity: Severity::Error,
     }
 }
 
@@ -112,7 +115,7 @@ fn traverse_binding(
                     return Some(id_binding);
                 }
             }
-            AnyJsBinding::JsBogusBinding(_) => {}
+            AnyJsBinding::JsBogusBinding(_) | AnyJsBinding::JsMetavariable(_) => {}
         },
         AnyJsBindingPattern::JsArrayBindingPattern(inner_binding) => {
             return inner_binding.elements().into_iter().find_map(|element| {
@@ -132,7 +135,7 @@ fn traverse_binding(
                         traverse_binding(pattern, tracked_bindings)
                     }
                 }
-            })
+            });
         }
 
         AnyJsBindingPattern::JsObjectBindingPattern(pattern) => {
@@ -149,7 +152,9 @@ fn traverse_binding(
                             AnyJsBinding::JsIdentifierBinding(binding) => {
                                 track_binding(&binding, tracked_bindings).then_some(binding)
                             }
-                            AnyJsBinding::JsBogusBinding(_) => None,
+                            AnyJsBinding::JsBogusBinding(_) | AnyJsBinding::JsMetavariable(_) => {
+                                None
+                            }
                         }
                     }
                     AnyJsObjectBindingPatternMember::JsObjectBindingPatternShorthandProperty(
@@ -158,11 +163,12 @@ fn traverse_binding(
                         AnyJsBinding::JsIdentifierBinding(id_binding) => {
                             track_binding(&id_binding, tracked_bindings).then_some(id_binding)
                         }
-                        AnyJsBinding::JsBogusBinding(_) => None,
+                        AnyJsBinding::JsBogusBinding(_) | AnyJsBinding::JsMetavariable(_) => None,
                     },
-                    AnyJsObjectBindingPatternMember::JsBogusBinding(_) => None,
+                    AnyJsObjectBindingPatternMember::JsBogusBinding(_)
+                    | AnyJsObjectBindingPatternMember::JsMetavariable(_) => None,
                 }
-            })
+            });
         }
     }
     None
@@ -175,7 +181,7 @@ fn track_binding(
     id_binding: &JsIdentifierBinding,
     tracked_bindings: &mut FxHashSet<String>,
 ) -> bool {
-    let binding_text = id_binding.text();
+    let binding_text = id_binding.to_trimmed_string();
     if tracked_bindings.contains(&binding_text) {
         true
     } else {

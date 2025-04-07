@@ -1,36 +1,18 @@
 //! Generated file, do not edit by hand, see `xtask/codegen`
 
-use biome_analyze::declare_group;
+//! Generated file, do not edit by hand, see `xtask/codegen`
 
-pub mod no_color_invalid_hex;
-pub mod no_css_empty_block;
-pub mod no_duplicate_at_import_rules;
-pub mod no_duplicate_font_names;
-pub mod no_duplicate_selectors_keyframe_block;
-pub mod no_important_in_keyframe;
-pub mod no_unknown_function;
-pub mod no_unknown_property;
-pub mod no_unknown_selector_pseudo_element;
-pub mod no_unknown_unit;
-pub mod no_unmatchable_anb_selector;
-pub mod use_generic_font_names;
-
-declare_group! {
-    pub Nursery {
-        name : "nursery" ,
-        rules : [
-            self :: no_color_invalid_hex :: NoColorInvalidHex ,
-            self :: no_css_empty_block :: NoCssEmptyBlock ,
-            self :: no_duplicate_at_import_rules :: NoDuplicateAtImportRules ,
-            self :: no_duplicate_font_names :: NoDuplicateFontNames ,
-            self :: no_duplicate_selectors_keyframe_block :: NoDuplicateSelectorsKeyframeBlock ,
-            self :: no_important_in_keyframe :: NoImportantInKeyframe ,
-            self :: no_unknown_function :: NoUnknownFunction ,
-            self :: no_unknown_property :: NoUnknownProperty ,
-            self :: no_unknown_selector_pseudo_element :: NoUnknownSelectorPseudoElement ,
-            self :: no_unknown_unit :: NoUnknownUnit ,
-            self :: no_unmatchable_anb_selector :: NoUnmatchableAnbSelector ,
-            self :: use_generic_font_names :: UseGenericFontNames ,
-        ]
-     }
-}
+use biome_analyze::declare_lint_group;
+pub mod no_descending_specificity;
+pub mod no_duplicate_custom_properties;
+pub mod no_duplicate_properties;
+pub mod no_important_styles;
+pub mod no_irregular_whitespace;
+pub mod no_missing_var_function;
+pub mod no_unknown_at_rule;
+pub mod no_unknown_pseudo_class;
+pub mod no_unknown_pseudo_element;
+pub mod no_unknown_type_selector;
+pub mod no_useless_escape_in_string;
+pub mod no_value_at_rule;
+declare_lint_group! { pub Nursery { name : "nursery" , rules : [self :: no_descending_specificity :: NoDescendingSpecificity , self :: no_duplicate_custom_properties :: NoDuplicateCustomProperties , self :: no_duplicate_properties :: NoDuplicateProperties , self :: no_important_styles :: NoImportantStyles , self :: no_irregular_whitespace :: NoIrregularWhitespace , self :: no_missing_var_function :: NoMissingVarFunction , self :: no_unknown_at_rule :: NoUnknownAtRule , self :: no_unknown_pseudo_class :: NoUnknownPseudoClass , self :: no_unknown_pseudo_element :: NoUnknownPseudoElement , self :: no_unknown_type_selector :: NoUnknownTypeSelector , self :: no_useless_escape_in_string :: NoUselessEscapeInString , self :: no_value_at_rule :: NoValueAtRule ,] } }
